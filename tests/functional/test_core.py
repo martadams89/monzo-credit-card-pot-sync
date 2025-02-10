@@ -50,6 +50,9 @@ def test_core_flow_successful_no_change_required(mocker, test_client, requests_m
         "https://api.monzo.com/balance?account_id=acc_id", json={"balance": 100}
     )
 
+    # Mock a post to the feed for notifications
+    requests_mock.post("https://api.monzo.com/feed", json={})
+
     ### When ###
     sync_balance()
 
@@ -106,6 +109,9 @@ def test_core_flow_successful_deposit(mocker, test_client, requests_mock, seed_d
 
     # Mock pot deposit call
     requests_mock.put("https://api.monzo.com/pots/pot_id/deposit")
+
+    # Mock a post to the feed for notifications
+    requests_mock.post("https://api.monzo.com/feed", json={})
 
     ### When ###
     sync_balance()
@@ -164,6 +170,9 @@ def test_core_flow_successful_withdrawal(mocker, test_client, requests_mock, see
     # Mock pot withdrawal call
     requests_mock.put("https://api.monzo.com/pots/pot_id/withdraw")
 
+    # Mock a post to the feed for notifications
+    requests_mock.post("https://api.monzo.com/feed", json={})
+
     ### When ###
     sync_balance()
 
@@ -219,7 +228,7 @@ def test_core_flow_insufficient_account_balance(mocker, test_client, requests_mo
     )
 
     # Mock a post to the feed for insufficient funds notification
-    requests_mock.post("https://api.monzo.com/feed")
+    requests_mock.post("https://api.monzo.com/feed", json={})
 
     ### When ###
     sync_balance()
