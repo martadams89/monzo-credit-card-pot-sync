@@ -1,5 +1,3 @@
-from app.core import sync_balance
-
 def test_core_flow_successful_no_change_required(mocker, test_client, requests_mock, seed_data):
     ### Given ###
     mocker.patch("app.core.scheduler")
@@ -25,7 +23,20 @@ def test_core_flow_successful_no_change_required(mocker, test_client, requests_m
     )
     requests_mock.get(
         "https://api.truelayer.com/data/v1/cards/card_id/transactions/pending",
-        json={"results": []},
+        json={
+            "results": [
+                {
+                    "transaction_id": "a15d8156569ba848d84c07c34d291bca",
+                    "amount": 24.25,
+                    "currency": "GBP",
+                },
+                {
+                    "transaction_id": "af4d5470cc7ad6a83a02335ab8053481",
+                    "amount": 46.82,
+                    "currency": "GBP",
+                },
+            ]
+        },
     )
 
     # Updated: Mock Monzo account balance call with "type" and "currency"
@@ -66,7 +77,20 @@ def test_core_flow_successful_deposit(mocker, test_client, requests_mock, seed_d
     )
     requests_mock.get(
         "https://api.truelayer.com/data/v1/cards/card_id/transactions/pending",
-        json={"results": []},
+        json={
+            "results": [
+                {
+                    "transaction_id": "a15d8156569ba848d84c07c34d291bca",
+                    "amount": 24.25,
+                    "currency": "GBP",
+                },
+                {
+                    "transaction_id": "af4d5470cc7ad6a83a02335ab8053481",
+                    "amount": 46.82,
+                    "currency": "GBP",
+                },
+            ]
+        },
     )
 
     # Updated: Mock Monzo account balance call with required fields
@@ -110,7 +134,20 @@ def test_core_flow_successful_withdrawal(mocker, test_client, requests_mock, see
     )
     requests_mock.get(
         "https://api.truelayer.com/data/v1/cards/card_id/transactions/pending",
-        json={"results": []},
+        json={
+            "results": [
+                {
+                    "transaction_id": "a15d8156569ba848d84c07c34d291bca",
+                    "amount": 24.25,
+                    "currency": "GBP",
+                },
+                {
+                    "transaction_id": "af4d5470cc7ad6a83a02335ab8053481",
+                    "amount": 46.82,
+                    "currency": "GBP",
+                },
+            ]
+        },
     )
 
     # Updated: Mock Monzo account balance call with fields
@@ -154,7 +191,20 @@ def test_core_flow_insufficient_account_balance(mocker, test_client, requests_mo
     )
     requests_mock.get(
         "https://api.truelayer.com/data/v1/cards/card_id/transactions/pending",
-        json={"results": []},
+        json={
+            "results": [
+                {
+                    "transaction_id": "a15d8156569ba848d84c07c34d291bca",
+                    "amount": 24.25,
+                    "currency": "GBP",
+                },
+                {
+                    "transaction_id": "af4d5470cc7ad6a83a02335ab8053481",
+                    "amount": 46.82,
+                    "currency": "GBP",
+                },
+            ]
+        },
     )
 
     # Updated: Mock Monzo account balance call with additional account details
