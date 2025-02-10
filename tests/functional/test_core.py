@@ -23,6 +23,10 @@ def test_core_flow_successful_no_change_required(mocker, test_client, requests_m
         "https://api.truelayer.com/data/v1/cards/card_id/balance",
         json={"results": [{"current": 10}]},
     )
+    requests_mock.get(
+        "https://api.truelayer.com/data/v1/cards/card_id/transactions/pending",
+        json={"results": []},
+    )
 
     # Updated: Mock Monzo account balance call with "type" and "currency"
     requests_mock.get(
@@ -59,6 +63,10 @@ def test_core_flow_successful_deposit(mocker, test_client, requests_mock, seed_d
     requests_mock.get(
         "https://api.truelayer.com/data/v1/cards/card_id/balance",
         json={"results": [{"current": 1000}]},
+    )
+    requests_mock.get(
+        "https://api.truelayer.com/data/v1/cards/card_id/transactions/pending",
+        json={"results": []},
     )
 
     # Updated: Mock Monzo account balance call with required fields
@@ -100,6 +108,10 @@ def test_core_flow_successful_withdrawal(mocker, test_client, requests_mock, see
         "https://api.truelayer.com/data/v1/cards/card_id/balance",
         json={"results": [{"current": 9}]},
     )
+    requests_mock.get(
+        "https://api.truelayer.com/data/v1/cards/card_id/transactions/pending",
+        json={"results": []},
+    )
 
     # Updated: Mock Monzo account balance call with fields
     requests_mock.get(
@@ -139,6 +151,10 @@ def test_core_flow_insufficient_account_balance(mocker, test_client, requests_mo
     requests_mock.get(
         "https://api.truelayer.com/data/v1/cards/card_id/balance",
         json={"results": [{"current": 1000}]},
+    )
+    requests_mock.get(
+        "https://api.truelayer.com/data/v1/cards/card_id/transactions/pending",
+        json={"results": []},
     )
 
     # Updated: Mock Monzo account balance call with additional account details
