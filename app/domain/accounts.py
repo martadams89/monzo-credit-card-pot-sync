@@ -218,6 +218,7 @@ class TrueLayerAccount(Account):
             f"{self.auth_provider.api_url}/data/v1/cards/{card_id}/balance",
             headers=self.get_auth_header(),
         )
+        response.raise_for_status()
         current_balance = response.json()["results"][0]["current"]
         pending_balance = self.get_pending_balance(card_id)
         return current_balance + pending_balance
@@ -227,7 +228,11 @@ class TrueLayerAccount(Account):
             f"{self.auth_provider.api_url}/data/v1/cards/{card_id}/transactions/pending",
             headers=self.get_auth_header(),
         )
-        pending_transactions = response.json()["results"]
+        response.raise_for_status()
+        try:
+            pending_transactions = response.json().get("results", [])
+        except ValueError:
+            pending_transactions = []
         pending_balance = sum(txn["amount"] for txn in pending_transactions)
         return pending_balance
 
