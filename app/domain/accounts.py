@@ -223,13 +223,34 @@ class TrueLayerAccount(Account):
         pending_balance = self.get_pending_balance(card_id)
         return current_balance + pending_balance
 
+    def refresh_access_token(self):
+        log.info(f"{self.type} access token is within expiry window, refreshing tokens")
+        try:
+            tokens = self.auth_provider.refresh_access_token(self.refresh_token)
+            self.access_token = tokens["access_token"]
+            self.refresh_token = tokens["refresh_token"]
+            self.token_expiry = int(time()) + tokens["expires_in"]
+            log.info(
+                f"Successfully refreshed {self.type} access token, new expiry time is {self.token_expiry}"
+            )
+        except KeyError as e:
+            raise AuthException(e)
+        except AuthException as e:
+            log.error(f"Failed to refresh access token for {self.type}")
+            raise e
+
     def get_pending_balance(self, card_id: str) -> int:
+        if self.is_token_within_expiry_window():
+            self.refresh_access_token()
         url = f"{self.auth_provider.api_url}/data/v1/cards/{card_id}/transactions/pending"
         headers = self.get_auth_header()
         log.info(f"Fetching pending transactions from {url} with headers {headers}")
         response = r.get(url, headers=headers)
         log.info(f"Response status code: {response.status_code}")
         log.info(f"Response content: {response.content}")
+        if response.status_code == 403:
+            log.error("Access forbidden. Check if the access token has the necessary permissions.")
+            raise AuthException("Access forbidden. Check if the access token has the necessary permissions.")
         response.raise_for_status()
         try:
             pending_transactions = response.json().get("results", [])
