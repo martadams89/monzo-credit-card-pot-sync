@@ -224,10 +224,12 @@ class TrueLayerAccount(Account):
         return current_balance + pending_balance
 
     def get_pending_balance(self, card_id: str) -> int:
-        response = r.get(
-            f"{self.auth_provider.api_url}/data/v1/cards/{card_id}/transactions/pending",
-            headers=self.get_auth_header(),
-        )
+        url = f"{self.auth_provider.api_url}/data/v1/cards/{card_id}/transactions/pending"
+        headers = self.get_auth_header()
+        log.info(f"Fetching pending transactions from {url} with headers {headers}")
+        response = r.get(url, headers=headers)
+        log.info(f"Response status code: {response.status_code}")
+        log.info(f"Response content: {response.content}")
         response.raise_for_status()
         try:
             pending_transactions = response.json().get("results", [])
