@@ -26,8 +26,14 @@ def save():
         else:
             repository.save(Setting("enable_sync", "False"))
 
+        # Checkbox: POST request omits unchecked boxes, so set value accordingly
+        if request.form.get("override_cooldown_spending") is not None:
+            repository.save(Setting("override_cooldown_spending", "True"))
+        else:
+            repository.save(Setting("override_cooldown_spending", "False"))
+
         for key, val in request.form.items():
-            if key == "enable_sync":
+            if key in ["enable_sync", "override_cooldown_spending"]:
                 continue
 
             if current_settings.get(key) != val:
@@ -37,8 +43,8 @@ def save():
                     scheduler.modify_job(id="sync_balance", trigger="interval", seconds=int(val))
 
         flash("Settings saved")
-    except Exception:
-        log.exception("Failed to save settings")
-        flash("Error saving settings, check logs for more details", "error")
+    except Exception as e:
+        log.error("Failed to save settings", exc_info=e)
+        flash("Error saving settings", "error")
 
     return redirect(url_for("settings.index"))
