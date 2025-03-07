@@ -1,0 +1,55 @@
+<div class="bg-white p-4 rounded-lg shadow dark:bg-gray-800">
+  <h3 class="text-lg font-medium mb-4">Balance History</h3>
+  <canvas id="balanceChart" width="400" height="200"></canvas>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.0.0/dist/chart.umd.min.js"></script>
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    const ctx = document.getElementById('balanceChart').getContext('2d');
+    
+    const balanceChart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: {{ dates|tojson }},
+        datasets: [
+          {
+            label: 'Credit Card Balance',
+            data: {{ card_balances|tojson }},
+            borderColor: 'rgb(255, 99, 132)',
+            backgroundColor: 'rgba(255, 99, 132, 0.2)',
+            tension: 0.1
+          },
+          {
+            label: 'Pot Balance',
+            data: {{ pot_balances|tojson }},
+            borderColor: 'rgb(54, 162, 235)',
+            backgroundColor: 'rgba(54, 162, 235, 0.2)',
+            tension: 0.1
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        plugins: {
+          tooltip: {
+            callbacks: {
+              label: function(context) {
+                return context.dataset.label + ': £' + (context.raw / 100).toFixed(2);
+              }
+            }
+          }
+        },
+        scales: {
+          y: {
+            ticks: {
+              callback: function(value) {
+                return '£' + (value / 100).toFixed(0);
+              }
+            }
+          }
+        }
+      }
+    });
+  });
+</script>

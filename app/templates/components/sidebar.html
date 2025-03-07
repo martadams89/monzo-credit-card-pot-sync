@@ -1,0 +1,36 @@
+<aside class="fixed top-0 left-0 z-40 w-64 h-screen transition-transform -translate-x-full sm:translate-x-0" aria-label="Sidebar">
+   <div class="h-full px-3 py-4 overflow-y-auto bg-gray-50 dark:bg-gray-800">
+      <div class="mb-5">
+         <a href="{{ url_for('home.index') }}" class="flex items-center">
+            <svg class="w-8 h-8 text-blue-600 dark:text-blue-500" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24">
+               <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m16 10 3-3m0 0-3-3m3 3H5v3m3 4-3 3m0 0 3 3m-3-3h14v-3"/>
+            </svg>
+            <span class="ml-2 text-xl font-semibold">Pot Sync</span>
+         </a>
+      </div>
+      <ul class="space-y-2 font-medium">
+         <li>
+            <a href="{{ url_for('dashboard.index') }}" class="flex items-center p-2 text-gray-900 rounded-lg dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700 group">
+               <svg class="w-5 h-5" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <path stroke="currentColor" stroke-linecap="round" stroke-width="2" d="M4 4h16M4 8h8m-8 4h12m-12 4h6M4 20h16"/>
+               </svg>
+               <span class="ml-3">Dashboard</span>
+            </a>
+         </li>
+         <li>
+            <a href="{{ url_for('accounts.index') }}" class="flex items-center p-2 text-gray-900 rounded-lg dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700 group">
+               <svg class="w-5 h-5" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <path stroke="currentColor" stroke-linecap="round" stroke-width="2" d="M12 6v13m0-13 4-3m-4 3-4-3"/>
+               </svg>
+               <span class="ml-3">Accounts</span>
+            </a>
+         </li>
+         <!-- Add more navigation items -->
+      </ul>
+   </div>
+</aside>
+
+<div class="p-4 sm:ml-64">
+   <!-- Main content here -->
+   {% block content %}{% endblock %}
+</div>

@@ -1,0 +1,20 @@
+<div class="bg-white rounded-lg shadow p-4 dark:bg-gray-800">
+  <h3 class="text-lg font-medium mb-2">Sync Status</h3>
+  
+  <div class="flex items-center mb-2">
+    <div class="mr-2 h-3 w-3 rounded-full {% if status.is_active %}bg-green-500{% else %}bg-red-500{% endif %}"></div>
+    <span>Sync is {% if status.is_active %}active{% else %}inactive{% endif %}</span>
+  </div>
+  
+  <div class="text-sm text-gray-600 dark:text-gray-300">
+    Sync interval: {{ status.interval }} seconds
+  </div>
+  
+  <div class="text-sm text-gray-600 dark:text-gray-300">
+    Next scheduled sync: {{ status.next_sync.strftime('%Y-%m-%d %H:%M:%S') }}
+  </div>
+  
+  <div class="mt-3">
+    <a href="{{ url_for('settings.index') }}" class="text-sm text-blue-600 hover:underline dark:text-blue-500">Adjust sync settings</a>
+  </div>
+</div>

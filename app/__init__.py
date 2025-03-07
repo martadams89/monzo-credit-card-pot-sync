@@ -25,12 +25,28 @@ def create_app(test_config=None):
     from .web.home import home_bp
     from .web.pots import pots_bp
     from .web.settings import settings_bp
+    from .web.dashboard import dashboard_bp  # Add this import
 
     app.register_blueprint(home_bp)
     app.register_blueprint(accounts_bp, url_prefix="/accounts")
     app.register_blueprint(pots_bp, url_prefix="/pots")
     app.register_blueprint(auth_bp, url_prefix="/auth")
     app.register_blueprint(settings_bp, url_prefix="/settings")
+    app.register_blueprint(dashboard_bp, url_prefix="/dashboard")  # Add this line
+
+    # Register template filters for formatting
+    @app.template_filter('formatdatetime')
+    def format_datetime(value, format="%Y-%m-%d %H:%M:%S"):
+        if value is None:
+            return ""
+        return value.strftime(format)
+    
+    @app.template_filter('formatmoney')
+    def format_money(value):
+        try:
+            return f"£{value / 100:.2f}"
+        except (TypeError, ValueError):
+            return "£0.00"
 
     # Skip scheduler setup when testing
     if app.config["TESTING"]:

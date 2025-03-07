@@ -1,0 +1,55 @@
+<div class="bg-white border rounded-xl shadow-sm overflow-hidden dark:bg-gray-800 dark:border-gray-700">
+  <div class="p-4 md:p-5">
+    <div class="flex items-center gap-x-4">
+      <img class="h-10 w-10" src="{{ url_for('static', filename='img/') }}{{ account.auth_provider.icon_name }}" alt="{{ account.type }} logo">
+      <div>
+        <h3 class="text-lg font-semibold text-gray-800 dark:text-gray-200">{{ account.type }}</h3>
+        <p class="text-sm text-gray-500 dark:text-gray-400">Last updated: {{ account.updated_at|formatdatetime }}</p>
+      </div>
+      
+      {% if account.cooldown_until and account.cooldown_until > now %}
+      <span class="ml-auto inline-flex items-center gap-x-1 py-1 px-2 rounded-md text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200">
+        <svg class="w-3 h-3" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+          <path d="M8 3.5a.5.5 0 0 0-1 0V9a.5.5 0 0 0 .252.434l3.5 2a.5.5 0 0 0 .496-.868L8 8.71V3.5z"/>
+          <path d="M8 16A8 8 0 1 0 8 0a8 8 0 0 0 0 16zm7-8A7 7 0 1 1 1 8a7 7 0 0 1 14 0z"/>
+        </svg>
+        Cooldown
+      </span>
+      {% endif %}
+    </div>
+    
+    <div class="mt-5">
+      <div class="flex items-center justify-between mt-2">
+        <p class="text-sm text-gray-600 dark:text-gray-400">Card Balance</p>
+        <p class="text-sm font-medium text-gray-800 dark:text-gray-200">£{{ account.get_total_balance() / 100 }}</p>
+      </div>
+      <div class="flex items-center justify-between mt-2">
+        <p class="text-sm text-gray-600 dark:text-gray-400">Pot Balance</p>
+        <p class="text-sm font-medium text-gray-800 dark:text-gray-200">£{{ monzo_account.get_pot_balance(account.pot_id) / 100 }}</p>
+      </div>
+      
+      <div class="mt-4">
+        <div class="flex justify-between items-center mb-1">
+          <h4 class="text-xs font-medium text-gray-600 dark:text-gray-400">Sync Status</h4>
+          <span class="text-xs text-gray-600 dark:text-gray-400">{{ (monzo_account.get_pot_balance(account.pot_id) / account.get_total_balance() * 100)|round|int }}%</span>
+        </div>
+        <div class="w-full bg-gray-200 rounded-full h-2 dark:bg-gray-700">
+          <div class="bg-blue-600 h-2 rounded-full" style="width: {{ (monzo_account.get_pot_balance(account.pot_id) / account.get_total_balance() * 100)|round|int }}%"></div>
+        </div>
+      </div>
+    </div>
+    
+    <div class="mt-5 flex gap-x-2">
+      <a href="{{ url_for('pots.index', account_type=account.type) }}" class="py-2 px-3 inline-flex justify-center items-center gap-x-2 text-sm font-semibold rounded-lg border border-transparent bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 disabled:pointer-events-none dark:focus:outline-none dark:focus:ring-1 dark:focus:ring-gray-600">
+        View Details
+      </a>
+      
+      <form action="{{ url_for('settings.clear_cooldown') }}" method="post">
+        <input name="account_type" type="hidden" value="{{ account.type }}" />
+        <button type="submit" class="py-2 px-3 inline-flex justify-center items-center gap-x-2 text-sm font-semibold rounded-lg border border-gray-200 text-gray-800 hover:bg-gray-100 disabled:opacity-50 disabled:pointer-events-none dark:border-gray-700 dark:text-white dark:hover:bg-gray-700 dark:focus:outline-none dark:focus:ring-1 dark:focus:ring-gray-600">
+          Clear Cooldown
+        </button>
+      </form>
+    </div>
+  </div>
+</div>

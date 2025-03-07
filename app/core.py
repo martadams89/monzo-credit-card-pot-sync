@@ -45,6 +45,7 @@ from app.extensions import db, scheduler
 from app.models.account_repository import SqlAlchemyAccountRepository
 from app.models.setting_repository import SqlAlchemySettingRepository
 from app.domain.settings import Setting
+from app.models.sync_history_repository import SqlAlchemySyncHistoryRepository
 
 log = logging.getLogger("core")
 account_repository = SqlAlchemyAccountRepository(db)
@@ -492,3 +493,47 @@ def sync_balance():
         # END OF SYNC LOOP
         # --------------------------------------------------------------------
         log.info("All credit accounts processed.")
+        
+        # Add error tracking
+        sync_results = {
+            "started_at": datetime.datetime.now(),
+            "status": "completed",
+            "accounts_processed": [],
+            "errors": []
+        }
+        
+        try:
+            # ...existing sync code...
+            for credit_account in credit_accounts:
+                try:
+                    # ...process account...
+                    sync_results["accounts_processed"].append({
+                        "account": credit_account.type,
+                        "status": "success",
+                        "balance": live_card_balance,
+                        "pot_balance": current_pot
+                    })
+                except Exception as e:
+                    # Record individual account errors but continue processing
+                    log.error(f"Error processing account {credit_account.type}: {e}")
+                    sync_results["accounts_processed"].append({
+                        "account": credit_account.type,
+                        "status": "error",
+                        "error_message": str(e)
+                    })
+                    sync_results["errors"].append({
+                        "account": credit_account.type,
+                        "error": str(e)
+                    })
+        except Exception as e:
+            sync_results["status"] = "failed"
+            sync_results["errors"].append({
+                "global": True,
+                "error": str(e)
+            })
+            log.error(f"Global sync error: {e}")
+            
+        # Store sync history
+        history_repository = SqlAlchemySyncHistoryRepository(db)
+        history_repository.save_sync_result(sync_results)
+        log.info("Sync history recorded.")
