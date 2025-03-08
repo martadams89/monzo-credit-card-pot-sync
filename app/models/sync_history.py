@@ -2,6 +2,13 @@ import datetime
 from app.extensions import db
 import json
 
+class DateTimeEncoder(json.JSONEncoder):
+    """Custom JSON encoder that can handle datetime objects"""
+    def default(self, obj):
+        if isinstance(obj, datetime.datetime):
+            return obj.isoformat()
+        return super().default(obj)
+
 class SyncHistory(db.Model):
     __tablename__ = 'sync_history'
     
@@ -12,7 +19,7 @@ class SyncHistory(db.Model):
     
     def __init__(self, status, data=None):
         self.status = status
-        self.data = json.dumps(data) if data else None
+        self.data = json.dumps(data, cls=DateTimeEncoder) if data else None
         
     @property
     def data_json(self):

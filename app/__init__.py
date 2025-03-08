@@ -1,66 +1,74 @@
+"""Main application package."""
+
+import os
 import logging
 from flask import Flask
-from app.config import Config
+from flask_login import LoginManager
+from app.extensions import db, migrate
+from app.services.container import setup_services
+from app.security import init_security
+from app.db_migrations import run_migrations
 
 def create_app(test_config=None):
-    logging.basicConfig(level=logging.INFO)
-    
+    """Create and configure the Flask application."""
     app = Flask(__name__, instance_relative_config=True)
-    if test_config is None:
-        app.config.from_object(Config)
-    else:
-        app.config.from_mapping(test_config)
-
-    from .core import sync_balance
-    from .extensions import db, scheduler
-    from .models.setting_repository import SqlAlchemySettingRepository  # Removed unused imports
-
+    
+    # Set default configuration
+    app.config.from_mapping(
+        SECRET_KEY=os.environ.get('SECRET_KEY', 'dev_key'),
+        DATABASE_URL=os.environ.get('DATABASE_URL', 'sqlite:///instance/app.db'),
+        SQLALCHEMY_DATABASE_URI=os.environ.get('DATABASE_URL', 'sqlite:///instance/app.db'),
+        SQLALCHEMY_TRACK_MODIFICATIONS=False,
+        VERSION='1.0.0',
+        SERVER_NAME=os.environ.get('POT_SYNC_LOCAL_URL', '').replace('http://', '').replace('https://', '') or None
+    )
+    
+    # Override config with test config if provided
+    if test_config:
+        app.config.update(test_config)
+    
+    # Ensure the instance folder exists
+    os.makedirs(app.instance_path, exist_ok=True)
+    
+    # Initialize extensions
     db.init_app(app)
-    # Create tables (if migrations are not yet set up)
+    migrate.init_app(app, db)
+    
+    # Setup security features
+    init_security(app)
+    
+    # Register blueprints
+    from app.auth import auth_bp
+    from app.main import main_bp
+    from app.dashboard import dashboard_bp
+    from app.settings import settings_bp
+    
+    app.register_blueprint(auth_bp, url_prefix='/auth')
+    app.register_blueprint(main_bp, url_prefix='/main')
+    app.register_blueprint(dashboard_bp, url_prefix='/dashboard')
+    app.register_blueprint(settings_bp, url_prefix='/settings')
+    
+    # Setup login manager
+    login_manager = LoginManager()
+    login_manager.login_view = 'auth.login'
+    login_manager.init_app(app)
+    
+    @login_manager.user_loader
+    def load_user(user_id):
+        from app.models.user import User
+        return User.query.get(int(user_id))
+    
+    # Setup services
+    setup_services(app)
+    
+    # Setup root route
+    @app.route('/')
+    def index():
+        return {'message': 'Monzo Credit Card Pot Sync API'}
+    
+    # Run database migrations on startup
     with app.app_context():
         db.create_all()
-
-    from .web.accounts import accounts_bp
-    from .web.auth import auth_bp
-    from .web.home import home_bp
-    from .web.pots import pots_bp
-    from .web.settings import settings_bp
-    from .web.dashboard import dashboard_bp  # Add this import
-
-    app.register_blueprint(home_bp)
-    app.register_blueprint(accounts_bp, url_prefix="/accounts")
-    app.register_blueprint(pots_bp, url_prefix="/pots")
-    app.register_blueprint(auth_bp, url_prefix="/auth")
-    app.register_blueprint(settings_bp, url_prefix="/settings")
-    app.register_blueprint(dashboard_bp, url_prefix="/dashboard")  # Add this line
-
-    # Register template filters for formatting
-    @app.template_filter('formatdatetime')
-    def format_datetime(value, format="%Y-%m-%d %H:%M:%S"):
-        if value is None:
-            return ""
-        return value.strftime(format)
+        run_migrations(db)
     
-    @app.template_filter('formatmoney')
-    def format_money(value):
-        try:
-            return f"£{value / 100:.2f}"
-        except (TypeError, ValueError):
-            return "£0.00"
-
-    # Skip scheduler setup when testing
-    if app.config["TESTING"]:
-        return app
-
-    # Retrieve the configured interval for the sync loop
-    with app.app_context():
-        setting_repository = SqlAlchemySettingRepository(db)
-        interval = setting_repository.get("sync_interval_seconds")
-
-    scheduler.init_app(app)
-    scheduler.add_job(
-        id="sync_balance", func=sync_balance, trigger="interval", seconds=int(interval)
-    )
-    scheduler.start()
-
     return app

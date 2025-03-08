@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: monzo-pot-sync
+  labels:
+    app: monzo-pot-sync
+spec:
+  selector:
+    app: monzo-pot-sync
+  ports:
+  - port: 80
+    targetPort: 5000
+    protocol: TCP
+  type: ClusterIP

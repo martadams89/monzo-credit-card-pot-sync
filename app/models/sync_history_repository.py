@@ -2,6 +2,7 @@ import logging
 from sqlalchemy.exc import SQLAlchemyError
 from app.models.sync_history import SyncHistory
 import datetime
+import json
 
 log = logging.getLogger(__name__)
 
@@ -12,9 +13,11 @@ class SqlAlchemySyncHistoryRepository:
     def save_sync_result(self, sync_result):
         """Save sync result to history"""
         try:
+            # Ensure we're not passing any complex objects that can't be serialized
+            # Convert any datetime objects to strings in the data
             history = SyncHistory(
                 status=sync_result.get("status", "unknown"),
-                data=sync_result
+                data=sync_result  # Our custom DateTimeEncoder will handle datetime objects
             )
             self.db.session.add(history)
             self.db.session.commit()

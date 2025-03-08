@@ -9,6 +9,32 @@ from app.errors import AuthException
 
 log = logging.getLogger("account")
 
+import requests
+from functools import wraps
+import signal
+
+def timeout(seconds=10):
+    """Timeout decorator for functions that may hang"""
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            def handler(signum, frame):
+                raise TimeoutError(f"Function {func.__name__} timed out after {seconds} seconds")
+            
+            # Set the timeout handler
+            original_handler = signal.signal(signal.SIGALRM, handler)
+            signal.alarm(seconds)
+            
+            try:
+                result = func(*args, **kwargs)
+            finally:
+                # Reset the alarm and restore original handler
+                signal.alarm(0)
+                signal.signal(signal.SIGALRM, original_handler)
+            
+            return result
+        return wrapper
+    return decorator
 
 class Account:
     def __init__(
@@ -174,6 +200,7 @@ class MonzoAccount(Account):
         pots = response.json()["pots"]
         return [p for p in pots if not p["deleted"]]
 
+    @timeout(seconds=15)
     def get_pot_balance(self, pot_id: str) -> int:
         # Try personal account first, then fallback to joint account if needed.
         for account_selection in ("personal", "joint"):

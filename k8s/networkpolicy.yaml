@@ -1,0 +1,30 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: monzo-pot-sync-network-policy
+spec:
+  podSelector:
+    matchLabels:
+      app: monzo-pot-sync
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  - from:
+    - namespaceSelector: {}
+    ports:
+    - protocol: TCP
+      port: 5000
+  egress:
+  - to:
+    - ipBlock:
+        cidr: 0.0.0.0/0
+    ports:
+    - protocol: TCP
+      port: 443  # For HTTPS calls to Monzo and TrueLayer APIs
+    - protocol: TCP
+      port: 80   # For HTTP calls (if needed)
+    - protocol: TCP
+      port: 53   # For DNS resolution
+    - protocol: UDP
+      port: 53   # For DNS resolution

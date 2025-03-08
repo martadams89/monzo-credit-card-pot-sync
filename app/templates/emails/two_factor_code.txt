@@ -1,0 +1,11 @@
+Hello {{ username }},
+
+Your authentication code for Monzo Credit Card Pot Sync is: {{ code }}
+
+This code will expire in 15 minutes.
+
+If you did not attempt to log in, please secure your account by changing your password immediately.
+
+This is an automated message, please do not reply to this email.
+
+© Monzo Credit Card Pot Sync

@@ -1,0 +1,260 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mx-auto px-4">
+    <h1 class="text-2xl font-bold mb-6 text-gray-800 dark:text-white">Passkey Management</h1>
+    
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="mb-4 p-3 rounded 
+                    {% if category == 'error' %}bg-red-100 text-red-700 border border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800{% endif %}
+                    {% if category == 'success' %}bg-green-100 text-green-700 border border-green-200 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800{% endif %}
+                    {% if category == 'info' %}bg-blue-100 text-blue-700 border border-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800{% endif %}">
+                    {{ message }}
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+    
+    <!-- Passkeys Explanation Card -->
+    <div class="bg-white dark:bg-gray-800 shadow-md rounded-lg p-6 mb-8">
+        <h2 class="text-lg font-medium text-gray-900 dark:text-white mb-4">What are Passkeys?</h2>
+        <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
+            Passkeys are a more secure replacement for passwords. They use your device's biometric authentication
+            (like Face ID or fingerprint) or screen lock to sign you in without having to type a password.
+        </p>
+        <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
+            Benefits of passkeys:
+        </p>
+        <ul class="list-disc list-inside mb-4 text-sm text-gray-600 dark:text-gray-400">
+            <li>More secure than passwords - resistant to phishing</li>
+            <li>Easier to use - no passwords to remember or type</li>
+            <li>Synced across your devices (via iCloud Keychain, Google Password Manager, etc.)</li>
+        </ul>
+    </div>
+    
+    <!-- Your Passkeys -->
+    <div class="bg-white dark:bg-gray-800 shadow-md rounded-lg p-6 mb-8">
+        <div class="flex justify-between items-center mb-4">
+            <h2 class="text-lg font-medium text-gray-900 dark:text-white">Your Passkeys</h2>
+            <button id="registerPasskeyBtn" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                Add New Passkey
+            </button>
+        </div>
+        
+        <div id="passkeysLoadingMessage" class="text-sm text-gray-600 dark:text-gray-400">
+            Loading your passkeys...
+        </div>
+        
+        <div id="noPasskeysMessage" class="hidden text-sm text-gray-600 dark:text-gray-400">
+            You haven't registered any passkeys yet. Click the "Add New Passkey" button to get started.
+        </div>
+        
+        <ul id="passkeysList" class="hidden divide-y divide-gray-200 dark:divide-gray-700">
+            <!-- Passkey items will be added here dynamically -->
+        </ul>
+    </div>
+    
+    <!-- Registration/Status Messages -->
+    <div id="statusMessage" class="hidden mb-4 p-3 rounded bg-blue-100 text-blue-700 border border-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800">
+        Loading...
+    </div>
+</div>
+
+<!-- Passkey JavaScript -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // DOM elements
+    const registerPasskeyBtn = document.getElementById('registerPasskeyBtn');
+    const passkeysList = document.getElementById('passkeysList');
+    const noPasskeysMessage = document.getElementById('noPasskeysMessage');
+    const passkeysLoadingMessage = document.getElementById('passkeysLoadingMessage');
+    const statusMessage = document.getElementById('statusMessage');
+    
+    // Check if browser supports WebAuthn
+    if (!window.PublicKeyCredential) {
+        showStatus('Your browser does not support passkeys.', 'error');
+        registerPasskeyBtn.disabled = true;
+        return;
+    }
+    
+    // Load user's passkeys
+    loadPasskeys();
+    
+    // Register button click handler
+    registerPasskeyBtn.addEventListener('click', async function() {
+        try {
+            showStatus('Starting passkey registration...', 'info');
+            
+            // 1. Get registration options from server
+            const optionsResponse = await fetch('/auth/passkeys/register/options', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            });
+            
+            if (!optionsResponse.ok) {
+                throw new Error('Failed to get registration options');
+            }
+            
+            const options = await optionsResponse.json();
+            showStatus('Please follow your device prompts to create a passkey', 'info');
+            
+            // 2. Create credential using WebAuthn API
+            const credential = await navigator.credentials.create({
+                publicKey: {
+                    ...options,
+                    challenge: base64URLToBuffer(options.challenge),
+                    user: {
+                        ...options.user,
+                        id: base64URLToBuffer(options.user.id)
+                    },
+                    excludeCredentials: options.excludeCredentials?.map(cred => ({
+                        ...cred,
+                        id: base64URLToBuffer(cred.id)
+                    })) || []
+                }
+            });
+            
+            // 3. Format credential for server
+            const credentialForServer = {
+                id: credential.id,
+                rawId: bufferToBase64URL(credential.rawId),
+                type: credential.type,
+                response: {
+                    attestationObject: bufferToBase64URL(credential.response.attestationObject),
+                    clientDataJSON: bufferToBase64URL(credential.response.clientDataJSON)
+                }
+            };
+            
+            // 4. Send to server to verify
+            const verifyResponse = await fetch('/auth/passkeys/register/verify', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(credentialForServer)
+            });
+            
+            const result = await verifyResponse.json();
+            
+            if (result.success) {
+                showStatus('Passkey registered successfully!', 'success');
+                // Reload passkeys list
+                loadPasskeys();
+            } else {
+                showStatus(`Registration failed: ${result.error}`, 'error');
+            }
+            
+        } catch (error) {
+            console.error('Passkey registration error:', error);
+            showStatus(`Error: ${error.message}`, 'error');
+        }
+    });
+    
+    async function loadPasskeys() {
+        try {
+            passkeysLoadingMessage.classList.remove('hidden');
+            passkeysList.classList.add('hidden');
+            noPasskeysMessage.classList.add('hidden');
+            
+            // Get passkeys data from the current user
+            const passkeys = {{ current_user.passkeys|default('[]')|safe }};
+            
+            if (passkeys && passkeys.length > 0) {
+                renderPasskeys(passkeys);
+                passkeysList.classList.remove('hidden');
+                passkeysLoadingMessage.classList.add('hidden');
+            } else {
+                noPasskeysMessage.classList.remove('hidden');
+                passkeysLoadingMessage.classList.add('hidden');
+            }
+        } catch (error) {
+            console.error('Error loading passkeys:', error);
+            showStatus('Failed to load passkeys', 'error');
+        }
+    }
+    
+    function renderPasskeys(passkeys) {
+        passkeysList.innerHTML = '';
+        
+        passkeys.forEach(passkey => {
+            const li = document.createElement('li');
+            li.className = 'py-4 flex justify-between items-center';
+            
+            const nameDiv = document.createElement('div');
+            const nameHeading = document.createElement('h3');
+            nameHeading.className = 'text-sm font-medium text-gray-900 dark:text-white';
+            nameHeading.textContent = passkey.name || `Passkey ${passkey.id.substring(0, 8)}...`;
+            
+            const createdAt = document.createElement('p');
+            createdAt.className = 'text-xs text-gray-500 dark:text-gray-400';
+            createdAt.textContent = `Created: ${passkey.created_at || 'Unknown'}`;
+            
+            nameDiv.appendChild(nameHeading);
+            nameDiv.appendChild(createdAt);
+            
+            const deleteForm = document.createElement('form');
+            deleteForm.action = `/auth/passkeys/delete/${encodeURIComponent(passkey.id)}`;
+            deleteForm.method = 'POST';
+            
+            const deleteButton = document.createElement('button');
+            deleteButton.type = 'submit';
+            deleteButton.className = 'text-sm text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300';
+            deleteButton.textContent = 'Remove';
+            
+            deleteForm.appendChild(deleteButton);
+            
+            li.appendChild(nameDiv);
+            li.appendChild(deleteForm);
+            
+            passkeysList.appendChild(li);
+        });
+    }
+    
+    function showStatus(message, type = 'info') {
+        statusMessage.textContent = message;
+        statusMessage.className = 'mb-4 p-3 rounded';
+        
+        switch (type) {
+            case 'error':
+                statusMessage.classList.add('bg-red-100', 'text-red-700', 'border', 'border-red-200', 'dark:bg-red-900/30', 'dark:text-red-400', 'dark:border-red-800');
+                break;
+            case 'success':
+                statusMessage.classList.add('bg-green-100', 'text-green-700', 'border', 'border-green-200', 'dark:bg-green-900/30', 'dark:text-green-400', 'dark:border-green-800');
+                break;
+            default:
+                statusMessage.classList.add('bg-blue-100', 'text-blue-700', 'border', 'border-blue-200', 'dark:bg-blue-900/30', 'dark:text-blue-400', 'dark:border-blue-800');
+                break;
+        }
+        
+        statusMessage.classList.remove('hidden');
+    }
+    
+    // Helper functions for WebAuthn encoding/decoding
+    function base64URLToBuffer(base64URL) {
+        const base64 = base64URL.replace(/-/g, '+').replace(/_/g, '/');
+        const padLen = 4 - (base64.length % 4);
+        const padded = padLen < 4 ? base64 + '='.repeat(padLen) : base64;
+        const binary = atob(padded);
+        const buffer = new ArrayBuffer(binary.length);
+        const bytes = new Uint8Array(buffer);
+        
+        for (let i = 0; i < binary.length; i++) {
+            bytes[i] = binary.charCodeAt(i);
+        }
+        return buffer;
+    }
+    
+    function bufferToBase64URL(buffer) {
+        const bytes = new Uint8Array(buffer);
+        let binary = '';
+        
+        for (let i = 0; i < bytes.byteLength; i++) {
+            binary += String.fromCharCode(bytes[i]);
+        }
+        
+        const base64 = btoa(binary);
+        return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+    }
+});
+</script>
+{% endblock %}

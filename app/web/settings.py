@@ -22,6 +22,16 @@ def save():
     try:
         current_settings = {s.key: s.value for s in repository.get_all()}
 
+        # Handle quick action toggle for enable_sync
+        if request.form.get("enable_sync") == "true":
+            repository.save(Setting("enable_sync", "True"))
+            flash("Sync has been enabled")
+            return redirect(request.referrer or url_for("settings.index"))
+        elif request.form.get("enable_sync") == "false":
+            repository.save(Setting("enable_sync", "False"))
+            flash("Sync has been disabled")
+            return redirect(request.referrer or url_for("settings.index"))
+
         # Checkbox: POST request omits unchecked boxes, so set value accordingly
         if request.form.get("enable_sync") is not None:
             repository.save(Setting("enable_sync", "True"))
@@ -49,7 +59,7 @@ def save():
         log.error("Failed to save settings", exc_info=e)
         flash("Error saving settings", "error")
 
-    return redirect(url_for("settings.index"))
+    return redirect(request.referrer or url_for("settings.index"))
 
 @settings_bp.route("/clear_cooldown", methods=["POST"])
 def clear_cooldown():

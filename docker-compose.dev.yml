@@ -1,17 +1,35 @@
+version: '3.8'
+
 services:
   monzo-credit-card-pot-sync-dev:
-    build: .
-    container_name: monzo-credit-card-pot-sync
-    command: flask --app app run --host=0.0.0.0 --port=1337
-    restart: always
-    environment:
-      - DATABASE_URI=sqlite:////monzo-credit-card-pot-sync/data/app.db
-      - LOCAL_URL=http://localhost:1337
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: monzo-credit-card-pot-sync-dev
+    restart: unless-stopped
     ports:
-      - 1337:1337
+      - "${PORT:-5000}:5000"
+    environment:
+      - PORT=5000
+      - FLASK_ENV=development
+      - FLASK_APP=app
+      - SECRET_KEY=dev_secret_key
+      - DATABASE_URL=${DATABASE_URL:-sqlite:///instance/app.db}
+      - GUNICORN_WORKERS=1
+      - GUNICORN_THREADS=2
+      - LOG_LEVEL=debug
+      - POT_SYNC_LOCAL_URL=${POT_SYNC_LOCAL_URL:-http://localhost:5000}
     volumes:
-      - data:/monzo-credit-card-pot-sync/data:rw
-      - ./app:/monzo-credit-card-pot-sync/app:rw
+      - .:/app
+      - ./instance:/app/instance
+      - ./logs:/app/logs
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/main/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
 
 volumes:
-  data:
+  instance:
+  logs:

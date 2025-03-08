@@ -1,5 +1,10 @@
-from flask_apscheduler import APScheduler
-from flask_sqlalchemy import SQLAlchemy
+"""Flask extension instances"""
 
+from flask_sqlalchemy import SQLAlchemy
+from flask_migrate import Migrate
+
+# Initialize SQLAlchemy
 db = SQLAlchemy()
-scheduler = APScheduler()
+
+# Initialize Flask-Migrate
+migrate = Migrate()

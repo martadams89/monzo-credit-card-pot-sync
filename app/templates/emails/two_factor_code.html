@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Your Authentication Code</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        .container {
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .code {
+            font-family: monospace;
+            font-size: 24px;
+            font-weight: bold;
+            letter-spacing: 5px;
+            background-color: #f0f0f0;
+            padding: 10px 20px;
+            border-radius: 5px;
+            margin: 20px 0;
+            text-align: center;
+        }
+        .footer {
+            margin-top: 30px;
+            font-size: 0.9em;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Your Authentication Code</h1>
+        <p>Hello {{ username }},</p>
+        <p>Your authentication code for Monzo Credit Card Pot Sync is:</p>
+        
+        <div class="code">{{ code }}</div>
+        
+        <p>This code will expire in 15 minutes.</p>
+        <p>If you did not attempt to log in, please secure your account by changing your password immediately.</p>
+        
+        <div class="footer">
+            <p>This is an automated message, please do not reply to this email.</p>
+            <p>&copy; Monzo Credit Card Pot Sync</p>
+        </div>
+    </div>
+</body>
+</html>

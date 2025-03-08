@@ -62,10 +62,49 @@ def index():
                     "error": str(e)
                 })
     
+    # Add chart data for each account
+    for i, data in enumerate(account_data):
+        if 'error' not in data:
+            try:
+                account_type = data['account'].type
+                history = history_repository.get_balance_history(account_type, days=30)
+                
+                dates = []
+                card_balances = []
+                pot_balances = []
+                
+                for record in history:
+                    dates.append(record['timestamp'].strftime('%Y-%m-%d'))
+                    card_balances.append(record['card_balance'])
+                    pot_balances.append(record['pot_balance'])
+                
+                # Add today's values if we have them
+                if dates and dates[-1] != datetime.datetime.now().strftime('%Y-%m-%d'):
+                    dates.append(datetime.datetime.now().strftime('%Y-%m-%d'))
+                    card_balances.append(data['card_balance'])
+                    pot_balances.append(data['pot_balance'])
+                
+                account_data[i]['chart_data'] = {
+                    'dates': dates,
+                    'card_balances': card_balances,
+                    'pot_balances': pot_balances
+                }
+            except Exception as e:
+                log.error(f"Error preparing chart data for {data['account'].type}: {e}")
+    
+    # Get overview statistics
+    total_card_balance = sum([data.get('card_balance', 0) for data in account_data if 'error' not in data])
+    total_pot_balance = sum([data.get('pot_balance', 0) for data in account_data if 'error' not in data])
+    
+    sync_history = history_repository.get_recent_syncs(limit=10)
+    
     return render_template(
         "dashboard/index.html",
         accounts=credit_accounts,
         account_data=account_data,
         monzo_account=monzo_account,
-        status=status
+        status=status,
+        sync_history=sync_history,
+        total_card_balance=total_card_balance,
+        total_pot_balance=total_pot_balance
     )

@@ -1,0 +1,195 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="flex items-center justify-center min-h-screen bg-gray-100 dark:bg-gray-900">
+    <div class="w-full max-w-md">
+        <div class="bg-white dark:bg-gray-800 shadow-md rounded-lg px-8 py-6">
+            <h2 class="text-2xl font-bold text-center mb-6 text-gray-800 dark:text-white">
+                Monzo Credit Card Pot Sync
+            </h2>
+            
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="mb-4 p-3 rounded 
+                            {% if category == 'error' %}bg-red-100 text-red-700 border border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800{% endif %}
+                            {% if category == 'success' %}bg-green-100 text-green-700 border border-green-200 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800{% endif %}
+                            {% if category == 'info' %}bg-blue-100 text-blue-700 border border-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800{% endif %}">
+                            {{ message }}
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+            
+            <!-- Passkey Login Button - Only shown if browser supports WebAuthn -->
+            <div id="passkey-container" class="mb-6 flex flex-col items-center">
+                <button id="passkey-login-button" class="w-full bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline mb-2 flex items-center justify-center">
+                    <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                        <path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clip-rule="evenodd"></path>
+                    </svg>
+                    Sign In with Passkey
+                </button>
+                <p class="text-sm text-gray-600 dark:text-gray-400 text-center">Use your fingerprint, face recognition or device PIN</p>
+            </div>
+            
+            <div class="relative flex py-3 items-center mb-4">
+                <div class="flex-grow border-t border-gray-300 dark:border-gray-600"></div>
+                <span class="flex-shrink mx-3 text-gray-600 dark:text-gray-400 text-sm">Or use password</span>
+                <div class="flex-grow border-t border-gray-300 dark:border-gray-600"></div>
+            </div>
+            
+            <form method="POST" action="{{ url_for('auth.login') }}">
+                {{ form.hidden_tag() }}
+                
+                <div class="mb-4">
+                    <label class="block text-gray-700 dark:text-gray-300 text-sm font-bold mb-2" for="username">
+                        {{ form.username.label }}
+                    </label>
+                    {{ form.username(class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 dark:text-gray-300 dark:bg-gray-700 dark:border-gray-600 leading-tight focus:outline-none focus:shadow-outline") }}
+                    {% for error in form.username.errors %}
+                        <p class="text-red-500 text-xs italic">{{ error }}</p>
+                    {% endfor %}
+                </div>
+                
+                <div class="mb-6">
+                    <label class="block text-gray-700 dark:text-gray-300 text-sm font-bold mb-2" for="password">
+                        {{ form.password.label }}
+                    </label>
+                    {{ form.password(class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 dark:text-gray-300 dark:bg-gray-700 dark:border-gray-600 leading-tight focus:outline-none focus:shadow-outline") }}
+                    {% for error in form.password.errors %}
+                        <p class="text-red-500 text-xs italic">{{ error }}</p>
+                    {% endfor %}
+                </div>
+                
+                <div class="flex items-center justify-between mb-6">
+                    <div class="flex items-center">
+                        {{ form.remember_me(class="h-4 w-4 text-blue-600 focus:ring-blue-500 dark:focus:ring-blue-700 border-gray-300 rounded dark:border-gray-600 dark:bg-gray-700") }}
+                        <label class="ml-2 block text-sm text-gray-900 dark:text-gray-300">
+                            {{ form.remember_me.label }}
+                        </label>
+                    </div>
+                </div>
+                
+                <div class="flex flex-col gap-4">
+                    {{ form.submit(class="w-full bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline") }}
+                    
+                    {% if not user_count %}
+                        <a href="{{ url_for('auth.register') }}" class="text-center block text-sm text-blue-500 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300">
+                            Create initial admin account
+                        </a>
+                    {% endif %}
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Passkey login script -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const passkeyLoginButton = document.getElementById('passkey-login-button');
+    const passkeyContainer = document.getElementById('passkey-container');
+    
+    // Check if browser supports WebAuthn
+    if (!window.PublicKeyCredential) {
+        passkeyContainer.style.display = 'none';
+        return;
+    }
+    
+    passkeyLoginButton.addEventListener('click', async function() {
+        try {
+            passkeyLoginButton.disabled = true;
+            passkeyLoginButton.innerHTML = 'Please wait...';
+            
+            // 1. Get authentication options from server
+            const optionsResponse = await fetch('/auth/passkeys/authenticate/options', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            });
+            
+            if (!optionsResponse.ok) {
+                throw new Error('Failed to get authentication options');
+            }
+            
+            const options = await optionsResponse.json();
+            
+            // 2. Get credential from browser
+            const credential = await navigator.credentials.get({
+                publicKey: {
+                    ...options,
+                    challenge: base64URLToBuffer(options.challenge),
+                    allowCredentials: options.allowCredentials ? 
+                        options.allowCredentials.map(cred => ({
+                            ...cred,
+                            id: base64URLToBuffer(cred.id)
+                        })) : undefined
+                }
+            });
+            
+            // 3. Format credential for server
+            const credentialForServer = {
+                id: credential.id,
+                rawId: bufferToBase64URL(credential.rawId),
+                type: credential.type,
+                response: {
+                    authenticatorData: bufferToBase64URL(credential.response.authenticatorData),
+                    clientDataJSON: bufferToBase64URL(credential.response.clientDataJSON),
+                    signature: bufferToBase64URL(credential.response.signature),
+                    userHandle: credential.response.userHandle ? bufferToBase64URL(credential.response.userHandle) : null
+                }
+            };
+            
+            // 4. Send credential to server
+            const verifyResponse = await fetch('/auth/passkeys/authenticate/verify', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(credentialForServer)
+            });
+            
+            const result = await verifyResponse.json();
+            
+            if (result.success && result.redirect) {
+                window.location.href = result.redirect;
+            } else {
+                passkeyLoginButton.innerHTML = '<svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clip-rule="evenodd"></path></svg> Sign In with Passkey';
+                passkeyLoginButton.disabled = false;
+                alert('Authentication failed. Please try again or use your password.');
+            }
+            
+        } catch (error) {
+            console.error('Passkey authentication error:', error);
+            passkeyLoginButton.innerHTML = '<svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clip-rule="evenodd"></path></svg> Sign In with Passkey';
+            passkeyLoginButton.disabled = false;
+            alert('Error authenticating with passkey: ' + error.message);
+        }
+    });
+    
+    // Helper functions for WebAuthn encoding/decoding
+    function base64URLToBuffer(base64URL) {
+        const base64 = base64URL.replace(/-/g, '+').replace(/_/g, '/');
+        const padLen = 4 - (base64.length % 4);
+        const padded = padLen < 4 ? base64 + '='.repeat(padLen) : base64;
+        const binary = atob(padded);
+        const buffer = new ArrayBuffer(binary.length);
+        const bytes = new Uint8Array(buffer);
+        
+        for (let i = 0; i < binary.length; i++) {
+            bytes[i] = binary.charCodeAt(i);
+        }
+        return buffer;
+    }
+    
+    function bufferToBase64URL(buffer) {
+        const bytes = new Uint8Array(buffer);
+        let binary = '';
+        
+        for (let i = 0; i < bytes.byteLength; i++) {
+            binary += String.fromCharCode(bytes[i]);
+        }
+        
+        const base64 = btoa(binary);
+        return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+    }
+});
+</script>
+{% endblock %}

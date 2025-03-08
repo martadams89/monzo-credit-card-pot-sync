@@ -1,14 +1,36 @@
+version: '3.8'
+
 services:
   monzo-credit-card-pot-sync:
     image: ghcr.io/martadams89/monzo-credit-card-pot-sync:latest
     container_name: monzo-credit-card-pot-sync
-    restart: always
-    environment:
-      - DATABASE_URI=sqlite:////monzo-credit-card-pot-sync/data/app.db
+    restart: unless-stopped
     ports:
-      - 1337:1337
+      - "${PORT:-5000}:5000"
+    environment:
+      - PORT=5000
+      - SECRET_KEY=${SECRET_KEY:-changeme_in_production}
+      - DATABASE_URL=${DATABASE_URL:-sqlite:///instance/app.db}
+      - POT_SYNC_LOCAL_URL=${POT_SYNC_LOCAL_URL:-http://localhost:5000}
+      - LOG_LEVEL=${LOG_LEVEL:-info}
     volumes:
-      - data:/monzo-credit-card-pot-sync/data:rw
+      - ./instance:/app/instance
+      - ./logs:/app/logs
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/main/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
 
 volumes:
-  data:
+  instance:
+  logs:

@@ -1,4 +1,5 @@
 from app.core import sync_balance
+from unittest.mock import MagicMock
 
 def test_core_flow_successful_no_change_required(mocker, test_client, requests_mock, seed_data):
     ### Given ###
@@ -38,6 +39,9 @@ def test_core_flow_successful_no_change_required(mocker, test_client, requests_m
 
     # Add a mock for pot deposit
     requests_mock.put("https://api.monzo.com/pots/pot_id/deposit", json={"status": "ok"}, status_code=200)
+
+    # Mock the history repository to avoid serialization issues
+    mocker.patch("app.core.history_repository.save_sync_result", return_value=None)
 
     ### When ###
     sync_balance()
@@ -79,6 +83,9 @@ def test_core_flow_successful_deposit(mocker, test_client, requests_mock, seed_d
     # Mock pot deposit call
     requests_mock.put("https://api.monzo.com/pots/pot_id/deposit")
     requests_mock.put("https://api.monzo.com/pots/pot_id/deposit", json={"status": "ok"}, status_code=200)
+
+    # Mock the history repository to avoid serialization issues
+    mocker.patch("app.core.history_repository.save_sync_result", return_value=None)
 
     ### When ###
     sync_balance()
@@ -126,6 +133,9 @@ def test_core_flow_successful_withdrawal(mocker, test_client, requests_mock, see
 
     # Add a mock for pot deposit
     requests_mock.put("https://api.monzo.com/pots/pot_id/deposit", json={"status": "ok"}, status_code=200)
+
+    # Mock the history repository to avoid serialization issues
+    mocker.patch("app.core.history_repository.save_sync_result", return_value=None)
 
     ### When ###
     sync_balance()

@@ -1,6 +1,7 @@
 flask
 flask-apscheduler
 flask-sqlalchemy
+flask-migrate
 gunicorn
 pytest
 pytest-cov
@@ -8,3 +9,6 @@ pytest-mock
 ruff
 requests
 requests-mock
+webauthn==1.9.0
+qrcode==7.4.2
+pyotp==2.9.0

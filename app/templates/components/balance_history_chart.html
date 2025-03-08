@@ -1,0 +1,97 @@
+<div class="bg-white p-4 rounded-lg shadow dark:bg-gray-800">
+  <h3 class="text-lg font-medium mb-4">Balance History</h3>
+  <canvas id="balanceChart-{{ account_id }}" width="400" height="200"></canvas>
+</div>
+
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    const ctx = document.getElementById('balanceChart-{{ account_id }}').getContext('2d');
+    
+    const dateLabels = {{ dates|tojson }};
+    const cardBalances = {{ card_balances|tojson }};
+    const potBalances = {{ pot_balances|tojson }};
+    
+    const balanceChart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: dateLabels,
+        datasets: [
+          {
+            label: 'Credit Card Balance',
+            data: cardBalances,
+            borderColor: 'rgb(239, 68, 68)',
+            backgroundColor: 'rgba(239, 68, 68, 0.1)',
+            tension: 0.3
+          },
+          {
+            label: 'Pot Balance',
+            data: potBalances, 
+            borderColor: 'rgb(59, 130, 246)',
+            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+            tension: 0.3
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            position: 'top',
+            labels: {
+              color: document.documentElement.classList.contains('dark') ? '#e5e7eb' : '#374151'
+            }
+          },
+          tooltip: {
+            callbacks: {
+              label: function(context) {
+                return context.dataset.label + ': ' + formatMoney(context.raw);
+              }
+            }
+          }
+        },
+        scales: {
+          x: {
+            ticks: {
+              color: document.documentElement.classList.contains('dark') ? '#9ca3af' : '#6b7280' 
+            },
+            grid: {
+              color: document.documentElement.classList.contains('dark') ? 'rgba(156, 163, 175, 0.1)' : 'rgba(107, 114, 128, 0.1)'
+            }
+          },
+          y: {
+            ticks: {
+              color: document.documentElement.classList.contains('dark') ? '#9ca3af' : '#6b7280',
+              callback: function(value) {
+                return formatMoney(value);
+              }
+            },
+            grid: {
+              color: document.documentElement.classList.contains('dark') ? 'rgba(156, 163, 175, 0.1)' : 'rgba(107, 114, 128, 0.1)'
+            }
+          }
+        }
+      }
+    });
+
+    function formatMoney(value) {
+      return '£' + (value / 100).toFixed(2);
+    }
+    
+    // Update chart colors when theme changes
+    document.getElementById('theme-toggle')?.addEventListener('click', function() {
+      const isDark = document.documentElement.classList.contains('dark');
+      
+      // Update legend colors
+      balanceChart.options.plugins.legend.labels.color = isDark ? '#e5e7eb' : '#374151';
+      
+      // Update axis colors
+      balanceChart.options.scales.x.ticks.color = isDark ? '#9ca3af' : '#6b7280';
+      balanceChart.options.scales.y.ticks.color = isDark ? '#9ca3af' : '#6b7280';
+      balanceChart.options.scales.x.grid.color = isDark ? 'rgba(156, 163, 175, 0.1)' : 'rgba(107, 114, 128, 0.1)';
+      balanceChart.options.scales.y.grid.color = isDark ? 'rgba(156, 163, 175, 0.1)' : 'rgba(107, 114, 128, 0.1)';
+      
+      balanceChart.update();
+    });
+  });
+</script>
