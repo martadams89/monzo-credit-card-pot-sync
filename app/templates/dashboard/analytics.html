@@ -1,230 +1,207 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="container mx-auto px-4">
+<div class="container mx-auto px-4 py-8">
     <h1 class="text-2xl font-bold mb-6 text-gray-800 dark:text-white">Analytics Dashboard</h1>
     
-    <!-- Overview Cards -->
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-5">
-            <div class="flex justify-between">
-                <div>
-                    <h3 class="text-gray-500 dark:text-gray-400 text-sm font-medium">Total Syncs</h3>
-                    <div class="flex items-baseline">
-                        <h5 class="text-3xl font-bold text-gray-900 dark:text-white">{{ stats.total_syncs }}</h5>
-                    </div>
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="mb-4 p-3 rounded 
+                    {% if category == 'error' %}bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300{% endif %}
+                    {% if category == 'success' %}bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300{% endif %}
+                    {% if category == 'info' or category == 'message' %}bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300{% endif %}">
+                    {{ message }}
                 </div>
-                <div class="rounded-full p-3 bg-green-100 dark:bg-green-900">
-                    <svg class="w-6 h-6 text-green-600 dark:text-green-300" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
-                    </svg>
-                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+    
+    <!-- Overview Stats -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <div class="bg-white dark:bg-gray-800 shadow-md rounded-lg p-6">
+            <h2 class="text-lg font-semibold mb-2">Sync Success Rate</h2>
+            <div class="text-3xl font-bold mb-2 text-green-600 dark:text-green-400">
+                {{ data.sync_stats.success_rate|default(0)|round(1) }}%
             </div>
+            <p class="text-sm text-gray-600 dark:text-gray-400">
+                {{ data.sync_stats.successful|default(0) }} successful out of {{ data.sync_stats.total|default(0) }} syncs
+            </p>
         </div>
         
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-5">
-            <div class="flex justify-between">
-                <div>
-                    <h3 class="text-gray-500 dark:text-gray-400 text-sm font-medium">Success Rate</h3>
-                    <div class="flex items-baseline">
-                        <h5 class="text-3xl font-bold text-gray-900 dark:text-white">{{ stats.success_rate }}%</h5>
-                    </div>
-                </div>
-                <div class="rounded-full p-3 {% if stats.success_rate >= 90 %}bg-green-100 dark:bg-green-900{% else %}bg-yellow-100 dark:bg-yellow-900{% endif %}">
-                    <svg class="w-6 h-6 {% if stats.success_rate >= 90 %}text-green-600 dark:text-green-300{% else %}text-yellow-600 dark:text-yellow-300{% endif %}" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                    </svg>
-                </div>
+        <div class="bg-white dark:bg-gray-800 shadow-md rounded-lg p-6">
+            <h2 class="text-lg font-semibold mb-2">Active Accounts</h2>
+            <div class="text-3xl font-bold mb-2 text-blue-600 dark:text-blue-400">
+                {{ data.account_count|default(0) }}
             </div>
+            <p class="text-sm text-gray-600 dark:text-gray-400">
+                Connected accounts being synced
+            </p>
         </div>
         
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-5">
-            <div class="flex justify-between">
-                <div>
-                    <h3 class="text-gray-500 dark:text-gray-400 text-sm font-medium">Total Spending</h3>
-                    <div class="flex items-baseline">
-                        <h5 class="text-3xl font-bold text-gray-900 dark:text-white">£{{ (trends.total_spending/100)|round(2) }}</h5>
-                    </div>
-                </div>
-                <div class="rounded-full p-3 bg-blue-100 dark:bg-blue-900">
-                    <svg class="w-6 h-6 text-blue-600 dark:text-blue-300" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                    </svg>
-                </div>
+        <div class="bg-white dark:bg-gray-800 shadow-md rounded-lg p-6">
+            <h2 class="text-lg font-semibold mb-2">Last Sync</h2>
+            <div class="text-xl font-bold mb-2 text-indigo-600 dark:text-indigo-400">
+                {% if data.last_sync %}
+                    {{ data.last_sync|formatdatetime }}
+                {% else %}
+                    Never
+                {% endif %}
             </div>
-        </div>
-        
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-5">
-            <div class="flex justify-between">
-                <div>
-                    <h3 class="text-gray-500 dark:text-gray-400 text-sm font-medium">Monthly Trend</h3>
-                    <div class="flex items-baseline">
-                        <h5 class="text-3xl font-bold text-gray-900 dark:text-white">{{ trends.monthly_trend|round(1) }}%</h5>
-                    </div>
-                </div>
-                <div class="rounded-full p-3 {% if trends.monthly_trend > 0 %}bg-red-100 dark:bg-red-900{% else %}bg-green-100 dark:bg-green-900{% endif %}">
-                    <svg class="w-6 h-6 {% if trends.monthly_trend > 0 %}text-red-600 dark:text-red-300{% else %}text-green-600 dark:text-green-300{% endif %}" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                        {% if trends.monthly_trend > 0 %}
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path>
-                        {% else %}
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 17h8m0 0V9m0 8l-8-8-4 4-6-6"></path>
-                        {% endif %}
-                    </svg>
-                </div>
-            </div>
+            <p class="text-sm text-gray-600 dark:text-gray-400">
+                Last successful synchronization
+            </p>
         </div>
     </div>
-
-    <!-- Spending Trends Chart -->
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow mb-8">
-        <div class="p-6">
-            <h3 class="text-lg font-medium text-gray-800 dark:text-white mb-4">Monthly Spending Trends</h3>
-            <canvas id="spendingChart" height="300"></canvas>
-        </div>
+    
+    <!-- Balance History Chart -->
+    <div class="bg-white dark:bg-gray-800 shadow-md rounded-lg p-6 mb-8">
+        <h2 class="text-lg font-semibold mb-4">Balance History</h2>
+        {% if data.balance_history %}
+            <div class="h-64">
+                <canvas id="balanceHistoryChart"></canvas>
+            </div>
+        {% else %}
+            <p class="text-gray-600 dark:text-gray-400 text-center py-8">No balance history data available</p>
+        {% endif %}
     </div>
-
-    <!-- Account Statistics -->
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow mb-8">
-        <div class="p-6">
-            <h3 class="text-lg font-medium text-gray-800 dark:text-white mb-4">Account Statistics</h3>
+    
+    <!-- Account Performance -->
+    <div class="bg-white dark:bg-gray-800 shadow-md rounded-lg p-6">
+        <h2 class="text-lg font-semibold mb-4">Account Performance</h2>
+        
+        {% if data.account_metrics %}
             <div class="overflow-x-auto">
                 <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                     <thead class="bg-gray-50 dark:bg-gray-700">
                         <tr>
-                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Account</th>
-                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Deposits</th>
-                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Amount</th>
-                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Withdrawals</th>
-                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Amount</th>
-                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Current Balance</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-400">
+                                Account
+                            </th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-400">
+                                Success Rate
+                            </th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-400">
+                                Deposits
+                            </th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-400">
+                                Withdrawals
+                            </th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-400">
+                                Total Volume
+                            </th>
                         </tr>
                     </thead>
-                    <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                        {% for account, data in stats.account_stats.items() %}
-                        <tr>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">{{ account }}</td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{{ data.deposits }}</td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">£{{ (data.deposit_amount/100)|round(2) }}</td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{{ data.withdrawals }}</td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">£{{ (data.withdrawal_amount/100)|round(2) }}</td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">£{{ (data.current_balance/100)|round(2) }}</td>
-                        </tr>
+                    <tbody class="bg-white divide-y divide-gray-200 dark:bg-gray-800 dark:divide-gray-700">
+                        {% for account_type, metrics in data.account_metrics.items() %}
+                            <tr>
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <div class="text-sm font-medium text-gray-900 dark:text-white">{{ account_type }}</div>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    {% set success_rate = (metrics.successful_syncs / metrics.sync_count * 100) if metrics.sync_count > 0 else 0 %}
+                                    <div class="flex items-center">
+                                        <span class="text-sm text-gray-900 dark:text-white">{{ success_rate|round(1) }}%</span>
+                                        <div class="ml-2 w-16 bg-gray-200 rounded-full h-2 dark:bg-gray-700">
+                                            <div class="bg-blue-600 h-2 rounded-full" style="width: {{ success_rate }}%"></div>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                                    {{ metrics.deposit_count }} ({{ metrics.total_deposited|formatmoney }})
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                                    {{ metrics.withdrawal_count }} ({{ metrics.total_withdrawn|formatmoney }})
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                                    {{ (metrics.total_deposited + metrics.total_withdrawn)|formatmoney }}
+                                </td>
+                            </tr>
                         {% endfor %}
                     </tbody>
                 </table>
             </div>
-        </div>
-    </div>
-
-    <!-- Sync History -->
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow mb-8">
-        <div class="p-6">
-            <h3 class="text-lg font-medium text-gray-800 dark:text-white mb-4">Recent Transactions</h3>
-            <div class="overflow-x-auto">
-                <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                    <thead class="bg-gray-50 dark:bg-gray-700">
-                        <tr>
-                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Date</th>
-                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Account</th>
-                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Action</th>
-                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Amount</th>
-                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Reason</th>
-                        </tr>
-                    </thead>
-                    <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                        {% for tx in transactions %}
-                        <tr>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{{ tx.date.strftime('%Y-%m-%d %H:%M') }}</td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{{ tx.account }}</td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                                {% if tx.action == 'deposit' %}
-                                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
-                                    Deposit
-                                </span>
-                                {% elif tx.action == 'withdrawal' %}
-                                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
-                                    Withdrawal
-                                </span>
-                                {% else %}
-                                {{ tx.action }}
-                                {% endif %}
-                            </td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">£{{ (tx.amount/100)|round(2) }}</td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{{ tx.reason }}</td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-        </div>
+        {% else %}
+            <p class="text-gray-600 dark:text-gray-400 text-center py-8">No account metrics available</p>
+        {% endif %}
     </div>
 </div>
 
-<!-- JavaScript for Charts -->
-<script src="https://cdn.jsdelivr.net/npm/chart.js@3.7.1"></script>
+<!-- Add Chart.js script -->
+{% if data.balance_history %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.0.0/dist/chart.umd.min.js"></script>
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        // Get spending data from the template
-        const monthlyData = {{ monthly_data|tojson }};
+document.addEventListener('DOMContentLoaded', function() {
+    const ctx = document.getElementById('balanceHistoryChart').getContext('2d');
+    
+    // Prepare data for chart
+    const balanceData = {{ data.balance_history|tojson }};
+    const datasets = [];
+    
+    // Process data for each account type
+    for (const [accountType, history] of Object.entries(balanceData)) {
+        const timestamps = history.map(item => item.timestamp);
+        const cardBalances = history.map(item => item.card_balance / 100); // Convert to pounds
+        const potBalances = history.map(item => item.pot_balance / 100);
         
-        // Prepare chart data
-        const months = Object.keys(monthlyData);
-        const spendingValues = months.map(month => monthlyData[month]/100);
+        datasets.push({
+            label: `${accountType} Card Balance`,
+            data: cardBalances,
+            borderColor: 'rgba(59, 130, 246, 0.8)',
+            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+            fill: false,
+            tension: 0.4
+        });
         
-        // Set up Chart.js
-        const ctx = document.getElementById('spendingChart').getContext('2d');
-        const spendingChart = new Chart(ctx, {
-            type: 'line',
-            data: {
-                labels: months,
-                datasets: [{
-                    label: 'Monthly Spending (£)',
-                    data: spendingValues,
-                    backgroundColor: 'rgba(20, 184, 166, 0.2)',
-                    borderColor: 'rgb(20, 184, 166)',
-                    borderWidth: 2,
-                    tension: 0.1,
-                    pointBackgroundColor: 'rgb(20, 184, 166)',
-                }]
+        datasets.push({
+            label: `${accountType} Pot Balance`,
+            data: potBalances,
+            borderColor: 'rgba(147, 51, 234, 0.8)',
+            backgroundColor: 'rgba(147, 51, 234, 0.1)',
+            fill: false,
+            tension: 0.4
+        });
+    }
+    
+    // Create the chart
+    const chart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: timestamps.map(ts => new Date(ts).toLocaleDateString()),
+            datasets: datasets
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: {
+                intersect: false,
+                mode: 'index',
             },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        ticks: {
-                            callback: function(value) {
-                                return '£' + value.toFixed(2);
-                            }
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        callback: function(value) {
+                            return '£' + value;
                         }
                     }
+                }
+            },
+            plugins: {
+                legend: {
+                    position: 'bottom'
                 },
-                plugins: {
-                    tooltip: {
-                        callbacks: {
-                            label: function(context) {
-                                return '£' + context.raw.toFixed(2);
-                            }
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return `${context.dataset.label}: £${context.parsed.y.toFixed(2)}`;
                         }
                     }
                 }
             }
-        });
-        
-        // Handle dark mode toggle for chart
-        const themeToggleBtn = document.getElementById('theme-toggle');
-        if (themeToggleBtn) {
-            themeToggleBtn.addEventListener('click', function() {
-                setTimeout(() => {
-                    const isDarkMode = document.documentElement.classList.contains('dark');
-                    spendingChart.options.scales.x.ticks.color = isDarkMode ? '#D1D5DB' : '#6B7280';
-                    spendingChart.options.scales.y.ticks.color = isDarkMode ? '#D1D5DB' : '#6B7280';
-                    spendingChart.options.plugins.legend.labels.color = isDarkMode ? '#D1D5DB' : '#1F2937';
-                    spendingChart.update();
-                }, 100);
-            });
         }
     });
+});
 </script>
+{% endif %}
 {% endblock %}

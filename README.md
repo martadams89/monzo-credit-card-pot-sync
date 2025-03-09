@@ -44,6 +44,7 @@ The system uses sophisticated logic to ensure your Monzo pot always has enough m
 
 - Python 3.9+ (for manual installation)
 - Docker and Docker Compose (for containerized installation)
+- Node.js and npm (for CSS building)
 - Monzo account
 - Credit card(s) supported by TrueLayer (American Express, Barclaycard, etc.)
 - Email account for notifications (optional)
@@ -62,13 +63,25 @@ The system uses sophisticated logic to ensure your Monzo pot always has enough m
    # Edit .env file with your settings
    ```
 
-3. Start the container:
+3. Build CSS assets (required for the UI):
+   ```bash
+   npm install
+   npm run build-css
+   ```
+
+4. Start the container using development mode:
+   ```bash
+   docker compose -f docker-compose.dev.yml up -d
+   ```
+   
+   Or for production:
    ```bash
    docker compose up -d
    ```
 
-4. Access the application:
-   Open `http://localhost:5000` in your web browser
+5. Access the application:
+   Development: Open `http://localhost:8000` in your web browser
+   Production: Configure your reverse proxy to the exposed port
 
 ### Using Kubernetes
 
@@ -93,20 +106,57 @@ See the detailed [Kubernetes Deployment Guide](k8s/README.md) for instructions o
    pip install -r requirements.txt
    ```
 
-4. Install web dependencies:
+4. Install web dependencies and build CSS:
    ```bash
    npm install
-   ```
-
-5. Build static assets:
-   ```bash
    npm run build-css
    ```
 
-6. Start the application:
+5. Start the application:
    ```bash
-   npm start
+   npm run dev  # Development mode with auto-reloading
+   # OR
+   npm start    # Production mode
    ```
+
+## CSS Development and Building
+
+The application uses Tailwind CSS for styling. CSS files are built automatically in several ways:
+
+### In Docker Container
+
+The CSS is automatically built during:
+1. Docker image creation (using `npm run build-css`)
+2. Container startup (via the entrypoint script, with fallbacks if Node.js is not available)
+
+No manual steps are required when running in Docker.
+
+### For Local Development
+
+When developing locally, you can build the CSS in several ways:
+
+1. Using npm:
+   ```bash
+   npm install
+   npm run build-css
+   ```
+
+2. Using the provided script:
+   ```bash
+   ./build-css.sh
+   ```
+
+3. Using development mode with auto-reload:
+   ```bash
+   npm run build-css-live
+   ```
+
+The compiled CSS will be available at `app/static/css/dist/output.css`.
+
+### CSS Fallback Mechanism
+
+If Node.js/npm is not available, the application includes a fallback Python-based CSS generator
+that creates a minimal CSS file to ensure the application remains functional.
 
 ## Database Migrations
 
@@ -140,7 +190,7 @@ If you encounter any database issues after upgrading, you may need to restore fr
    - Log in to the Monzo developer portal at [https://developers.monzo.com](https://developers.monzo.com)
    - Create a client with redirect URL matching your environment:
      - If using a custom domain: `https://your-domain.com/auth/callback/monzo`
-     - If using locally: `http://localhost:5000/auth/callback/monzo`
+     - If using locally: `http://localhost:8000/auth/callback/monzo`
    - Set confidentiality to `Confidential` and note the client ID and secret
 
 2. **TrueLayer API Setup:**
@@ -148,7 +198,7 @@ If you encounter any database issues after upgrading, you may need to restore fr
    - Create an application and switch to the `Live` environment
    - Add a redirect URI matching your environment:
      - If using a custom domain: `https://your-domain.com/auth/callback/truelayer`
-     - If using locally: `http://localhost:5000/auth/callback/truelayer`
+     - If using locally: `http://localhost:8000/auth/callback/truelayer`
    - Copy the client ID and client secret
 
 3. **Save in Application:**
@@ -165,54 +215,28 @@ environment:
   - POT_SYNC_LOCAL_URL=https://your-domain.com
 ```
 
-This ensures the application generates correct URLs for callbacks when connecting to Monzo and TrueLayer APIs. If this isn't set, the application defaults to `http://localhost:5000`.
-
-## Extended Logic for Credit Card Providers
-
-For providers like American Express and Barclaycard, the system takes pending transactions into account to calculate the true balance. This ensures your Monzo pot adjusts accurately to reflect all spending, even when transactions are still in the pending state.
-
-Some credit card providers have specific behaviors:
-
-- **American Express**: Both pending and posted transactions are included in balance calculations
-- **Barclaycard**: Includes available balance calculations to reflect pending transactions
-- **Other providers**: Transaction amounts are taken directly from account balance endpoints
-
-## Detailed Operation Flow
-
-1. **Initial Setup**:
-   - Link your Monzo account and credit card accounts
-   - Assign a specific pot to each credit card
-   - Set your preferred sync interval and cooldown period
-
-2. **Synchronization Process**:
-   - At each sync interval, the system fetches current balances from all linked credit cards
-   - It compares each credit card balance to its assigned pot balance
-   - Based on the comparison, it performs one of these actions:
-
-3. **Action Logic**:
-   - **If card balance > pot balance**:
-     - Check if in cooldown period
-     - If not in cooldown, deposit the difference
-     - If in cooldown but override is enabled and new spending detected, deposit only the new spending amount
-   - **If pot balance > card balance**:
-     - Withdraw the excess funds (not subject to cooldown)
-   - **If pot balance = card balance**:
-     - No action needed
-
-4. **Cooldown Management**:
-   - When a deposit is made, a cooldown period begins for that specific account
-   - During cooldown, additional deposits are prevented unless new spending is detected and override is enabled
-   - Cooldown periods are tracked separately for each credit card account
+This ensures the application generates correct URLs for callbacks when connecting to Monzo and TrueLayer APIs.
 
 ## Troubleshooting
 
 ### Common Issues
 
-1. **Database Errors:**
+1. **CSS Not Loading:**
+   - Make sure you've built the CSS files: `npm run build-css`
+   - Check that the output file exists: `app/static/css/dist/output.css`
+   - Verify the permissions on the CSS file
+
+2. **Docker Permission Issues:**
+   - If you're seeing permission errors with Docker volumes, try:
+     ```bash
+     sudo chown -R 1000:1000 ./instance
+     ```
+
+3. **Database Errors:**
    - If you encounter database errors, check the logs for specific migration issues
    - To reset the database: delete the `instance/app.db` file and restart the application
 
-2. **API Connection Issues:**
+4. **API Connection Issues:**
    - Make sure your Monzo and TrueLayer API credentials are correctly set up
    - Verify the redirect URLs match exactly (including http/https)
    - Check if your tokens need to be refreshed
@@ -229,3 +253,4 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - [Monzo API](https://docs.monzo.com)
 - [TrueLayer API](https://docs.truelayer.com)
 - [Flask](https://flask.palletsprojects.com)
+- [Tailwind CSS](https://tailwindcss.com)

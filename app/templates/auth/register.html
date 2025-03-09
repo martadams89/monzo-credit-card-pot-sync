@@ -1,78 +1,109 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="flex items-center justify-center min-h-screen bg-gray-100 dark:bg-gray-900">
-    <div class="w-full max-w-md">
-        <div class="bg-white dark:bg-gray-800 shadow-md rounded-lg px-8 py-6">
-            <h2 class="text-2xl font-bold text-center mb-6 text-gray-800 dark:text-white">
-                Create Account
-            </h2>
+<div class="container mx-auto px-4 py-8">
+    <div class="bg-white dark:bg-gray-800 shadow-md rounded-lg p-6 max-w-md mx-auto">
+        <h1 class="text-2xl font-bold mb-6 text-center text-gray-800 dark:text-white">Register</h1>
+        
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="mb-4 p-3 rounded 
+                        {% if category == 'error' %}bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300{% endif %}
+                        {% if category == 'success' %}bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300{% endif %}
+                        {% if category == 'info' or category == 'message' %}bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300{% endif %}">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+        
+        <form method="POST" action="{{ url_for('auth.register') }}" class="space-y-4">
+            {{ form.hidden_tag() }}
             
-            {% with messages = get_flashed_messages(with_categories=true) %}
-                {% if messages %}
-                    {% for category, message in messages %}
-                        <div class="mb-4 p-3 rounded 
-                            {% if category == 'error' %}bg-red-100 text-red-700 border border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800{% endif %}
-                            {% if category == 'success' %}bg-green-100 text-green-700 border border-green-200 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800{% endif %}
-                            {% if category == 'info' %}bg-blue-100 text-blue-700 border border-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800{% endif %}">
-                            {{ message }}
-                        </div>
-                    {% endfor %}
-                {% endif %}
-            {% endwith %}
+            <div>
+                <label for="{{ form.username.id }}" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Username</label>
+                {{ form.username(class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white" + (" border-red-500" if form.username.errors else "")) }}
+                {% for error in form.username.errors %}
+                    <span class="text-red-600 text-sm">{{ error }}</span>
+                {% endfor %}
+            </div>
             
-            <form method="POST" action="{{ url_for('auth.register') }}">
-                {{ form.hidden_tag() }}
-                
-                <div class="mb-4">
-                    <label class="block text-gray-700 dark:text-gray-300 text-sm font-bold mb-2" for="username">
-                        {{ form.username.label }}
-                    </label>
-                    {{ form.username(class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 dark:text-gray-300 dark:bg-gray-700 dark:border-gray-600 leading-tight focus:outline-none focus:shadow-outline") }}
-                    {% for error in form.username.errors %}
-                        <p class="text-red-500 text-xs italic">{{ error }}</p>
-                    {% endfor %}
-                </div>
-                
-                <div class="mb-4">
-                    <label class="block text-gray-700 dark:text-gray-300 text-sm font-bold mb-2" for="email">
-                        {{ form.email.label }}
-                    </label>
-                    {{ form.email(class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 dark:text-gray-300 dark:bg-gray-700 dark:border-gray-600 leading-tight focus:outline-none focus:shadow-outline") }}
-                    {% for error in form.email.errors %}
-                        <p class="text-red-500 text-xs italic">{{ error }}</p>
-                    {% endfor %}
-                </div>
-                
-                <div class="mb-4">
-                    <label class="block text-gray-700 dark:text-gray-300 text-sm font-bold mb-2" for="password">
-                        {{ form.password.label }}
-                    </label>
-                    {{ form.password(class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 dark:text-gray-300 dark:bg-gray-700 dark:border-gray-600 leading-tight focus:outline-none focus:shadow-outline") }}
-                    {% for error in form.password.errors %}
-                        <p class="text-red-500 text-xs italic">{{ error }}</p>
-                    {% endfor %}
-                </div>
-                
-                <div class="mb-6">
-                    <label class="block text-gray-700 dark:text-gray-300 text-sm font-bold mb-2" for="password2">
-                        {{ form.password2.label }}
-                    </label>
-                    {{ form.password2(class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 dark:text-gray-300 dark:bg-gray-700 dark:border-gray-600 leading-tight focus:outline-none focus:shadow-outline") }}
-                    {% for error in form.password2.errors %}
-                        <p class="text-red-500 text-xs italic">{{ error }}</p>
-                    {% endfor %}
-                </div>
-                
-                <div class="flex flex-col gap-4">
-                    {{ form.submit(class="w-full bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline") }}
-                    
-                    <a href="{{ url_for('auth.login') }}" class="text-center block text-sm text-blue-500 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300">
-                        Already have an account? Login
-                    </a>
-                </div>
-            </form>
-        </div>
+            <div>
+                <label for="{{ form.email.id }}" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Email</label>
+                {{ form.email(class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white" + (" border-red-500" if form.email.errors else "")) }}
+                {% for error in form.email.errors %}
+                    <span class="text-red-600 text-sm">{{ error }}</span>
+                {% endfor %}
+            </div>
+            
+            <div>
+                <label for="{{ form.password.id }}" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Password</label>
+                {{ form.password(class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white" + (" border-red-500" if form.password.errors else "")) }}
+                {% for error in form.password.errors %}
+                    <span class="text-red-600 text-sm">{{ error }}</span>
+                {% endfor %}
+                <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Password must be at least 8 characters long</p>
+            </div>
+            
+            <div>
+                <label for="{{ form.password2.id }}" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Repeat Password</label>
+                {{ form.password2(class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white" + (" border-red-500" if form.password2.errors else "")) }}
+                {% for error in form.password2.errors %}
+                    <span class="text-red-600 text-sm">{{ error }}</span>
+                {% endfor %}
+            </div>
+            
+            <!-- Show admin code field only if not first user -->
+            {% if not is_first_user %}
+            <div>
+                <label for="{{ form.admin_code.id }}" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Admin Registration Code
+                    <span class="text-xs text-gray-500 dark:text-gray-400">(Optional - only needed for admin access)</span>
+                </label>
+                {{ form.admin_code(class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white" + (" border-red-500" if form.admin_code.errors else "")) }}
+                {% for error in form.admin_code.errors %}
+                    <span class="text-red-600 text-sm">{{ error }}</span>
+                {% endfor %}
+            </div>
+            {% endif %}
+            
+            <div class="pt-4">
+                {{ form.submit(class="w-full py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500") }}
+            </div>
+            
+            <div class="text-center mt-4">
+                <p class="text-sm text-gray-600 dark:text-gray-400">
+                    Already have an account?
+                    <a href="{{ url_for('auth.login') }}" class="text-blue-600 hover:text-blue-500 dark:text-blue-400">Log In</a>
+                </p>
+            </div>
+        </form>
     </div>
 </div>
+
+<script>
+// Add client-side validation to help users catch errors immediately
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.querySelector('form');
+    const submitButton = document.querySelector('input[type="submit"]');
+    
+    // Display loading state when form is submitted
+    form.addEventListener('submit', function(e) {
+        // Basic client-side validation
+        const password = document.getElementById('{{ form.password.id }}').value;
+        const password2 = document.getElementById('{{ form.password2.id }}').value;
+        
+        if (password !== password2) {
+            e.preventDefault();
+            alert('Passwords do not match');
+            return false;
+        }
+        
+        // Change button text and disable to prevent multiple submissions
+        submitButton.value = 'Registering...';
+        submitButton.disabled = true;
+    });
+});
+</script>
 {% endblock %}

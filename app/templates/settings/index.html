@@ -1,110 +1,88 @@
 {% extends 'base.html' %}
 
 {% block content %}
-<div class="container mx-auto px-4">
-    <h1 class="text-2xl font-bold mb-6 text-gray-800 dark:text-white">Settings</h1>
-    
-    {% with messages = get_flashed_messages(with_categories=true) %}
-        {% if messages %}
-            {% for category, message in messages %}
-                <div class="mb-4 p-3 rounded 
-                    {% if category == 'error' %}bg-red-100 text-red-700 border border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800{% endif %}
-                    {% if category == 'success' %}bg-green-100 text-green-700 border border-green-200 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800{% endif %}
-                    {% if category == 'info' %}bg-blue-100 text-blue-700 border border-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800{% endif %}">
-                    {{ message }}
-                </div>
-            {% endfor %}
+<div class="container mx-auto px-4 py-8">
+    <div class="max-w-3xl mx-auto">
+        <h1 class="text-2xl font-bold mb-6">Settings</h1>
+        
+        {% include 'components/flash_messages.html' %}
+        
+        <div class="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden mb-6">
+            <div class="p-6">
+                <h2 class="text-lg font-medium text-gray-900 dark:text-white">Synchronization Settings</h2>
+                <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">Configure how often your accounts are synchronized and set cooldown periods.</p>
+            </div>
+            <div class="border-t border-gray-200 dark:border-gray-700 px-6 py-4">
+                <a href="{{ url_for('settings.sync_settings') }}" class="text-blue-600 dark:text-blue-400 hover:text-blue-900 dark:hover:text-blue-300 font-medium flex items-center">
+                    Manage Sync Settings
+                    <svg class="ml-2 w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                    </svg>
+                </a>
+            </div>
+        </div>
+        
+        <div class="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden mb-6">
+            <div class="p-6">
+                <h2 class="text-lg font-medium text-gray-900 dark:text-white">Account Settings</h2>
+                <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">Update your account information, change your password, or delete your account.</p>
+            </div>
+            <div class="border-t border-gray-200 dark:border-gray-700 px-6 py-4">
+                <a href="{{ url_for('settings.profile') }}" class="text-blue-600 dark:text-blue-400 hover:text-blue-900 dark:hover:text-blue-300 font-medium flex items-center">
+                    Manage Account
+                    <svg class="ml-2 w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                    </svg>
+                </a>
+            </div>
+        </div>
+        
+        <div class="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden mb-6">
+            <div class="p-6">
+                <h2 class="text-lg font-medium text-gray-900 dark:text-white">Linked Accounts</h2>
+                <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">Manage your connected Monzo and credit card accounts.</p>
+            </div>
+            <div class="border-t border-gray-200 dark:border-gray-700 px-6 py-4">
+                <a href="{{ url_for('accounts.manage') }}" class="text-blue-600 dark:text-blue-400 hover:text-blue-900 dark:hover:text-blue-300 font-medium flex items-center">
+                    Manage Linked Accounts
+                    <svg class="ml-2 w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                    </svg>
+                </a>
+            </div>
+        </div>
+        
+        {% if current_user.is_admin %}
+        <div class="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden mb-6">
+            <div class="p-6">
+                <h2 class="text-lg font-medium text-gray-900 dark:text-white">Email Settings</h2>
+                <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">Configure SMTP settings for email notifications.</p>
+            </div>
+            <div class="border-t border-gray-200 dark:border-gray-700 px-6 py-4">
+                <a href="{{ url_for('settings.email_settings') }}" class="text-blue-600 dark:text-blue-400 hover:text-blue-900 dark:hover:text-blue-300 font-medium flex items-center">
+                    Manage Email Settings
+                    <svg class="ml-2 w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                    </svg>
+                </a>
+            </div>
+        </div>
+        
+        <div class="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden mb-6">
+            <div class="p-6">
+                <h2 class="text-lg font-medium text-gray-900 dark:text-white">Admin Dashboard</h2>
+                <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">Access system metrics, logs, and administrative functions.</p>
+            </div>
+            <div class="border-t border-gray-200 dark:border-gray-700 px-6 py-4">
+                <a href="{{ url_for('dashboard.admin') }}" class="text-blue-600 dark:text-blue-400 hover:text-blue-900 dark:hover:text-blue-300 font-medium flex items-center">
+                    Go to Admin Dashboard
+                    <svg class="ml-2 w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                    </svg>
+                </a>
+            </div>
+        </div>
         {% endif %}
-    {% endwith %}
-    
-    <!-- App Settings Section -->
-    <div class="bg-white dark:bg-gray-800 shadow-md rounded-lg p-6 mb-8">
-        <h2 class="text-xl font-semibold mb-4 text-gray-800 dark:text-white">App Settings</h2>
-        
-        <div class="w-full max-w-sm p-4 bg-white border border-gray-200 rounded-lg shadow sm:p-6 md:p-8 dark:bg-gray-800 dark:border-gray-700">
-            <form class="space-y-3" action="" method="post">
-                <div>
-                    <label for="monzo_client_id" class="block mb-2 text-sm font-medium">Monzo Client ID</label>
-                    <input type="text" name="monzo_client_id" id="monzo_client_id" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-600 dark:border-gray-500 dark:placeholder-gray-400 dark:text-white" value="{{ data['monzo_client_id'] }}" />
-                </div>
-                <div>
-                    <label for="monzo_client_secret" class="block mb-2 text-sm font-medium">Monzo Client Secret</label>
-                    <input type="password" name="monzo_client_secret" id="monzo_client_secret" placeholder="••••••••" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-600 dark:border-gray-500 dark:placeholder-gray-400 dark:text-white" value="{{ data['monzo_client_secret'] }}" />
-                </div>
-
-                <div>
-                    <label for="truelayer_client_id" class="block mb-2 text-sm font-medium">TrueLayer Client ID</label>
-                    <input type="text" name="truelayer_client_id" id="truelayer_client_id" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-600 dark:border-gray-500 dark:placeholder-gray-400 dark:text-white" value="{{ data['truelayer_client_id'] }}" />
-                </div>
-                <div>
-                    <label for="truelayer_client_secret" class="block mb-2 text-sm font-medium">TrueLayer Client Secret</label>
-                    <input type="password" name="truelayer_client_secret" id="truelayer_client_secret" placeholder="••••••••" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-600 dark:border-gray-500 dark:placeholder-gray-400 dark:text-white" value="{{ data['truelayer_client_secret'] }}" />
-                </div>
-                <div>
-                    <label for="sync_interval_seconds" class="block mb-2 text-sm font-medium">Sync Interval (seconds)</label>
-                    <input type="number" name="sync_interval_seconds" id="sync_interval_seconds" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-600 dark:border-gray-500 dark:placeholder-gray-400 dark:text-white" value="{{ data['sync_interval_seconds'] }}" />
-                </div>
-                <div>
-                    <label for="deposit_cooldown_hours" class="block mb-2 text-sm font-medium">Deposit Cooldown (hours)</label>
-                    <input type="number" name="deposit_cooldown_hours" id="deposit_cooldown_hours" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-600 dark:border-gray-500 dark:placeholder-gray-400 dark:text-white" value="{{ data['deposit_cooldown_hours'] }}" />
-                </div>
-
-                <label class="inline-flex items-center cursor-pointer">
-                    <input type="checkbox" name="enable_sync" class="sr-only peer" {% if data['enable_sync'] %} checked {% endif %} />
-                    <div class="relative w-14 h-7 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:start-[4px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
-                    <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">Enable Balance Sync</span>
-                </label>
-
-                <label class="inline-flex items-center cursor-pointer">
-                    <input type="checkbox" name="override_cooldown_spending" class="sr-only peer" {% if data['override_cooldown_spending'] %} checked {% endif %} />
-                    <div class="relative w-14 h-7 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:start-[4px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
-                    <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">Override Cooldown Spending</span>
-                </label>
-        
-                <button type="submit" class="w-full mt-10 text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800">Save</button>
-            </form>
-
-            <form action="{{ url_for('settings.clear_cooldown') }}" method="post" style="margin-top:1rem;">
-                <div class="mb-4">
-                    <label for="account_type" class="block text-sm font-medium text-gray-900 dark:text-gray-300">Select Account</label>
-                    <select id="account_type" name="account_type" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-600 dark:border-gray-500 dark:placeholder-gray-400 dark:text-white">
-                        <option value="">All Accounts</option>
-                        {% for account in accounts %}
-                        <option value="{{ account.type }}">{{ account.type }} (Pot: {{ account.pot_id }})</option>
-                        {% endfor %}
-                    </select>
-                </div>
-                <button type="submit" class="w-full mt-2 text-white bg-red-700 hover:bg-red-800 focus:ring-4 focus:outline-none focus:ring-red-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center">
-                    Clear Cooldown
-                </button>
-            </form>
-        </div>
     </div>
-    
-    <!-- Admin Settings Section (Only visible to admins) -->
-    {% if current_user.is_admin %}
-    <div class="bg-white dark:bg-gray-800 shadow-md rounded-lg p-6 mb-8">
-        <h2 class="text-xl font-semibold mb-4 text-gray-800 dark:text-white">Admin Settings</h2>
-        
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            <a href="{{ url_for('settings.email_settings') }}" class="block bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg p-6 shadow-sm hover:shadow-md transition">
-                <div class="flex items-center">
-                    <div class="p-3 rounded-full bg-blue-100 dark:bg-blue-900">
-                        <svg class="w-6 h-6 text-blue-600 dark:text-blue-400" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
-                            <path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z"></path>
-                            <path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z"></path>
-                        </svg>
-                    </div>
-                    <div class="ml-4">
-                        <h3 class="text-lg font-medium text-gray-900 dark:text-white">Email Settings</h3>
-                        <p class="text-sm text-gray-500 dark:text-gray-400">Configure SMTP server for email notifications</p>
-                    </div>
-                </div>
-            </a>
-            
-            <!-- Add more admin settings cards here -->
-        </div>
-    </div>
-    {% endif %}
 </div>
 {% endblock %}

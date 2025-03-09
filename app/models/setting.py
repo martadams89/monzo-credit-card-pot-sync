@@ -1,23 +1,34 @@
+"""Model for application settings."""
+
+from datetime import datetime
 from app.extensions import db
 
-
-class SettingModel(db.Model):
-    key = db.Column(db.String, primary_key=True)
-    value = db.Column(db.String(2048))
-
-
-@db.event.listens_for(SettingModel.__table__, "after_create")
-def after_create(tbl, conn, **kw) -> None:
-    conn.execute(
-        tbl.insert(),
-        [
-            {"key": "monzo_client_id", "value": ""},
-            {"key": "monzo_client_secret", "value": ""},
-            {"key": "truelayer_client_id", "value": ""},
-            {"key": "truelayer_client_secret", "value": ""},
-            {"key": "enable_sync", "value": True},
-            {"key": "sync_interval_seconds", "value": 120},
-            {"key": "deposit_cooldown_hours", "value": 3},
-            {"key": "override_cooldown_spending", "value": True},
-        ],
-    )
+class Setting(db.Model):
+    """Model for application settings."""
+    
+    __tablename__ = 'settings'
+    
+    key = db.Column(db.String(255), primary_key=True)
+    value = db.Column(db.Text, nullable=True)
+    
+    # Remove timestamp columns for now as they don't exist in the database yet
+    # created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    # updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    def __repr__(self):
+        """Return string representation."""
+        return f'<Setting {self.key}>'
+    
+    @classmethod
+    def get_value(cls, key, default=None):
+        """Get a setting value directly.
+        
+        Args:
+            key: Setting key
+            default: Default value if setting is not found
+            
+        Returns:
+            The setting value or default
+        """
+        setting = cls.query.filter_by(key=key).first()
+        return setting.value if setting else default

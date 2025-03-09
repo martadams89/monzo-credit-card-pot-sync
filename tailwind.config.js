@@ -2,13 +2,13 @@
 module.exports = {
   content: [
     "./app/templates/**/*.html",
-    "./node_modules/flowbite/**/*.js"
+    "./app/static/**/*.js",
   ],
-  darkMode: 'media',
+  darkMode: 'class',
   theme: {
     extend: {},
   },
   plugins: [
-    require("flowbite/plugin")
-  ]
+    require('@tailwindcss/forms'),
+  ],
 }

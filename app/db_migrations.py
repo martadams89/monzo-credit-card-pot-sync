@@ -1,159 +1,140 @@
-"""Database migration utilities"""
+"""Utility for managing database migrations at application startup."""
 
+import os
 import logging
 from flask import current_app
-import sqlalchemy as sa
-from sqlalchemy.exc import SQLAlchemyError, OperationalError
-from app.models.user import User
-from app.models.setting import Setting
-from app.models.cooldown import Cooldown
+from flask_migrate import Migrate, upgrade
+from alembic.migration import MigrationContext
+from sqlalchemy import inspect
+from sqlalchemy.exc import OperationalError
 
-log = logging.getLogger("db_migrations")
+logger = logging.getLogger(__name__)
 
-# Store migration functions 
-# Each function takes the db connection and performs a migration step
-MIGRATIONS = []
-
-def migration(func):
-    """Decorator to register a migration function"""
-    MIGRATIONS.append(func)
-    return func
-
-@migration
-def create_setting_version_table(db):
-    """Create the db_version table if it doesn't exist"""
+def check_and_apply_migrations(app, db):
+    """Check if database exists and is up to date with migrations.
+    
+    This function:
+    1. Checks if the database exists, creates it if not
+    2. Creates tables if they don't exist
+    3. Applies any pending migrations
+    
+    Args:
+        app: Flask application instance
+        db: SQLAlchemy instance
+        
+    Returns:
+        bool: True if database is ready, False if there were errors
+    """
     try:
-        db.session.execute("""
-            CREATE TABLE IF NOT EXISTS db_version (
-                id INTEGER PRIMARY KEY,
-                version INTEGER NOT NULL,
-                applied_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
-            )
-        """)
+        logger.info("Checking database status...")
         
-        # Check if we have a version row, if not create it
-        version = db.session.execute("SELECT version FROM db_version").fetchone()
-        if not version:
-            db.session.execute("INSERT INTO db_version (version) VALUES (0)")
-        
-        db.session.commit()
-        return True
-    except SQLAlchemyError as e:
-        db.session.rollback()
-        log.error(f"Error creating version table: {e}")
-        return False
-
-@migration
-def add_security_fields_to_user(db):
-    """Add security-related fields to User table"""
-    try:
-        # Check if the columns exist before trying to add them
-        inspector = sa.inspect(db.engine)
-        columns = [col['name'] for col in inspector.get_columns('user')]
-        
-        # Only add columns that don't exist
-        columns_to_add = []
-        
-        if 'email_verified' not in columns:
-            columns_to_add.append("ALTER TABLE user ADD COLUMN email_verified BOOLEAN DEFAULT 0")
-        
-        if 'email_verification_token' not in columns:
-            columns_to_add.append("ALTER TABLE user ADD COLUMN email_verification_token TEXT")
-        
-        if 'email_verification_expiry' not in columns:
-            columns_to_add.append("ALTER TABLE user ADD COLUMN email_verification_expiry TIMESTAMP")
-        
-        if 'totp_secret' not in columns:
-            columns_to_add.append("ALTER TABLE user ADD COLUMN totp_secret TEXT")
-        
-        if 'totp_enabled' not in columns:
-            columns_to_add.append("ALTER TABLE user ADD COLUMN totp_enabled BOOLEAN DEFAULT 0")
-        
-        if 'backup_codes' not in columns:
-            columns_to_add.append("ALTER TABLE user ADD COLUMN backup_codes TEXT")
-        
-        if 'passkeys' not in columns:
-            columns_to_add.append("ALTER TABLE user ADD COLUMN passkeys TEXT DEFAULT '[]'")
-        
-        if 'preferences' not in columns:
-            columns_to_add.append("ALTER TABLE user ADD COLUMN preferences TEXT DEFAULT '{}'")
-        
-        if 'last_login_at' not in columns:
-            columns_to_add.append("ALTER TABLE user ADD COLUMN last_login_at TIMESTAMP")
-        
-        if 'last_login_ip' not in columns:
-            columns_to_add.append("ALTER TABLE user ADD COLUMN last_login_ip TEXT")
-        
-        # Execute all alter table statements
-        for statement in columns_to_add:
-            try:
-                db.session.execute(statement)
-            except OperationalError as e:
-                # If column already exists, SQLite will raise an error
-                log.warning(f"Column already exists: {e}")
-        
-        db.session.commit()
-        return True
-    except SQLAlchemyError as e:
-        db.session.rollback()
-        log.error(f"Error adding security fields: {e}")
-        return False
-
-def get_current_db_version(db):
-    """Get the current database version"""
-    try:
-        # Check if version table exists
-        inspector = sa.inspect(db.engine)
-        if 'db_version' not in inspector.get_table_names():
-            return 0
-            
-        version = db.session.execute("SELECT version FROM db_version").fetchone()
-        return version[0] if version else 0
-    except SQLAlchemyError as e:
-        log.error(f"Error getting db version: {e}")
-        return 0
-
-def update_db_version(db, new_version):
-    """Update the database version"""
-    try:
-        db.session.execute("UPDATE db_version SET version = :version", {"version": new_version})
-        db.session.commit()
-        return True
-    except SQLAlchemyError as e:
-        db.session.rollback()
-        log.error(f"Error updating db version: {e}")
-        return False
-
-def run_migrations(db):
-    """Run all pending migrations"""
-    log.info("Running database migrations...")
-    
-    # Create version table if it doesn't exist
-    create_setting_version_table(db)
-    
-    current_version = get_current_db_version(db)
-    target_version = len(MIGRATIONS)
-    
-    log.info(f"Current DB version: {current_version}, Target version: {target_version}")
-    
-    if current_version >= target_version:
-        log.info("Database is up to date")
-        return True
-    
-    success = True
-    for i in range(current_version, target_version):
-        migration_func = MIGRATIONS[i]
-        log.info(f"Running migration {i+1}: {migration_func.__name__}")
-        
-        if migration_func(db):
-            log.info(f"Migration {i+1} completed successfully")
+        # Check if database exists and create if needed
+        if ensure_database_exists(app, db):
+            logger.info("Database exists or was created successfully.")
         else:
-            log.error(f"Migration {i+1} failed")
-            success = False
-            break
-    
-    if success:
-        update_db_version(db, target_version)
-        log.info(f"Migrations completed successfully. New db version: {target_version}")
-    
-    return success
+            logger.error("Failed to create or access database.")
+            return False
+        
+        # Check if tables exist and create if needed
+        if ensure_tables_exist(app, db):
+            logger.info("Database tables exist or were created successfully.")
+        else:
+            logger.error("Failed to create database tables.")
+            return False
+        
+        # Apply migrations
+        if apply_migrations(app, db):
+            logger.info("Database migrations applied successfully.")
+        else:
+            logger.warning("Failed to apply some migrations.")
+            # Continue anyway as the database might still be usable
+        
+        return True
+        
+    except Exception as e:
+        logger.exception(f"Error during database migration check: {str(e)}")
+        return False
+
+def ensure_database_exists(app, db):
+    """Ensure the SQLite database exists."""
+    try:
+        # Try to connect to the database
+        engine = db.engine
+        connection = engine.connect()
+        connection.close()
+        return True
+    except OperationalError:
+        # Database doesn't exist, create its directory
+        db_path = app.config['SQLALCHEMY_DATABASE_URI'].replace('sqlite:///', '')
+        if not db_path:  # In-memory SQLite
+            return True
+            
+        # Create directory for SQLite database file
+        os.makedirs(os.path.dirname(os.path.abspath(db_path)), exist_ok=True)
+        return True
+
+def ensure_tables_exist(app, db):
+    """Ensure database tables exist."""
+    try:
+        inspector = inspect(db.engine)
+        existing_tables = inspector.get_table_names()
+        
+        # Check if key tables exist
+        required_tables = ['users', 'accounts', 'sync_records', 'settings']
+        missing_tables = [table for table in required_tables if table not in existing_tables]
+        
+        if missing_tables:
+            logger.info(f"Missing tables: {', '.join(missing_tables)}")
+            logger.info("Creating all tables...")
+            db.create_all()
+            return True
+        else:
+            logger.info("All required tables exist.")
+            return True
+            
+    except Exception as e:
+        logger.exception(f"Error checking/creating tables: {str(e)}")
+        return False
+
+def apply_migrations(app, db):
+    """Apply any pending migrations."""
+    try:
+        # Initialize Flask-Migrate
+        migrations_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'migrations')
+        migrate = Migrate(app, db, directory=migrations_dir)
+        
+        # Check if we have any pending migrations
+        with app.app_context():
+            conn = db.engine.connect()
+            context = MigrationContext.configure(conn)
+            current_rev = context.get_current_revision()
+            logger.info(f"Current migration revision: {current_rev or 'None'}")
+            
+            # Try to apply migrations, handling the multiple heads case
+            try:
+                # First try normal upgrade
+                upgrade(directory=migrations_dir)
+            except Exception as e:
+                if "Multiple head revisions are present" in str(e):
+                    # Handle multiple heads by using 'heads' instead of 'head'
+                    logger.warning("Multiple migration heads detected. Attempting to apply all heads.")
+                    try:
+                        upgrade(directory=migrations_dir, revision='heads')
+                    except Exception as e2:
+                        logger.error(f"Error applying multiple heads: {str(e2)}")
+                        return False
+                else:
+                    logger.error(f"Error during migration: {str(e)}")
+                    return False
+            
+            # Get new revision
+            context = MigrationContext.configure(conn)
+            new_rev = context.get_current_revision()
+            logger.info(f"New migration revision: {new_rev or 'None'}")
+            
+            conn.close()
+            
+        return True
+    except Exception as e:
+        logger.exception(f"Error applying migrations: {str(e)}")
+        return False

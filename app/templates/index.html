@@ -1,14 +1,55 @@
 {% extends 'base.html' %}
 
 {% block content %}
-<section class="bg-white dark:bg-gray-900 bg-[url('https://flowbite.s3.amazonaws.com/docs/jumbotron/hero-pattern.svg')] dark:bg-[url('https://flowbite.s3.amazonaws.com/docs/jumbotron/hero-pattern-dark.svg')]">
-    <div class="py-8 px-4 mx-auto max-w-screen-xl text-center lg:py-16 z-10 relative">
-        <h1 class="mb-4 text-4xl font-extrabold tracking-tight leading-none text-gray-900 md:text-5xl lg:text-6xl dark:text-white">Simplify Your Spend</h1>
-        <p class="mb-8 text-lg font-normal text-gray-500 lg:text-xl sm:px-16 lg:px-48 dark:text-gray-200">
-            Day-to-day spend on credit cards? You're not alone!
-            <br /><br />
-            Automatically keep track, and move money to a Monzo pot of your choice. No need to open the Monzo app everytime you buy a coffee!</p>
+<div class="container mx-auto px-4 py-8">
+    <div class="bg-white dark:bg-gray-800 shadow-md rounded-lg p-6 md:p-8 max-w-3xl mx-auto mt-6">
+        <div class="text-center mb-8">
+            <h1 class="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white mb-4">Monzo Credit Card Pot Sync</h1>
+            <p class="text-lg text-gray-600 dark:text-gray-400">Automatically keep your Monzo pots synchronized with your credit card balances.</p>
+        </div>
+
+        <div class="space-y-8">
+            <!-- Feature Section -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div class="text-center">
+                    <div class="bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 p-3 rounded-full inline-flex mx-auto mb-4">
+                        <svg class="w-6 h-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                    </div>
+                    <h3 class="font-semibold text-gray-900 dark:text-white">Automatic Sync</h3>
+                    <p class="text-gray-600 dark:text-gray-400 text-sm">Keep your pot balances matching your credit card spending.</p>
+                </div>
+                <div class="text-center">
+                    <div class="bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 p-3 rounded-full inline-flex mx-auto mb-4">
+                        <svg class="w-6 h-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                        </svg>
+                    </div>
+                    <h3 class="font-semibold text-gray-900 dark:text-white">Multiple Providers</h3>
+                    <p class="text-gray-600 dark:text-gray-400 text-sm">Connect various credit cards through secure APIs.</p>
+                </div>
+                <div class="text-center">
+                    <div class="bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 p-3 rounded-full inline-flex mx-auto mb-4">
+                        <svg class="w-6 h-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        </svg>
+                    </div>
+                    <h3 class="font-semibold text-gray-900 dark:text-white">Customizable</h3>
+                    <p class="text-gray-600 dark:text-gray-400 text-sm">Configure settings to match your financial habits.</p>
+                </div>
+            </div>
+
+            <!-- Call to Action - removing duplicate buttons since they're in the nav -->
+            {% if not current_user.is_authenticated %}
+            <div class="flex justify-center">
+                <p class="text-gray-600 dark:text-gray-400">
+                    Use the login/register buttons in the top navigation bar to get started!
+                </p>
+            </div>
+            {% endif %}
+        </div>
     </div>
-    <div class="bg-gradient-to-b from-blue-50 to-transparent dark:from-gray-800 w-full h-full absolute top-16 left-0 z-0"></div>
-</section>
+</div>
 {% endblock %}

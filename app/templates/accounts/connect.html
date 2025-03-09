@@ -1,0 +1,108 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <h1 class="text-2xl font-bold mb-6">Connect a New Account</h1>
+    
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="mb-4 p-3 rounded 
+                    {% if category == 'error' %}bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300{% endif %}
+                    {% if category == 'success' %}bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300{% endif %}
+                    {% if category == 'info' or category == 'message' %}bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300{% endif %}">
+                    {{ message }}
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+    
+    <div class="flex flex-col md:flex-row gap-8">
+        <!-- Monzo Connection Card -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 flex-1">
+            <div class="flex items-center mb-4">
+                <img src="{{ url_for('static', filename='img/monzo.svg') }}" alt="Monzo" class="h-8 w-auto mr-2">
+                <h2 class="text-xl font-semibold">Connect Monzo Account</h2>
+            </div>
+            
+            <p class="text-gray-600 dark:text-gray-400 mb-4">
+                Connect your Monzo account to manage your pots and balance.
+            </p>
+            
+            <div class="mb-6">
+                <h3 class="text-lg font-medium mb-2">Requirements:</h3>
+                <ul class="text-sm text-gray-600 dark:text-gray-400 space-y-2">
+                    <li class="flex items-center">
+                        <svg class="h-4 w-4 text-green-500 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                        </svg>
+                        Monzo current account
+                    </li>
+                    <li class="flex items-center">
+                        <svg class="h-4 w-4 text-green-500 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                        </svg>
+                        Monzo app installed on your phone
+                    </li>
+                </ul>
+            </div>
+            
+            <a href="{{ url_for('accounts.connect_monzo') }}" class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-pink-600 hover:bg-pink-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-pink-500">
+                Connect Monzo
+            </a>
+        </div>
+        
+        <!-- Credit Card Connection Card -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 flex-1">
+            <div class="flex items-center mb-4">
+                <svg class="h-8 w-8 text-gray-700 dark:text-gray-300 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"></path>
+                </svg>
+                <h2 class="text-xl font-semibold">Connect Credit Card</h2>
+            </div>
+            
+            <p class="text-gray-600 dark:text-gray-400 mb-4">
+                Connect your credit cards to keep track of balances and sync with your pots.
+            </p>
+            
+            <div class="mb-6">
+                <h3 class="text-lg font-medium mb-2">Features:</h3>
+                <ul class="text-sm text-gray-600 dark:text-gray-400 space-y-2">
+                    <li class="flex items-center">
+                        <svg class="h-4 w-4 text-green-500 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                        </svg>
+                        Connection via secure Open Banking
+                    </li>
+                    <li class="flex items-center">
+                        <svg class="h-4 w-4 text-green-500 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                        </svg>
+                        Read-only access to card balance
+                    </li>
+                </ul>
+            </div>
+            
+            <a href="{{ url_for('accounts.connect_credit_card') }}" class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                Connect Credit Card
+            </a>
+        </div>
+    </div>
+    
+    <div class="mt-12 bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
+        <h2 class="text-xl font-semibold mb-4">How It Works</h2>
+        
+        <ol class="list-decimal list-inside space-y-4 text-gray-700 dark:text-gray-300">
+            <li><strong>Connect your accounts</strong> - Link your Monzo account and credit cards</li>
+            <li><strong>Map your credit cards to pots</strong> - Choose which Monzo pot should track each credit card</li>
+            <li><strong>Set up is complete</strong> - The app will now keep your pot balances in sync with your credit cards</li>
+        </ol>
+        
+        <div class="mt-6 flex justify-center">
+            <a href="{{ url_for('accounts.manage') }}" class="text-blue-600 dark:text-blue-400 hover:underline">
+                Return to accounts management
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,101 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <div class="max-w-3xl mx-auto">
+        <h1 class="text-2xl font-bold mb-6">Email Settings</h1>
+        
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="mb-4 p-3 rounded 
+                        {% if category == 'error' %}bg-red-100 text-red-700 border border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800{% endif %}
+                        {% if category == 'success' %}bg-green-100 text-green-700 border border-green-200 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800{% endif %}
+                        {% if category == 'info' or category == 'message' %}bg-blue-100 text-blue-700 border border-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800{% endif %}">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+        
+        <div class="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
+            <form method="POST" action="{{ url_for('settings.email_settings') }}">
+                {{ form.hidden_tag() }}
+                
+                <div class="space-y-4">
+                    <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-4">SMTP Configuration</h3>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label for="{{ form.smtp_server.id }}" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">SMTP Server</label>
+                            {{ form.smtp_server(class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white", placeholder="smtp.example.com") }}
+                            {% if form.smtp_server.errors %}
+                                <div class="text-red-500 text-sm">{{ form.smtp_server.errors[0] }}</div>
+                            {% endif %}
+                        </div>
+                        
+                        <div>
+                            <label for="{{ form.smtp_port.id }}" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">SMTP Port</label>
+                            {{ form.smtp_port(class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white", placeholder="587") }}
+                            {% if form.smtp_port.errors %}
+                                <div class="text-red-500 text-sm">{{ form.smtp_port.errors[0] }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label for="{{ form.smtp_username.id }}" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">SMTP Username</label>
+                            {{ form.smtp_username(class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white", placeholder="username") }}
+                            {% if form.smtp_username.errors %}
+                                <div class="text-red-500 text-sm">{{ form.smtp_username.errors[0] }}</div>
+                            {% endif %}
+                        </div>
+                        
+                        <div>
+                            <label for="{{ form.smtp_password.id }}" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">SMTP Password</label>
+                            {{ form.smtp_password(class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white", placeholder="••••••••") }}
+                            {% if form.smtp_password.errors %}
+                                <div class="text-red-500 text-sm">{{ form.smtp_password.errors[0] }}</div>
+                            {% endif %}
+                            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Leave blank to keep current password</p>
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <label for="{{ form.default_sender.id }}" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Default Sender Email</label>
+                        {{ form.default_sender(class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white", placeholder="noreply@example.com") }}
+                        {% if form.default_sender.errors %}
+                            <div class="text-red-500 text-sm">{{ form.default_sender.errors[0] }}</div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="flex items-center">
+                        {{ form.smtp_use_tls(class="w-4 h-4 text-blue-600 bg-gray-100 rounded border-gray-300 focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600") }}
+                        <label for="{{ form.smtp_use_tls.id }}" class="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">Use TLS</label>
+                    </div>
+                    
+                </div>
+                
+                <div class="mt-6 flex justify-between">
+                    <a href="{{ url_for('settings.index') }}" class="py-2 px-4 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                        Cancel
+                    </a>
+                    {{ form.submit(class="py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500") }}
+                </div>
+            </form>
+        </div>
+        
+        <div class="mt-6">
+            <form method="POST" action="{{ url_for('settings.test_email') }}" class="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-4">Test Email Configuration</h3>
+                <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">Send a test email to verify your configuration is working correctly.</p>
+                <button type="submit" class="py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
+                    Send Test Email
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

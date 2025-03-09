@@ -1,168 +1,177 @@
-"""Service for processing individual account transactions and adjustments"""
+"""
+Service for processing and analyzing account data.
+
+This service provides utilities for processing account data, including
+analyzing balance changes, filtering accounts, and determining sync actions.
+"""
 
 import logging
-import time
-import datetime
+from typing import Dict, Any, List, Optional, Tuple
+from datetime import datetime
 
-log = logging.getLogger("account_processing_service")
+log = logging.getLogger(__name__)
 
 class AccountProcessingService:
-    """Handles processing of individual account transactions"""
+    """Service for processing and analyzing account data."""
     
-    def __init__(self, account_repository, balance_service, cooldown_service, settings_repository, db_session):
-        self.account_repository = account_repository
-        self.balance_service = balance_service
+    def __init__(self, cooldown_service=None, balance_service=None, account_service=None):
+        """Initialize AccountProcessingService.
+        
+        Args:
+            cooldown_service: Service for managing cooldown periods
+            balance_service: Service for retrieving balance information
+            account_service: Service for managing accounts
+        """
         self.cooldown_service = cooldown_service
-        self.settings_repository = settings_repository
-        self.db = db_session
-        
-    def process_override_branch(self, monzo_account, credit_account, live_card_balance, current_pot):
-        """Process an account with override enabled during active cooldown"""
-        log.info("Step: OVERRIDE branch activated due to cooldown flag.")
-        selection = monzo_account.get_account_type(credit_account.pot_id)
-        
-        # Calculate deposit as the additional spending since the previous baseline
-        diff = live_card_balance - credit_account.prev_balance
-        if diff > 0:
-            success, new_pot = self.balance_service.add_to_pot(
-                monzo_account, 
-                credit_account, 
-                diff, 
-                reason="override deposit"
-            )
-            
-            if success:
-                log.info(
-                    f"[Override] {credit_account.type}: Override deposit of £{diff/100:.2f} executed "
-                    f"as card increased from £{credit_account.prev_balance/100:.2f} to £{live_card_balance/100:.2f}."
-                )
-                # Update card baseline but keep the previous shortfall queued (cooldown remains active)
-                credit_account.prev_balance = live_card_balance
-                self.account_repository.save(credit_account)
-                self.db.session.commit()
-                
-        if live_card_balance < current_pot:
-            log.info(f"[Override] {credit_account.type}: Withdrawal due to pot exceeding card balance.")
-            diff = current_pot - live_card_balance
-            
-            new_pot = self.balance_service.withdraw_from_pot(
-                monzo_account, 
-                credit_account, 
-                diff, 
-                reason="override withdrawal"
-            )
-            
-            log.info(
-                f"[Override] {credit_account.type}: Withdrew £{diff / 100:.2f} as pot exceeded card. "
-                f"Pot changed from £{current_pot / 100:.2f} to £{new_pot / 100:.2f} while card remains at £{live_card_balance / 100:.2f}."
-            )
-            credit_account.prev_balance = live_card_balance
-            self.account_repository.save(credit_account)
-            
-        log.info(f"Step: Finished OVERRIDE branch for account '{credit_account.type}'.")
-        
-    def process_standard_adjustment(self, monzo_account, credit_account, live_card_balance, current_pot):
-        """Process standard balance adjustment for an account"""
-        if live_card_balance < current_pot:
-            self.handle_withdrawal(monzo_account, credit_account, live_card_balance, current_pot)
-            
-        elif live_card_balance > credit_account.prev_balance:
-            self.handle_deposit(monzo_account, credit_account, live_card_balance, current_pot)
-            
-        elif live_card_balance == credit_account.prev_balance:
-            if current_pot < live_card_balance:
-                self.handle_pot_shortfall(monzo_account, credit_account, live_card_balance, current_pot)
-            else:
-                log.info(f"[Standard] {credit_account.type}: Card and pot balance unchanged; no action taken.")
+        self.balance_service = balance_service
+        self.account_service = account_service
     
-    def handle_withdrawal(self, monzo_account, credit_account, live_card_balance, current_pot):
-        """Handle withdrawal when pot balance exceeds card balance"""
-        log.info("Step: Withdrawal due to pot exceeding card balance.")
-        diff = current_pot - live_card_balance
+    def analyze_account_data(self, accounts) -> List[Dict[str, Any]]:
+        """Analyze account data to determine status and actions needed.
         
-        new_pot = self.balance_service.withdraw_from_pot(
-            monzo_account, 
-            credit_account, 
-            diff, 
-            reason="standard withdrawal"
-        )
-        
-        log.info(
-            f"[Standard] {credit_account.type}: Withdrew £{diff / 100:.2f} as pot exceeded card. "
-            f"Pot changed from £{current_pot / 100:.2f} to £{new_pot / 100:.2f} while card remains at £{live_card_balance / 100:.2f}."
-        )
-        credit_account.prev_balance = live_card_balance
-        self.account_repository.save(credit_account)
-        
-    def handle_deposit(self, monzo_account, credit_account, live_card_balance, current_pot):
-        """Handle deposit when card balance increases"""
-        log.info("Step: Regular spending detected (card balance increased).")
-        diff = live_card_balance - current_pot
-        
-        success, new_pot = self.balance_service.add_to_pot(
-            monzo_account, 
-            credit_account, 
-            diff, 
-            reason="standard deposit"
-        )
-        
-        if not success:
-            return
+        Args:
+            accounts: List of account objects
             
-        log.info(
-            f"[Standard] {credit_account.type}: Deposited £{diff / 100:.2f}. "
-            f"Pot updated from £{current_pot / 100:.2f} to £{new_pot / 100:.2f}; card increased from £{credit_account.prev_balance / 100:.2f} to £{live_card_balance / 100:.2f}."
-        )
-        credit_account.prev_balance = live_card_balance
-        self.account_repository.update_credit_account_fields(
-            credit_account.type,
-            credit_account.pot_id,
-            live_card_balance,
-            credit_account.cooldown_until
-        )
-        self.db.session.commit()
-
-    def handle_pot_shortfall(self, monzo_account, credit_account, live_card_balance, current_pot):
-        """Handle pot shortfall when card balance is unchanged but pot balance is less"""
-        log.info("Step: No increase in card balance detected.")
+        Returns:
+            list: Analysis results for each account
+        """
+        results = []
         
-        if self.settings_repository.get("enable_sync") == "False":
-            log.info(f"[Standard] {credit_account.type}: Sync disabled; not initiating cooldown.")
-            return
+        for account in accounts:
+            # Initialize result for this account
+            result = {
+                "account": account,
+                "error": None,
+                "card_balance": None,
+                "pot_balance": None,
+                "pot_needs_update": False,
+                "update_amount": 0,
+                "action_type": None,
+                "cooldown_active": False,
+                "cooldown_expires": None,
+                "sync_percentage": 100,  # Default to 100% sync
+                "last_synced": account.last_synced_at
+            }
             
-        # Check for existing cooldown
-        if credit_account.cooldown_until is not None:
-            # Double-check persistence of the cooldown value
-            self.db.session.commit()
-            if hasattr(credit_account, "_sa_instance_state"):
-                self.db.session.expire(credit_account)
-            refreshed = self.account_repository.get(credit_account.type)
-            now = int(time.time())
-            if refreshed.cooldown_until and refreshed.cooldown_until > now:
-                log.info(f"[Standard] {credit_account.type}: Cooldown already active; no new cooldown initiated.")
-                return
-            else:
-                log.info("Persisted cooldown check not active; proceeding to initiate cooldown.")
+            # Check if account is in cooldown
+            if self.cooldown_service and self.cooldown_service.is_in_cooldown(account.account_id, account.user_id):
+                result["cooldown_active"] = True
+                remaining_time = self.cooldown_service.get_remaining_time(account.account_id, account.user_id)
+                cooldown = self.cooldown_service.get_active_cooldown(account.account_id, account.user_id)
+                if cooldown:
+                    result["cooldown_expires"] = cooldown.expires_at
                 
-        # Start new cooldown using the cooldown service
-        log.info("Situation: Pot dropped below card balance without confirmed spending.")
-        new_cooldown = self.cooldown_service.start_new_cooldown(credit_account)
-        
-        hr_cooldown = datetime.datetime.fromtimestamp(new_cooldown).strftime("%Y-%m-%d %H:%M:%S")
-        log.info(
-            f"[Standard] {credit_account.type}: Initiating cooldown because pot (£{current_pot / 100:.2f}) is less than card (£{live_card_balance / 100:.2f}). "
-            f"Cooldown set until {hr_cooldown} (epoch: {new_cooldown})."
-        )
-        self.account_repository.save(credit_account)
-        
-        # Verify cooldown was saved correctly
-        try:
-            self.db.session.commit()
-            refreshed = self.account_repository.get(credit_account.type)
-            if refreshed.cooldown_until != new_cooldown:
-                log.error(f"[Standard] {credit_account.type}: Cooldown persistence error: expected {new_cooldown}, got {refreshed.cooldown_until}.")
+                # If in cooldown, we can still get balances to show sync percentage
+                self._add_balance_data(account, result)
             else:
-                log.info(f"[Standard] {credit_account.type}: Cooldown persisted successfully.")
+                # Not in cooldown, analyze for potential actions
+                self._add_balance_data(account, result)
+                
+                # Determine if pot needs updating
+                if result["card_balance"] is not None and result["pot_balance"] is not None:
+                    diff = result["card_balance"] - result["pot_balance"]
+                    
+                    if abs(diff) >= 100:  # Difference of at least £1
+                        result["pot_needs_update"] = True
+                        result["update_amount"] = diff
+                        result["action_type"] = "deposit" if diff > 0 else "withdraw"
+                    
+                    # Calculate sync percentage
+                    if result["card_balance"] != 0:
+                        sync_level = max(0, 100 - min(100, (100 * abs(diff) / abs(result["card_balance"]))))
+                        result["sync_percentage"] = round(sync_level)
+                    else:
+                        # If card balance is 0, calculate based on pot balance
+                        if result["pot_balance"] == 0:
+                            result["sync_percentage"] = 100  # Both zero means perfect sync
+                        else:
+                            result["sync_percentage"] = 0  # Card is 0 but pot isn't
+            
+            results.append(result)
+        
+        return results
+    
+    def _add_balance_data(self, account, result):
+        """Add balance data to the result.
+        
+        Args:
+            account: Account object
+            result: Result dictionary to update
+        """
+        try:
+            # Get card balance
+            if self.balance_service:
+                card_balance = self.balance_service.get_credit_card_balance(account)
+                result["card_balance"] = card_balance
+                
+                # Get pot balance
+                pot_balance = self.balance_service.get_pot_balance(account)
+                result["pot_balance"] = pot_balance
+                
+                # If either balance is unavailable, set error
+                if card_balance is None or pot_balance is None:
+                    result["error"] = "Could not retrieve one or both balances"
         except Exception as e:
-            self.db.session.rollback()
-            log.error(f"[Standard] {credit_account.type}: Error committing cooldown to database: {e}")
+            log.error(f"Error getting balances for account {account.id}: {str(e)}")
+            result["error"] = f"Error retrieving balances: {str(e)}"
+    
+    def filter_accounts(self, accounts, filters=None) -> List:
+        """Filter accounts based on criteria.
+        
+        Args:
+            accounts: List of account objects
+            filters: Dictionary of filter criteria
+            
+        Returns:
+            list: Filtered accounts
+        """
+        if not filters:
+            return accounts
+        
+        filtered = accounts
+        
+        # Filter by type
+        if "type" in filters:
+            filtered = [a for a in filtered if a.type == filters["type"]]
+        
+        # Filter by user_id
+        if "user_id" in filters:
+            filtered = [a for a in filtered if a.user_id == filters["user_id"]]
+        
+        # Filter by cooldown status
+        if "in_cooldown" in filters and self.cooldown_service:
+            in_cooldown = filters["in_cooldown"]
+            filtered = [
+                a for a in filtered if 
+                self.cooldown_service.is_in_cooldown(a.account_id, a.user_id) == in_cooldown
+            ]
+        
+        # Filter by pot_id presence
+        if "has_pot" in filters:
+            has_pot = filters["has_pot"]
+            filtered = [a for a in filtered if bool(a.pot_id) == has_pot]
+        
+        return filtered
+    
+    def get_accounts_needing_action(self) -> List:
+        """Get accounts that need action (not in cooldown and with pot mappings).
+        
+        Returns:
+            list: Accounts needing potential action
+        """
+        if not self.account_service or not self.cooldown_service:
+            log.error("Required services not available")
+            return []
+        
+        try:
+            # Get all accounts
+            all_accounts = self.account_service.get_all_accounts()
+            
+            # Filter accounts
+            return self.filter_accounts(all_accounts, {
+                "in_cooldown": False,
+                "has_pot": True
+            })
+        except Exception as e:
+            log.error(f"Error getting accounts needing action: {str(e)}")
+            return []

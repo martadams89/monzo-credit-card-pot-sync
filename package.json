@@ -1,14 +1,26 @@
 {
+  "name": "monzo-credit-card-pot-sync",
+  "version": "1.0.0",
+  "description": "Synchronize Monzo pots with credit card balances",
   "scripts": {
-    "start": "flask --app app run --port=1337",
-    "dev": "npm run build-css-live & flask --app app run --port=1337 --debug",
-    "build-css": "tailwindcss -i ./app/static/css/src/input.css -o ./app/static/css/dist/output.css",
-    "build-css-live": "tailwindcss -i ./app/static/css/src/input.css -o ./app/static/css/dist/output.css --watch"
+    "start": "flask run",
+    "dev": "concurrently \"npm run build-css-live\" \"flask run --reload\"",
+    "build-css": "npx tailwindcss -i ./app/static/css/src/input.css -o ./app/static/css/dist/output.css --minify",
+    "build-css-live": "npx tailwindcss -i ./app/static/css/src/input.css -o ./app/static/css/dist/output.css --watch",
+    "test": "pytest"
   },
   "devDependencies": {
-    "tailwindcss": "^3.4.17"
+    "@tailwindcss/forms": "^0.5.6",
+    "tailwindcss": "^3.4.17",
+    "concurrently": "^8.0.0"
   },
   "dependencies": {
     "flowbite": "^2.5.2"
-  }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/martadams89/monzo-credit-card-pot-sync.git"
+  },
+  "author": "Martin Adams",
+  "license": "MIT"
 }

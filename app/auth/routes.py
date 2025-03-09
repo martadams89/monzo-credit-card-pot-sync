@@ -1,308 +1,408 @@
-"""Authentication routes"""
+"""Routes for authentication."""
 
-from flask import render_template, redirect, url_for, flash, request, current_app, session, jsonify
-from flask_login import login_user, logout_user, login_required, current_user
-from app.auth import auth_bp
+import logging
+import secrets
+from datetime import datetime, timedelta
+from flask import Blueprint, render_template, redirect, url_for, flash, request, current_app, session, abort
+from flask_login import login_user, logout_user, current_user, login_required
+from app.auth.forms import LoginForm, RegistrationForm, ResetPasswordRequestForm, ResetPasswordForm
 from app.models.user import User
-from app.auth.forms import LoginForm, RegistrationForm, TwoFactorSetupForm, TwoFactorVerifyForm, ChangePasswordForm
 from app.extensions import db
-from app.services.auth_service import AuthService
-from app.services.passkey_service import PasskeyService
 from app.services.container import container
-import os
-import json
-from datetime import datetime
+from app.utils.error_handler import handle_error
+
+logger = logging.getLogger(__name__)
+
+auth_bp = Blueprint('auth', __name__)
 
 @auth_bp.route('/login', methods=['GET', 'POST'])
 def login():
-    """User login page"""
+    """Login route."""
     if current_user.is_authenticated:
         return redirect(url_for('dashboard.index'))
-        
+    
     form = LoginForm()
+    
     if form.validate_on_submit():
-        user = User.query.filter_by(username=form.username.data).first()
-        if user is None or not user.check_password(form.password.data):
-            flash('Invalid username or password', 'error')
-            return redirect(url_for('auth.login'))
+        user = User.query.filter_by(email=form.email.data).first()
+        
+        if user is None:
+            flash('Invalid email or password.', 'error')
+            return render_template('auth/login.html', title='Sign In', form=form)
             
+        if not user.check_password(form.password.data):
+            flash('Invalid email or password.', 'error')
+            return render_template('auth/login.html', title='Sign In', form=form)
+        
+        if not user.is_active:
+            flash('Your account has been deactivated. Please contact support.', 'error')
+            return render_template('auth/login.html', title='Sign In', form=form)
+            
+        # Log in user
         login_user(user, remember=form.remember_me.data)
+        
+        # Record login in activity log
+        try:
+            history_repo = container().get('history_repository')
+            if history_repo:
+                history_repo.save_activity(user.id, 'login', {
+                    'ip': request.remote_addr,
+                    'user_agent': request.user_agent.string
+                })
+        except Exception as e:
+            logger.error(f"Error recording login activity: {str(e)}")
+        
+        # Redirect to next page or dashboard
         next_page = request.args.get('next')
         if not next_page or not next_page.startswith('/'):
             next_page = url_for('dashboard.index')
         return redirect(next_page)
         
-    return render_template('auth/login.html', form=form, title='Sign In')
+    return render_template('auth/login.html', title='Sign In', form=form)
 
 @auth_bp.route('/logout')
-@login_required
 def logout():
-    """User logout"""
+    """Logout route."""
     logout_user()
-    flash('You have been logged out.', 'info')
+    flash('You have been logged out successfully.', 'info')
     return redirect(url_for('auth.login'))
 
 @auth_bp.route('/register', methods=['GET', 'POST'])
 def register():
-    """User registration - only available on first run or in dev mode"""
-    # Only allow registration if:
-    # 1. No users exist (first setup)
-    # 2. We're in development mode
-    user_count = User.query.count()
-    is_dev_mode = os.environ.get('FLASK_ENV') == 'development'
+    """User registration route."""
+    if current_user.is_authenticated:
+        return redirect(url_for('dashboard.index'))
     
-    if user_count > 0 and not is_dev_mode:
-        flash('Registration is disabled.', 'error')
+    # Check if registration is enabled
+    setting_repository = container().get('setting_repository')
+    allow_registration = setting_repository.get('allow_registration', 'true').lower() in ('true', 'yes', '1')
+    
+    if not allow_registration:
+        flash('Registration is currently disabled. Please contact an administrator.', 'error')
         return redirect(url_for('auth.login'))
-        
+    
     form = RegistrationForm()
-    if form.validate_on_submit():
-        # First user is always admin
-        is_admin = user_count == 0
-        
-        user = User(
-            username=form.username.data,
-            email=form.email.data,
-            is_admin=is_admin
-        )
-        user.set_password(form.password.data)
-        db.session.add(user)
-        db.session.commit()
-        
-        flash('Your account has been created! You can now log in.', 'success')
-        return redirect(url_for('auth.login'))
-        
-    return render_template('auth/register.html', form=form, title='Register')
-
-@auth_bp.route('/two-factor/setup', methods=['GET', 'POST'])
-@login_required
-def two_factor_setup():
-    """Setup two-factor authentication"""
-    auth_service = AuthService(user_repository=None)  # We'll use current_user directly
-    
-    form = TwoFactorSetupForm()
-    
-    # Generate QR code for TOTP setup
-    qr_code = auth_service.get_totp_qr_code(current_user)
-    secret = current_user.totp_secret
     
     if form.validate_on_submit():
-        if auth_service.enable_totp(current_user, form.verification_code.data):
-            flash('Two-factor authentication has been enabled successfully.', 'success')
-            return redirect(url_for('auth.security_settings'))
-        else:
-            flash('Invalid verification code. Please try again.', 'error')
-    
-    return render_template('auth/two_factor_setup.html', 
-                          form=form, 
-                          qr_code=qr_code, 
-                          secret=secret)
-
-@auth_bp.route('/two-factor/disable', methods=['POST'])
-@login_required
-def disable_two_factor():
-    """Disable two-factor authentication"""
-    auth_service = AuthService(user_repository=None)
-    
-    password = request.form.get('password')
-    
-    if auth_service.disable_totp(current_user, password):
-        flash('Two-factor authentication has been disabled.', 'success')
-    else:
-        flash('Incorrect password. Two-factor authentication remains enabled.', 'error')
-    
-    return redirect(url_for('auth.security_settings'))
-
-@auth_bp.route('/two-factor/verify', methods=['GET', 'POST'])
-def two_factor_verify():
-    """Verify two-factor authentication during login"""
-    if not session.get('user_id'):
-        return redirect(url_for('auth.login'))
-    
-    form = TwoFactorVerifyForm()
-    
-    if form.validate_on_submit():
-        user = User.query.get(session['user_id'])
-        auth_service = AuthService(user_repository=None)
-        
-        # Check the code
-        if auth_service.verify_totp(user, form.code.data):
-            login_user(user, remember=session.get('remember_me', False))
-            next_page = session.get('next_page') or url_for('dashboard.index')
+        try:
+            # Create user
+            user = User(
+                username=form.username.data,
+                email=form.email.data,
+                is_active=True,
+                created_at=datetime.utcnow()
+            )
+            user.set_password(form.password.data)
             
-            # Clean up session
-            session.pop('user_id', None)
-            session.pop('remember_me', None)
-            session.pop('next_page', None)
+            # Make first user an admin
+            user_count = User.query.count()
+            if user_count == 0:
+                user.is_admin = True
+                flash('As the first user, you have been granted administrator privileges.', 'info')
             
-            user.last_login_at = datetime.utcnow()
-            user.last_login_ip = request.remote_addr
+            # Save user
+            db.session.add(user)
             db.session.commit()
             
-            return redirect(next_page)
+            # Send welcome email
+            try:
+                email_service = container().get('email_service')
+                if email_service:
+                    email_service.send_template_email(
+                        subject="Welcome to Monzo Credit Card Pot Sync",
+                        recipients=[user.email],
+                        template="welcome",
+                        context={"user": user}
+                    )
+            except Exception as e:
+                logger.error(f"Error sending welcome email: {str(e)}")
             
-        flash('Invalid verification code. Please try again.', 'error')
+            flash('Your account has been created successfully! You can now log in.', 'success')
+            return redirect(url_for('auth.login'))
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Error creating account: {str(e)}', 'error')
     
-    return render_template('auth/two_factor_verify.html', form=form)
+    return render_template('auth/register.html', title='Register', form=form)
 
-@auth_bp.route('/security', methods=['GET'])
-@login_required
-def security_settings():
-    """User security settings page"""
-    change_password_form = ChangePasswordForm()
-    return render_template('auth/security.html', change_password_form=change_password_form)
-
-@auth_bp.route('/change-password', methods=['POST'])
-@login_required
-def change_password():
-    """Handle password change requests"""
-    form = ChangePasswordForm()
+@auth_bp.route('/reset-password', methods=['GET', 'POST'])
+def reset_password_request():
+    """Request password reset route."""
+    if current_user.is_authenticated:
+        return redirect(url_for('dashboard.index'))
+        
+    form = ResetPasswordRequestForm()
     
     if form.validate_on_submit():
-        if not current_user.check_password(form.current_password.data):
-            flash('Current password is incorrect', 'error')
-            return redirect(url_for('auth.security_settings'))
+        user = User.query.filter_by(email=form.email.data).first()
+        
+        if user:
+            # Generate token
+            auth_service = container().get('auth_service')
+            token = auth_service.generate_reset_token(user)
             
-        if form.new_password.data != form.confirm_password.data:
-            flash('New passwords do not match', 'error')
-            return redirect(url_for('auth.security_settings'))
-            
-        current_user.set_password(form.new_password.data)
-        db.session.commit()
-        flash('Your password has been updated', 'success')
-    else:
-        for field, errors in form.errors.items():
-            for error in errors:
-                flash(f"{field}: {error}", 'error')
+            # Send reset email
+            email_service = container().get('email_service')
+            if email_service:
+                reset_url = url_for('auth.reset_password', token=token, _external=True)
                 
-    return redirect(url_for('auth.security_settings'))
-
-@auth_bp.route('/send-verification-email', methods=['POST'])
-@login_required
-def send_verification_email():
-    """Send email verification link to user"""
-    auth_service = container.get('auth_service')
-    
-    # Generate a new token
-    token = auth_service.generate_email_verification_token(current_user)
-    
-    # Create verification link
-    verification_link = url_for('auth.verify_email', token=token, _external=True)
-    
-    # Send verification email
-    email_sent = auth_service.email_service.send_verification_email(current_user, verification_link)
-    
-    if email_sent:
-        flash('Verification email sent. Please check your inbox.', 'success')
-    else:
-        flash('Failed to send verification email. Please try again later.', 'error')
-        
-    return redirect(url_for('auth.security_settings'))
-
-@auth_bp.route('/verify-email/<token>')
-def verify_email(token):
-    """Verify email address using token"""
-    auth_service = container.get('auth_service')
-    
-    success, message = auth_service.verify_email(token)
-    
-    if success:
-        flash(message, 'success')
-    else:
-        flash(message, 'error')
-        
-    if current_user.is_authenticated:
-        return redirect(url_for('auth.security_settings'))
-    else:
+                email_service.send_template_email(
+                    subject="Password Reset Request",
+                    recipients=[user.email],
+                    template="password_reset",
+                    context={"user": user, "reset_url": reset_url}
+                )
+                
+            flash('Check your email for instructions to reset your password.', 'info')
+        else:
+            # Don't reveal that email doesn't exist for security
+            flash('Check your email for instructions to reset your password.', 'info')
+            
         return redirect(url_for('auth.login'))
+        
+    return render_template('auth/reset_password_request.html', title='Reset Password', form=form)
 
-# Passkey (WebAuthn) routes
+@auth_bp.route('/reset-password/<token>', methods=['GET', 'POST'])
+def reset_password(token):
+    """Reset password route."""
+    if current_user.is_authenticated:
+        return redirect(url_for('dashboard.index'))
+        
+    # Verify token
+    auth_service = container().get('auth_service')
+    user = auth_service.verify_reset_token(token)
+    
+    if not user:
+        flash('Invalid or expired reset link. Please try again.', 'error')
+        return redirect(url_for('auth.reset_password_request'))
+        
+    form = ResetPasswordForm()
+    
+    if form.validate_on_submit():
+        user.set_password(form.password.data)
+        db.session.commit()
+        flash('Your password has been reset successfully. You can now log in.', 'success')
+        return redirect(url_for('auth.login'))
+        
+    return render_template('auth/reset_password.html', title='Reset Password', form=form)
+
+@auth_bp.route('/profile')
+@login_required
+def profile():
+    """User profile page."""
+    return render_template('auth/profile.html', title='Your Profile')
+
+@auth_bp.route('/security')
+@login_required
+def security():
+    """User security settings page."""
+    return render_template('auth/security.html', title='Security Settings')
+
 @auth_bp.route('/passkeys')
 @login_required
 def passkeys():
-    """Display user's passkeys"""
-    return render_template('auth/passkeys.html')
+    """User passkey management page."""
+    return render_template('auth/passkeys.html', title='Manage Passkeys')
 
 @auth_bp.route('/passkeys/register/options', methods=['POST'])
 @login_required
-def passkey_register_options():
-    """Get registration options for a new passkey"""
-    passkey_service = PasskeyService(user_repository=container.get('user_repository'))
+def passkeys_register_options():
+    """Get options for registering a new passkey."""
+    try:
+        # Get WebAuthn service
+        webauthn_service = container().get('webauthn_service')
+        
+        if not webauthn_service:
+            return jsonify({'error': 'WebAuthn service is not available'}), 500
+        
+        # Get registration options
+        registration_options = webauthn_service.generate_registration_options(current_user.id)
+        
+        # Store challenge in session for verification
+        session['passkey_challenge'] = registration_options['challenge']
+        
+        return jsonify(registration_options)
     
-    options = passkey_service.start_registration(current_user)
-    if options:
-        return jsonify(json.loads(options))
-    else:
-        return jsonify({"error": "Failed to generate registration options"}), 500
+    except Exception as e:
+        current_app.logger.error(f"Error generating passkey registration options: {str(e)}")
+        return jsonify({'error': str(e)}), 500
 
 @auth_bp.route('/passkeys/register/verify', methods=['POST'])
 @login_required
-def passkey_register_verify():
-    """Verify and complete passkey registration"""
-    passkey_service = PasskeyService(user_repository=container.get('user_repository'))
+def passkeys_register_verify():
+    """Verify and register a new passkey."""
+    try:
+        # Get WebAuthn service
+        webauthn_service = container().get('webauthn_service')
+        
+        if not webauthn_service:
+            return jsonify({'error': 'WebAuthn service is not available'}), 500
+        
+        # Get challenge from session
+        challenge = session.pop('passkey_challenge', None)
+        
+        if not challenge:
+            return jsonify({'error': 'Invalid or expired registration session'}), 400
+        
+        # Verify the registration
+        credential_data = request.json
+        passkey_id = webauthn_service.verify_registration(credential_data, challenge, current_user.id)
+        
+        if not passkey_id:
+            return jsonify({'error': 'Failed to verify passkey'}), 400
+        
+        # Store passkey for user
+        current_user.add_passkey(passkey_id)
+        db.session.commit()
+        
+        return jsonify({'success': True})
     
-    credential_data = request.json
-    success, message = passkey_service.complete_registration(current_user, credential_data)
-    
-    if success:
-        return jsonify({"success": True, "message": message})
-    else:
-        return jsonify({"success": False, "error": message}), 400
+    except Exception as e:
+        current_app.logger.error(f"Error verifying passkey registration: {str(e)}")
+        return jsonify({'error': str(e)}), 500
 
 @auth_bp.route('/passkeys/authenticate/options', methods=['POST'])
-def passkey_authenticate_options():
-    """Get authentication options for passkey login"""
-    passkey_service = PasskeyService(user_repository=container.get('user_repository'))
+def passkeys_authenticate_options():
+    """Get options for authenticating with a passkey."""
+    try:
+        # Get WebAuthn service
+        webauthn_service = container().get('webauthn_service')
+        
+        if not webauthn_service:
+            return jsonify({'error': 'WebAuthn service is not available'}), 500
+        
+        # Generate authentication options
+        auth_options = webauthn_service.generate_authentication_options()
+        
+        # Store challenge in session for verification
+        session['passkey_auth_challenge'] = auth_options['challenge']
+        
+        return jsonify(auth_options)
     
-    options = passkey_service.start_authentication()
-    if options:
-        return jsonify(json.loads(options))
-    else:
-        return jsonify({"error": "Failed to generate authentication options"}), 500
+    except Exception as e:
+        current_app.logger.error(f"Error generating passkey authentication options: {str(e)}")
+        return jsonify({'error': str(e)}), 500
 
 @auth_bp.route('/passkeys/authenticate/verify', methods=['POST'])
-def passkey_authenticate_verify():
-    """Verify passkey authentication and log user in"""
-    passkey_service = PasskeyService(user_repository=container.get('user_repository'))
-    
-    credential_data = request.json
-    success, result = passkey_service.verify_authentication(credential_data)
-    
-    if success:
-        # User verification passed
-        return jsonify({"success": True})
+def passkeys_authenticate_verify():
+    """Verify passkey authentication and log in the user."""
+    try:
+        # Get WebAuthn service
+        webauthn_service = container().get('webauthn_service')
         
-    elif isinstance(result, str) and len(result) > 0:
-        # We got a credential ID, try to find the user
-        user = passkey_service.find_user_by_credential_id(result)
+        if not webauthn_service:
+            return jsonify({'error': 'WebAuthn service is not available'}), 500
         
-        if user:
-            # Try to verify again with the user
-            success, _ = passkey_service.verify_authentication(credential_data, user)
-            
-            if success:
-                login_user(user)
-                user.last_login_at = datetime.utcnow()
-                user.last_login_ip = request.remote_addr
-                db.session.commit()
-                return jsonify({
-                    "success": True, 
-                    "redirect": url_for('dashboard.index')
-                })
+        # Get challenge from session
+        challenge = session.pop('passkey_auth_challenge', None)
+        
+        if not challenge:
+            return jsonify({'error': 'Invalid or expired authentication session'}), 400
+        
+        # Verify the authentication
+        credential_data = request.json
+        user_id = webauthn_service.verify_authentication(credential_data, challenge)
+        
+        if not user_id:
+            return jsonify({'error': 'Authentication failed'}), 401
+        
+        # Get user by passkey
+        user = User.query.filter_by(id=user_id).first()
+        
+        if not user:
+            return jsonify({'error': 'User not found'}), 404
+        
+        # Check if user is active
+        if not user.is_active:
+            return jsonify({'error': 'Account is deactivated'}), 403
+        
+        # Login the user
+        login_user(user)
+        
+        # Update last login time
+        from datetime import datetime
+        user.last_login = datetime.utcnow()
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'redirect': url_for('dashboard.index')
+        })
     
-    return jsonify({"success": False, "error": "Authentication failed"}), 400
+    except Exception as e:
+        current_app.logger.error(f"Error authenticating with passkey: {str(e)}")
+        return jsonify({'error': str(e)}), 500
 
-@auth_bp.route('/passkeys/delete/<credential_id>', methods=['POST'])
-@login_required
-def passkey_delete(credential_id):
-    """Delete a passkey"""
-    passkey_service = PasskeyService(user_repository=container.get('user_repository'))
+@auth_bp.route('/oauth/monzo/callback')
+def monzo_callback():
+    """Handle Monzo OAuth callback."""
+    code = request.args.get('code')
+    state = request.args.get('state')
     
-    success, message = passkey_service.delete_passkey(current_user, credential_id)
+    if not code or not state:
+        flash('Authorization failed: Missing parameters', 'error')
+        return redirect(url_for('accounts.connect'))
     
-    if success:
-        flash(message, 'success')
-    else:
-        flash(message, 'error')
+    # Get services
+    auth_service = container().get('auth_service')
+    
+    if not auth_service:
+        flash('Service unavailable', 'error')
+        return redirect(url_for('accounts.connect'))
+    
+    try:
+        # Verify state to prevent CSRF
+        if not auth_service.verify_oauth_state(state):
+            flash('Invalid authorization state', 'error')
+            return redirect(url_for('accounts.connect'))
         
-    return redirect(url_for('auth.passkeys'))
+        # Exchange code for tokens
+        user_id = current_user.id if current_user.is_authenticated else None
+        success = auth_service.complete_monzo_auth(code, user_id)
+        
+        if success:
+            flash('Monzo account connected successfully!', 'success')
+            return redirect(url_for('accounts.manage'))
+        else:
+            flash('Failed to connect Monzo account', 'error')
+            return redirect(url_for('accounts.connect'))
+    except Exception as e:
+        flash(f'Error connecting Monzo account: {str(e)}', 'error')
+        return redirect(url_for('accounts.connect'))
+
+@auth_bp.route('/oauth/truelayer/callback')
+def truelayer_callback():
+    """Handle TrueLayer OAuth callback for credit card accounts."""
+    code = request.args.get('code')
+    state = request.args.get('state')
+    
+    if not code or not state:
+        flash('Authorization failed: Missing parameters', 'error')
+        return redirect(url_for('accounts.connect'))
+    
+    # Get services
+    auth_service = container().get('auth_service')
+    
+    if not auth_service:
+        flash('Service unavailable', 'error')
+        return redirect(url_for('accounts.connect'))
+    
+    try:
+        # Verify state to prevent CSRF
+        if not auth_service.verify_oauth_state(state):
+            flash('Invalid authorization state', 'error')
+            return redirect(url_for('accounts.connect'))
+        
+        # Exchange code for tokens
+        user_id = current_user.id if current_user.is_authenticated else None
+        success = auth_service.complete_truelayer_auth(code, user_id)
+        
+        if success:
+            flash('Credit card connected successfully!', 'success')
+            return redirect(url_for('accounts.manage'))
+        else:
+            flash('Failed to connect credit card', 'error')
+            return redirect(url_for('accounts.connect'))
+    except Exception as e:
+        flash(f'Error connecting credit card: {str(e)}', 'error')
+        return redirect(url_for('accounts.connect'))

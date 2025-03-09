@@ -6,31 +6,61 @@ services:
     container_name: monzo-credit-card-pot-sync
     restart: unless-stopped
     ports:
-      - "${PORT:-5000}:5000"
-    environment:
-      - PORT=5000
-      - SECRET_KEY=${SECRET_KEY:-changeme_in_production}
-      - DATABASE_URL=${DATABASE_URL:-sqlite:///instance/app.db}
-      - POT_SYNC_LOCAL_URL=${POT_SYNC_LOCAL_URL:-http://localhost:5000}
-      - LOG_LEVEL=${LOG_LEVEL:-info}
+      - "8000:8000"
     volumes:
-      - ./instance:/app/instance
-      - ./logs:/app/logs
+      - monzo_data:/app/instance  # Persist database
+      - monzo_logs:/app/logs      # Persist logs
+      - monzo_backups:/app/backups  # Persist backups
+      # Do NOT mount the static directory
+    environment:
+      # Secret key - you should change this in production
+      - SECRET_KEY=${SECRET_KEY:-changeme}
+      # API credentials
+      - TRUELAYER_CLIENT_ID=${TRUELAYER_CLIENT_ID}
+      - TRUELAYER_CLIENT_SECRET=${TRUELAYER_CLIENT_SECRET}
+      - MONZO_CLIENT_ID=${MONZO_CLIENT_ID}
+      - MONZO_CLIENT_SECRET=${MONZO_CLIENT_SECRET}
+      # Admin user configuration
+      - ADMIN_USERNAME=${ADMIN_USERNAME:-admin}
+      - ADMIN_EMAIL=${ADMIN_EMAIL:-admin@example.com}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-}  # No default password for security
+      - ADMIN_REGISTRATION_CODE=${ADMIN_REGISTRATION_CODE:-}  # Custom admin registration code
+      # Email configuration
+      - EMAIL_SMTP_SERVER=${EMAIL_SMTP_SERVER:-smtp.gmail.com}
+      - EMAIL_SMTP_PORT=${EMAIL_SMTP_PORT:-587}
+      - EMAIL_SMTP_USERNAME=${EMAIL_SMTP_USERNAME:-}
+      - EMAIL_SMTP_PASSWORD=${EMAIL_SMTP_PASSWORD:-}
+      - EMAIL_FROM_ADDRESS=${EMAIL_FROM_ADDRESS:-noreply@example.com}
+      - EMAIL_USE_TLS=${EMAIL_USE_TLS:-true}
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:5000/main/health"]
+      test: ["CMD", "python", "-m", "app.healthcheck"]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 30s
-    deploy:
-      resources:
-        limits:
-          cpus: '0.5'
-          memory: 256M
-        reservations:
-          cpus: '0.25'
-          memory: 128M
+      start_period: 10s
+
+  web:
+    build: .
+    restart: always
+    ports:
+      - "5000:5000"
+    environment:
+      - PORT=5000
+      - FLASK_APP=run.py
+      - FLASK_ENV=production
+      - SECRET_KEY=${SECRET_KEY:-default-dev-key-change-in-production}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge
 
 volumes:
-  instance:
-  logs:
+  monzo_data:
+  monzo_logs:
+  monzo_backups:

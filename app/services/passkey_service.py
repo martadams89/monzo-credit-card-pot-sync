@@ -25,8 +25,15 @@ log = logging.getLogger("passkey_service")
 class PasskeyService:
     """Service for WebAuthn (passkey) operations"""
     
-    def __init__(self, user_repository=None):
+    def __init__(self, user_repository=None, db_session=None):
+        """Initialize the passkey service.
+        
+        Args:
+            user_repository: Repository for user operations
+            db_session: SQLAlchemy database session (optional)
+        """
         self.user_repository = user_repository
+        self.db = db_session
     
     def _get_rp_id(self):
         """Get the Relying Party ID (domain name)"""

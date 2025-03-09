@@ -1,11 +1,11 @@
 Hello {{ username }},
 
-Thank you for registering with Monzo Credit Card Pot Sync. To complete your registration, please verify your email address by clicking the link below:
+Thank you for registering for Monzo Credit Card Pot Sync.
 
+Please verify your email address by clicking the link below:
 {{ verification_link }}
 
-If you did not create an account, please ignore this email.
+If you didn't sign up for this service, please ignore this email.
 
-This is an automated message, please do not reply to this email.
-
-© Monzo Credit Card Pot Sync
+Thanks,
+The Monzo Credit Card Pot Sync Team

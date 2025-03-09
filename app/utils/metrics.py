@@ -1,8 +1,76 @@
-"""Metrics collection for sync process"""
+"""Application metrics and monitoring."""
 
 import time
-from collections import Counter
 import logging
+import threading
+from functools import wraps
+from flask import g, request, current_app
+
+logger = logging.getLogger(__name__)
+
+# Dictionary to store metrics
+_metrics = {
+    'requests': 0,
+    'errors': 0,
+    'response_times': [],
+    'sync_operations': 0,
+    'successful_syncs': 0,
+    'failed_syncs': 0
+}
+
+_metrics_lock = threading.Lock()
+
+def increment(metric, value=1):
+    """Increment a metric counter."""
+    with _metrics_lock:
+        if metric in _metrics:
+            _metrics[metric] += value
+
+def record_response_time(duration):
+    """Record an API response time."""
+    with _metrics_lock:
+        _metrics['response_times'].append(duration)
+        # Keep only the last 1000 response times
+        if len(_metrics['response_times']) > 1000:
+            _metrics['response_times'] = _metrics['response_times'][-1000:]
+
+def get_metrics():
+    """Get a copy of the current metrics."""
+    with _metrics_lock:
+        result = dict(_metrics)
+        if result['response_times']:
+            result['avg_response_time'] = sum(result['response_times']) / len(result['response_times'])
+        else:
+            result['avg_response_time'] = 0
+        return result
+
+def performance_middleware():
+    """WSGI middleware to track request performance."""
+    def middleware(environ, start_response):
+        request_start = time.time()
+        
+        def custom_start_response(status, headers, exc_info=None):
+            # Record request completion
+            duration = time.time() - request_start
+            record_response_time(duration * 1000)  # Store in milliseconds
+            
+            # Track request counts
+            increment('requests')
+            
+            # Track errors
+            status_code = int(status.split(' ')[0])
+            if status_code >= 500:
+                increment('errors')
+                
+            return start_response(status, headers, exc_info)
+        
+        return app(environ, custom_start_response)
+    
+    return middleware
+
+"""Metrics collection for sync process"""
+
+from collections import Counter
 
 log = logging.getLogger(__name__)
 

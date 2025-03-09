@@ -1,0 +1,83 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <h1 class="text-2xl font-bold mb-6">Map Pot to {{ account.type }}</h1>
+    
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="mb-4 p-3 rounded 
+                    {% if category == 'error' %}bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300{% endif %}
+                    {% if category == 'success' %}bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300{% endif %}
+                    {% if category == 'info' or category == 'message' %}bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300{% endif %}">
+                    {{ message }}
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+    
+    <div class="bg-white dark:bg-gray-800 shadow-md rounded-lg p-6">
+        <div class="flex items-center mb-6">
+            <div class="h-12 w-12 rounded-full bg-blue-500 flex items-center justify-center text-white">
+                {{ account.type[0].upper() }}
+            </div>
+            <div class="ml-4">
+                <h2 class="text-xl font-semibold text-gray-900 dark:text-white">{{ account.type }}</h2>
+                <p class="text-gray-500 dark:text-gray-400">
+                    {% if account.account_id %}Account ID: {{ account.account_id[:8] }}...{% else %}No account ID{% endif %}
+                </p>
+            </div>
+        </div>
+        
+        <form method="POST" class="space-y-6">
+            <div>
+                <label for="pot_id" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Select Pot</label>
+                <div class="mt-2">
+                    {% if pots %}
+                        <select id="pot_id" name="pot_id" required class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white">
+                            <option value="">Select a pot</option>
+                            {% for pot in pots %}
+                                <option value="{{ pot.id }}" {% if account.pot_id == pot.id %}selected{% endif %}>
+                                    {{ pot.name }} ({{ pot.balance|formatmoney }})
+                                </option>
+                            {% endfor %}
+                        </select>
+                    {% else %}
+                        <div class="bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300 p-4 rounded-md">
+                            <p>No pots available. Make sure your Monzo account is connected.</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <div class="pt-4">
+                <div class="flex justify-between">
+                    <button type="submit" class="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                            {% if not pots %}disabled{% endif %}>
+                        Save Mapping
+                    </button>
+                    <a href="{{ url_for('accounts.manage') }}" class="inline-flex justify-center py-2 px-4 border border-gray-300 dark:border-gray-600 shadow-sm text-sm font-medium rounded-md text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
+                        Cancel
+                    </a>
+                </div>
+            </div>
+        </form>
+    </div>
+    
+    <div class="mt-8 bg-gray-50 dark:bg-gray-700/30 p-6 rounded-lg">
+        <h3 class="text-lg font-medium mb-4 text-gray-900 dark:text-white">How Pot Mapping Works</h3>
+        
+        <div class="space-y-4 text-gray-600 dark:text-gray-400">
+            <p>When you map a pot to a credit card:</p>
+            
+            <ul class="list-disc list-inside space-y-2 ml-4">
+                <li>The app will sync money between your credit card and the selected pot</li>
+                <li>If your credit card balance increases, money will be added to the pot</li>
+                <li>The app will try to keep the pot balance equal to your credit card balance</li>
+                <li>You can change this mapping at any time</li>
+            </ul>
+        </div>
+    </div>
+</div>
+{% endblock %}

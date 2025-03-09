@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        .header {
+            background-color: #1e40af;
+            color: white;
+            padding: 15px;
+            text-align: center;
+        }
+        .content {
+            padding: 20px;
+        }
+        .footer {
+            background-color: #f3f4f6;
+            padding: 10px;
+            text-align: center;
+            font-size: 12px;
+            color: #6b7280;
+        }
+        .success {
+            color: #047857;
+        }
+        .error {
+            color: #dc2626;
+        }
+        .warning {
+            color: #d97706;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+        th, td {
+            border: 1px solid #e5e7eb;
+            padding: 8px;
+            text-align: left;
+        }
+        th {
+            background-color: #f9fafb;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Monzo Credit Card Pot Sync</h1>
+        <p>Synchronization Report</p>
+    </div>
+    
+    <div class="content">
+        <h2>Sync Status: 
+            {% if report.status == 'success' %}
+            <span class="success">Success</span>
+            {% elif report.status == 'partial' %}
+            <span class="warning">Partial Success</span>
+            {% else %}
+            <span class="error">Failed</span>
+            {% endif %}
+        </h2>
+        
+        <p><strong>Date:</strong> {{ report.timestamp }}</p>
+        
+        {% if report.accounts_synced %}
+        <h3>Accounts Synchronized: {{ report.accounts_synced }}</h3>
+        {% endif %}
+        
+        {% if report.accounts_skipped %}
+        <h3>Accounts Skipped: {{ report.accounts_skipped }}</h3>
+        {% endif %}
+        
+        {% if report.errors %}
+        <h3 class="error">Errors</h3>
+        <ul>
+            {% for error in report.errors %}
+            <li>{{ error }}</li>
+            {% endfor %}
+        </ul>
+        {% endif %}
+        
+        {% if report.details %}
+        <h3>Details</h3>
+        <table>
+            <tr>
+                <th>Account</th>
+                <th>Status</th>
+                <th>Balance</th>
+                <th>Pot Balance</th>
+            </tr>
+            {% for detail in report.details %}
+            <tr>
+                <td>{{ detail.account_name }}</td>
+                <td>{{ detail.status }}</td>
+                <td>{{ detail.balance }}</td>
+                <td>{{ detail.pot_balance }}</td>
+            </tr>
+            {% endfor %}
+        </table>
+        {% endif %}
+        
+        <p>
+            You can view detailed information and manage your accounts by logging in to your dashboard.
+        </p>
+    </div>
+    
+    <div class="footer">
+        <p>This is an automated message from Monzo Credit Card Pot Sync. Please do not reply to this email.</p>
+        <p>Monzo Credit Card Pot Sync - <a href="https://github.com/martadams89/monzo-credit-card-pot-sync">Open Source Project</a></p>
+        <p>{{ current_year }} - Licensed under the MIT License</p>
+    </div>
+</body>
+</html>

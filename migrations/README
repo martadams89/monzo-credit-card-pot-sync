@@ -1,0 +1,31 @@
+# Database Migrations
+
+This directory contains the database migrations for the application.
+
+## How migrations work
+
+Migrations are managed via Flask-Migrate (which uses Alembic). Each migration file
+represents a step in the evolution of the database schema.
+
+## Creating migrations
+
+To create a new migration:
+
+```bash
+flask db migrate -m "Description of migration"
+```
+
+## Running migrations
+
+Migrations run automatically at application startup. You can also apply them manually:
+
+```bash
+flask db upgrade
+```
+
+## Important files
+
+- `env.py`: Configuration for Alembic migration environment
+- `alembic.ini`: Alembic configuration file
+- `script.py.mako`: Template for migration scripts
+- `versions/`: Directory containing migration scripts

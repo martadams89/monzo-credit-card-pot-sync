@@ -1,237 +1,334 @@
-"""Service for handling the core sync process"""
+"""Service for synchronizing credit card balances with Monzo pots."""
 
+import json
 import logging
-import time
-import datetime
-import traceback
-from collections import Counter
-from sqlalchemy.exc import NoResultFound
+import concurrent.futures
+from datetime import datetime, timedelta
+from app.models.account import Account
+from app.models.sync_record import SyncRecord
+from app.extensions import db
+from app.utils.metrics import SyncMetrics
 
-from app.domain.settings import Setting
-from app.services.account_service import AccountService
-from app.services.balance_service import BalanceService
-from app.services.cooldown_service import CooldownService
-from app.services.metrics_service import MetricsService
-from app.services.account_processing_service import AccountProcessingService
-from app.services.cooldown_processing_service import CooldownProcessingService
-from app.services.baseline_service import BaselineService
-
-"""
-Core Sync Process Overview:
-
-SECTION 1: INITIALIZATION AND CONNECTION VALIDATION
-    - Retrieve and validate the Monzo account.
-    - Refresh token if necessary and ping the connection.
-
-SECTION 2: RETRIEVE AND VALIDATE CREDIT ACCOUNTS
-    - Retrieve credit card connections.
-    - Refresh tokens and validate health.
-    - Remove accounts with auth issues.
-
-SECTION 3: CALCULATE BALANCE DIFFERENTIALS PER POT
-    - Build a mapping of pots with their live balance minus credit card balances.
-
-SECTION 4: REFRESH PERSISTED ACCOUNT DATA
-    - Reload each credit account's persisted fields (cooldown, prev_balance).
-
-SECTION 5: EXPIRED COOLDOWN CHECK
-    - For accounts with an expired cooldown, compute the shortfall.
-      Branch: If shortfall exists, deposit it and clear cooldown; otherwise, simply clear cooldown.
-
-SECTION 6: PER-ACCOUNT BALANCE ADJUSTMENT PROCESSING (DEPOSIT / WITHDRAWAL)
-    - Process each credit account sequentially:
-         (a) OVERRIDE BRANCH: If override flag is enabled and cooldown is active,
-             deposit the difference immediately if card balance > previous balance.
-         (b) STANDARD ADJUSTMENT: Compare live card vs. pot balance.
-             – Deposit if card > pot.
-             – Withdraw if card < pot.
-             – Do nothing if equal.
-
-SECTION 7: UPDATE BASELINE PERSISTENCE
-    - For each account, if a confirmed change is detected (card balance ≠ previous balance) and not in cooldown,
-      update the persisted baseline with the current card balance.
-"""
-
-log = logging.getLogger("sync_service")
+logger = logging.getLogger(__name__)
 
 class SyncService:
-    """Main service that orchestrates the sync process"""
+    """Service for synchronizing credit card balances with Monzo pots."""
     
-    def __init__(self, db_session, account_repository, settings_repository, 
-                 account_service=None, balance_service=None, cooldown_service=None):
-        self.db = db_session
-        self.account_repository = account_repository
-        self.settings_repository = settings_repository
+    def __init__(self, monzo_service, truelayer_service, pot_service, setting_repository):
+        """Initialize the sync service with required dependencies."""
+        self.monzo_service = monzo_service
+        self.truelayer_service = truelayer_service
+        self.pot_service = pot_service
+        self.setting_repository = setting_repository
+    
+    def sync_all_accounts(self):
+        """Synchronize all user accounts in parallel."""
+        from app.models.user import User
         
-        # Initialize sub-services
-        self.account_service = account_service or AccountService(account_repository, settings_repository)
-        self.balance_service = balance_service or BalanceService(account_repository, settings_repository)
-        self.cooldown_service = cooldown_service or CooldownService(account_repository, db_session, settings_repository)
+        metrics = SyncMetrics()
+        metrics.start_section("sync_all")
         
-        # Initialize specialized processing services
-        self.metrics_service = MetricsService(db_session)
-        self.account_processor = AccountProcessingService(
-            account_repository, 
-            self.balance_service, 
-            self.cooldown_service,
-            settings_repository, 
-            db_session
-        )
-        self.cooldown_processor = CooldownProcessingService(
-            account_repository, 
-            self.balance_service, 
-            self.cooldown_service, 
-            db_session,
-            self.metrics_service
-        )
-        self.baseline_service = BaselineService(account_repository, db_session)
+        # Get active users
+        users = User.query.filter_by(is_active=True).all()
+        results = {
+            'status': 'completed',
+            'total_users': len(users),
+            'successful_syncs': 0,
+            'failed_syncs': 0,
+            'accounts_processed': []
+        }
         
-    def run_sync(self):
-        """Run the complete sync process"""
+        # Use ThreadPoolExecutor to run sync in parallel 
+        with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
+            # Submit sync tasks for each user
+            future_to_user = {
+                executor.submit(self.sync_user_accounts, user.id): user 
+                for user in users
+            }
+            
+            # Process results as they complete
+            for future in concurrent.futures.as_completed(future_to_user):
+                user = future_to_user[future]
+                try:
+                    result = future.result()
+                    results['accounts_processed'].append(result)
+                    
+                    if result['success']:
+                        results['successful_syncs'] += 1
+                    else:
+                        results['failed_syncs'] += 1
+                except Exception as e:
+                    logger.exception(f"Error syncing accounts for user {user.id}")
+                    results['failed_syncs'] += 1
+        
+        metrics.end_section("sync_all")
+        metrics_data = metrics.finalize()
+        
+        return results
+    
+    def sync_user_accounts(self, user_id, force=False):
+        """Synchronize accounts for a specific user."""
+        metrics = SyncMetrics()
+        metrics.start_section("sync_user")
+        
+        # Initialize result
+        result = {
+            'success': True,
+            'accounts_synced': 0,
+            'accounts_skipped': 0,
+            'errors': [],
+            'details': []
+        }
+        
         try:
-            # SECTION 1: INITIALIZATION AND CONNECTION VALIDATION
-            monzo_account = self.account_service.initialize_monzo_account()
-            if monzo_account is None:
-                self.metrics_service.finalize_sync("failed", "No Monzo account available")
-                return
+            # Get credit card accounts for user
+            credit_card_accounts = Account.query.filter_by(user_id=user_id, type='credit_card').all()
+            
+            # Get monzo accounts for user
+            monzo_accounts = Account.query.filter_by(user_id=user_id, type='monzo').all()
+            
+            # Get pot mappings
+            pot_mappings = self.pot_service.get_pot_mappings(user_id)
+            
+            # Handle no accounts gracefully
+            if not credit_card_accounts or not monzo_accounts:
+                logger.info(f"No accounts to sync for user {user_id}")
+                metrics.end_section("sync_user")
+                return result
                 
-            # SECTION 2: RETRIEVE AND VALIDATE CREDIT ACCOUNTS
-            credit_accounts = self.account_service.get_credit_accounts(monzo_account)
-            if not credit_accounts:
-                self.metrics_service.finalize_sync("failed", "No valid credit accounts available")
-                return
-                
-            # Check if sync is enabled
-            if not self.settings_repository.get("enable_sync"):
-                log.info("Balance sync is disabled; exiting sync loop")
-                self.metrics_service.finalize_sync("skipped", "Sync is disabled")
-                return
-                
-            # SECTION 3: CALCULATE BALANCE DIFFERENTIALS PER POT
+            # Get user's sync settings
+            settings_key = f'sync_settings:{user_id}'
+            settings_json = self.setting_repository.get(settings_key)
+            
             try:
-                pot_balance_map = self.balance_service.calculate_pot_balances(monzo_account, credit_accounts)
-                if not pot_balance_map:
-                    self.metrics_service.finalize_sync("failed", "Failed to calculate pot balances")
-                    return
-            except NoResultFound as e:
-                self.metrics_service.finalize_sync("failed", str(e))
-                return
+                settings = json.loads(settings_json) if settings_json else {}
+            except json.JSONDecodeError:
+                settings = {}
                 
-            # SECTION 4: REFRESH PERSISTED ACCOUNT DATA
-            credit_accounts = self.cooldown_service.refresh_account_data(credit_accounts)
+            threshold_percentage = settings.get('threshold_percentage', 5)
+            
+            # Process each credit card account
+            for cc_account in credit_card_accounts:
+                account_metrics = SyncMetrics()
+                account_metrics.start_section(f"account_{cc_account.id}")
                 
-            # SECTION 5: EXPIRED COOLDOWN CHECK
-            self.cooldown_processor.process_cooldowns(monzo_account, credit_accounts)
+                account_result = {
+                    'account_id': cc_account.id,
+                    'account_name': cc_account.display_name(),
+                    'status': 'skipped',
+                    'balance': 0,
+                    'pot_balance': 0
+                }
                 
-            # SECTION 6: PER-ACCOUNT BALANCE ADJUSTMENT PROCESSING
-            self._process_balance_adjustments(monzo_account, credit_accounts)
+                try:
+                    # Skip if no pot mapping exists
+                    pot_id = pot_mappings.get(str(cc_account.id))
+                    if not pot_id:
+                        logger.info(f"No pot mapping for account {cc_account.id}")
+                        result['accounts_skipped'] += 1
+                        account_result['status'] = 'no_pot_mapping'
+                        result['details'].append(account_result)
+                        continue
+                    
+                    # Skip if in cooldown period (unless forced)
+                    if not force and cc_account.is_in_cooldown():
+                        logger.info(f"Account {cc_account.id in cooldown until {cc_account.cooldown_until}")
+                        result['accounts_skipped'] += 1
+                        account_result['status'] = 'in_cooldown'
+                        account_result['cooldown_until'] = cc_account.cooldown_until
+                        result['details'].append(account_result)
+                        continue
+                        
+                    # Find matching Monzo account
+                    monzo_account = next((a for a in monzo_accounts), None)
+                    if not monzo_account:
+                        logger.error(f"No Monzo account found for user {user_id}")
+                        result['accounts_skipped'] += 1
+                        account_result['status'] = 'no_monzo_account'
+                        result['details'].append(account_result)
+                        continue
+                    
+                    # Get credit card balance
+                    account_metrics.start_section("get_cc_balance")
+                    cc_balance = self.truelayer_service.get_total_balance(cc_account)
+                    account_metrics.end_section("get_cc_balance")
+                    
+                    if cc_balance is None:
+                        logger.error(f"Could not get credit card balance for account {cc_account.id}")
+                        result['accounts_skipped'] += 1
+                        account_result['status'] = 'error_cc_balance'
+                        result['details'].append(account_result)
+                        continue
+                        
+                    # Get pot balance
+                    account_metrics.start_section("get_pot_balance")
+                    pot_balance = self.monzo_service.get_pot_balance(monzo_account, pot_id)
+                    account_metrics.end_section("get_pot_balance")
+                    
+                    if pot_balance is None:
+                        logger.error(f"Could not get pot balance for account {cc_account.id}, pot {pot_id}")
+                        result['accounts_skipped'] += 1
+                        account_result['status'] = 'error_pot_balance'
+                        result['details'].append(account_result)
+                        continue
+                    
+                    # Update account result with balances
+                    account_result['balance'] = cc_balance
+                    account_result['pot_balance'] = pot_balance
+                    
+                    # Calculate absolute credit card balance (credit cards have negative balances)
+                    cc_balance_abs = abs(cc_balance)
+                    
+                    # Calculate difference
+                    balance_diff = abs(pot_balance - cc_balance_abs)
+                    
+                    # Calculate difference percentage
+                    diff_percentage = 0
+                    if cc_balance_abs > 0:
+                        diff_percentage = (balance_diff / cc_balance_abs) * 100
+                    
+                    # Skip if difference is below threshold
+                    if diff_percentage < threshold_percentage and pot_balance > 0:
+                        logger.info(f"Difference {diff_percentage:.2f}% below threshold {threshold_percentage}% for account {cc_account.id}")
+                        result['accounts_skipped'] += 1
+                        account_result['status'] = 'below_threshold'
+                        account_result['diff_percentage'] = diff_percentage
+                        result['details'].append(account_result)
+                        continue
+                    
+                    # Calculate amount to add or withdraw
+                    transfer_amount = cc_balance_abs - pot_balance
+                    
+                    # Update pot balance
+                    account_metrics.start_section("update_pot")
+                    if transfer_amount > 0:
+                        # Need to add money to pot
+                        success = self.monzo_service.deposit_to_pot(monzo_account, pot_id, transfer_amount)
+                    else:
+                        # Need to withdraw money from pot
+                        success = self.monzo_service.withdraw_from_pot(monzo_account, pot_id, abs(transfer_amount))
+                    account_metrics.end_section("update_pot")
+                    
+                    if not success:
+                        logger.error(f"Failed to update pot balance for account {cc_account.id}")
+                        result['accounts_skipped'] += 1
+                        account_result['status'] = 'transfer_failed'
+                        account_result['transfer_amount'] = transfer_amount
+                        result['details'].append(account_result)
+                        continue
+                    
+                    # Update account cooldown
+                    if not force:
+                        cc_account.set_cooldown(settings.get('cooldown_hours', 3) if settings.get('enable_cooldown', True) else 0)
+                        cc_account.cooldown_ref_card_balance = cc_balance
+                        cc_account.cooldown_ref_pot_balance = cc_balance_abs  # After transfer, pot balance should match CC balance
+                        cc_account.stable_pot_balance = cc_balance_abs
+                        db.session.commit()
+                    
+                    # Success!
+                    result['accounts_synced'] += 1
+                    account_result['status'] = 'success'
+                    account_result['transfer_amount'] = transfer_amount
+                    result['details'].append(account_result)
+                    logger.info(f"Successfully synced account {cc_account.id}, transferred {transfer_amount}")
                 
-            # SECTION 7: UPDATE BASELINE PERSISTENCE
-            self.baseline_service.update_account_baselines(credit_accounts)
+                except Exception as e:
+                    logger.error(f"Error syncing account {cc_account.id}: {str(e)}")
+                    result['errors'].append(f"Account {cc_account.id}: {str(e)}")
+                    account_result['status'] = 'error'
+                    account_result['error'] = str(e)
+                    result['details'].append(account_result)
                 
-            # Finalize the sync
-            self.metrics_service.finalize_sync("completed")
+                finally:
+                    account_metrics.end_section(f"account_{cc_account.id}")
+            
+            # Save sync history
+            history_repository = self.get_history_repository()
+            if history_repository:
+                try:
+                    history_repository.save_sync_history({
+                        'timestamp': datetime.utcnow().isoformat(),
+                        'status': 'success' if result['success'] else 'error',
+                        'accounts_synced': result['accounts_synced'],
+                        'accounts_skipped': result['accounts_skipped'],
+                        'errors': result['errors'],
+                        'details': result['details']
+                    }, user_id)
+                except Exception as e:
+                    logger.error(f"Error saving sync history: {str(e)}")
+            
+            # Get user's notification settings
+            settings_key = f'notification_settings:{user_id}'
+            settings_json = self.setting_repository.get(settings_key)
+            
+            try:
+                notification_settings = json.loads(settings_json) if settings_json else {}
+            except json.JSONDecodeError:
+                notification_settings = {}
+                
+            email_enabled = notification_settings.get('email_enabled', False)
+            
+            # Send email notification if enabled
+            if email_enabled:
+                self.send_notification_email(user_id, result, notification_settings)
             
         except Exception as e:
-            error_info = traceback.format_exc()
-            log.error(f"Sync error: {e}\n{error_info}")
-            self.metrics_service.finalize_sync("failed", str(e))
-            raise
-    
-    def _process_balance_adjustments(self, monzo_account, credit_accounts):
-        """Process balance adjustments for each account - corresponds to SECTION 6"""
-        # Retrieve override setting once and convert to boolean
-        override_value = self.settings_repository.get("override_cooldown_spending")
-        if isinstance(override_value, bool):
-            override_cooldown_spending = override_value
-        else:
-            override_cooldown_spending = override_value.lower() == "true"
-        log.info(f"override_cooldown_spending is '{override_value}' -> {override_cooldown_spending}")
+            logger.error(f"Error syncing user accounts: {str(e)}")
+            result['success'] = False
+            result['errors'].append(str(e))
         
-        for credit_account in credit_accounts:
-            # Refresh account data
-            self.db.session.commit()
-            if hasattr(credit_account, "_sa_instance_state"):
-                self.db.session.expire(credit_account)
-            refreshed = self.account_repository.get(credit_account.type)
-            credit_account.cooldown_until = refreshed.cooldown_until
-            credit_account.prev_balance = refreshed.prev_balance
+        finally:
+            metrics.end_section("sync_user")
             
-            log.info("-------------------------------------------------------------")
-            log.info(f"Step: Start processing account '{credit_account.type}'.")
-
-            # Retrieve current live figures
-            live_card_balance = credit_account.get_total_balance(force_refresh=True)
-            current_pot = monzo_account.get_pot_balance(credit_account.pot_id)
-            stable_pot = credit_account.stable_pot_balance if credit_account.stable_pot_balance is not None else 0
-
-            # Log current account status
-            self._log_account_status(credit_account, live_card_balance, current_pot, stable_pot)
-
-            try:
-                now = int(time.time())
-                
-                # OVERRIDE BRANCH
-                if override_cooldown_spending and (credit_account.cooldown_until is not None and now < credit_account.cooldown_until):
-                    self.account_processor.process_override_branch(monzo_account, credit_account, live_card_balance, current_pot)
-                
-                # STANDARD ADJUSTMENT
-                if credit_account.cooldown_until is None or now > credit_account.cooldown_until:
-                    self.account_processor.process_standard_adjustment(monzo_account, credit_account, live_card_balance, current_pot)
-                
-                # Record successful processing
-                self.metrics_service.record_account_success(credit_account.type, live_card_balance, current_pot)
-                
-            except Exception as e:
-                log.error(f"Error processing account {credit_account.type}: {e}", exc_info=True)
-                self.metrics_service.record_account_error(credit_account.type, str(e))
-            
-            log.info(f"Step: Finished processing account '{credit_account.type}'.")
-            log.info("-------------------------------------------------------------")
+        return result
     
-    def _log_account_status(self, credit_account, live_card_balance, current_pot, stable_pot):
-        """Log the current status of an account"""
-        log.info(
-            f"Account '{credit_account.type}': Live Card Balance = £{live_card_balance / 100:.2f}; "
-            f"Previous Card Baseline = £{credit_account.prev_balance / 100:.2f}."
-        )
-        log.info(
-            f"Pot '{credit_account.pot_id}': Current Pot Balance = £{current_pot / 100:.2f}; "
-            f"Stable Pot Balance = £{stable_pot / 100:.2f}."
-        )
+    def get_history_repository(self):
+        """Get the history repository from the service container."""
+        try:
+            from app.services.container import container
+            return container().get('history_repository')
+        except Exception as e:
+            logger.error(f"Error getting history repository: {str(e)}")
+            return None
+            
+    def send_notification_email(self, user_id, result, notification_settings):
+        """Send notification email based on sync result and settings."""
+        try:
+            from app.models.user import User
+            user = User.query.get(user_id)
+            
+            if not user or not user.email:
+                return
+                
+            should_notify = (
+                (result['success'] and notification_settings.get('notify_success', True)) or 
+                (not result['success'] and notification_settings.get('notify_error', True)) or
+                (result.get('auth_error', False) and notification_settings.get('notify_auth', True))
+            )
+            
+            if should_notify:
+                from app.services.container import container
+                email_service = container().get('email_service')
+                
+                if email_service:
+                    email_service.send_sync_report(user.email, {
+                        'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                        'status': 'success' if result['success'] else 'error',
+                        'accounts_synced': result.get('accounts_synced', 0),
+                        'accounts_skipped': result.get('accounts_skipped', 0),
+                        'errors': result.get('errors', []),
+                        'details': result.get('details', [])
+                    })
+        except Exception as e:
+            logger.error(f"Error sending notification email: {str(e)}")
+    
+    def get_next_sync_time(self, user_id):
+        """Get the estimated next sync time for a user."""
+        # Get scheduler service from container
+        from app.services.container import container
+        scheduler_service = container().get('scheduler_service')
         
-        now = int(time.time())
-        if credit_account.cooldown_until:
-            hr_cooldown = datetime.datetime.fromtimestamp(credit_account.cooldown_until).strftime("%Y-%m-%d %H:%M:%S")
-            if now < credit_account.cooldown_until:
-                log.info(f"Cooldown active until {hr_cooldown} (epoch: {credit_account.cooldown_until}).")
-            else:
-                log.info(f"Cooldown expired at {hr_cooldown} (epoch: {credit_account.cooldown_until}).")
-        else:
-            log.info("No active cooldown on this account.")
-    
-    def _update_account_baselines(self, credit_accounts):
-        """Update account baselines - corresponds to SECTION 7"""
-        current_time = int(time.time())
-        for credit_account in credit_accounts:
-            self.db.session.commit()
-            if hasattr(credit_account, "_sa_instance_state"):
-                self.db.session.expire(credit_account)
-            refreshed = self.account_repository.get(credit_account.type)
-            # Ensure we have the latest prev_balance
-            credit_account.prev_balance = refreshed.prev_balance
+        if scheduler_service:
+            return scheduler_service.get_next_sync_time(user_id)
             
-            if credit_account.pot_id:
-                live = credit_account.get_total_balance(force_refresh=False)
-                prev = credit_account.get_prev_balance(credit_account.pot_id)
-                if credit_account.cooldown_until and current_time < credit_account.cooldown_until:
-                    log.info(f"[Baseline Update] {credit_account.type}: Cooldown active; baseline not updated.")
-                    continue
-                    
-                if live != prev:
-                    log.info(f"[Baseline Update] {credit_account.type}: Updating baseline from £{prev / 100:.2f} to £{live / 100:.2f}.")
-                    self.account_repository.update_credit_account_fields(credit_account.type, credit_account.pot_id, live, credit_account.cooldown_until)
-                    self.db.session.commit()
-                    credit_account.prev_balance = live
-                else:
-                    log.info(f"[Baseline Update] {credit_account.type}: Baseline remains unchanged (prev: £{prev / 100:.2f}, live: £{live / 100:.2f}).")
+        return None

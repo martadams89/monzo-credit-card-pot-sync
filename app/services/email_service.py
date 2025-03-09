@@ -1,114 +1,138 @@
-"""Service for sending emails"""
+"""Service for email functionality."""
 
 import logging
 import smtplib
-import ssl
-from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
-from jinja2 import Environment, PackageLoader, select_autoescape
+from email.mime.multipart import MIMEMultipart
+from flask import render_template
 
-log = logging.getLogger("email_service")
+logger = logging.getLogger(__name__)
 
 class EmailService:
-    """Service for sending emails"""
+    """Service for sending emails."""
     
-    def __init__(self, settings_repository):
-        self.settings_repository = settings_repository
-        self.jinja_env = Environment(
-            loader=PackageLoader('app', 'templates/emails'),
-            autoescape=select_autoescape(['html', 'xml'])
-        )
+    def __init__(self, setting_repository, config=None):
+        """Initialize the email service.
         
-    def send_email(self, recipient, subject, template_name, context=None):
-        """Send an email using configured SMTP settings"""
-        if context is None:
-            context = {}
+        Args:
+            setting_repository: Repository for accessing settings
+            config: App configuration dictionary
+        """
+        self.setting_repository = setting_repository
+        self.config = config or {}
+    
+    def _get_smtp_settings(self):
+        """Get SMTP settings from repository or config."""
+        settings = {
+            'server': self.setting_repository.get('smtp_server', self.config.get('MAIL_SERVER')),
+            'port': int(self.setting_repository.get('smtp_port', self.config.get('MAIL_PORT', 587))),
+            'username': self.setting_repository.get('smtp_username', self.config.get('MAIL_USERNAME')),
+            'password': self.setting_repository.get('smtp_password', self.config.get('MAIL_PASSWORD')),
+            'use_tls': self.setting_repository.get('smtp_use_tls', self.config.get('MAIL_USE_TLS', 'true')).lower() in ('true', '1', 'yes'),
+            'default_sender': self.setting_repository.get('mail_default_sender', self.config.get('MAIL_DEFAULT_SENDER', 'noreply@example.com'))
+        }
+        return settings
+    
+    def send_email(self, subject, recipients, body, html=None):
+        """Send an email.
+        
+        Args:
+            subject: Email subject
+            recipients: List of recipient email addresses
+            body: Plain text email body
+            html: Optional HTML email body
             
-        # Get email configuration from settings
-        smtp_server = self.settings_repository.get("email_smtp_server")
-        smtp_port = int(self.settings_repository.get("email_smtp_port") or 587)
-        smtp_username = self.settings_repository.get("email_smtp_username")
-        smtp_password = self.settings_repository.get("email_smtp_password")
-        from_email = self.settings_repository.get("email_from_address")
-        use_tls = self.settings_repository.get("email_use_tls") == "True"
+        Returns:
+            bool: True if email was sent, False otherwise
+        """
+        settings = self._get_smtp_settings()
         
-        # Check if email is configured
-        if not all([smtp_server, smtp_port, smtp_username, smtp_password, from_email]):
-            log.error("Email settings not fully configured. Cannot send email.")
+        if not settings['server'] or not settings['port']:
+            logger.error("SMTP server not configured")
             return False
+        
+        if isinstance(recipients, str):
+            recipients = [recipients]
         
         try:
-            # Create message
-            message = MIMEMultipart("alternative")
-            message["Subject"] = subject
-            message["From"] = from_email
-            message["To"] = recipient
+            msg = MIMEMultipart('alternative')
+            msg['Subject'] = subject
+            msg['From'] = settings['default_sender']
+            msg['To'] = ', '.join(recipients)
             
-            # Get email templates
-            html_template = self.jinja_env.get_template(f"{template_name}.html")
-            text_template = self.jinja_env.get_template(f"{template_name}.txt")
+            # Attach plain text and HTML parts
+            msg.attach(MIMEText(body, 'plain'))
+            if html:
+                msg.attach(MIMEText(html, 'html'))
             
-            # Render templates
-            html_content = html_template.render(**context)
-            text_content = text_template.render(**context)
+            # Connect to SMTP server
+            if settings['use_tls']:
+                smtp = smtplib.SMTP(settings['server'], settings['port'])
+                smtp.starttls()
+            else:
+                smtp = smtplib.SMTP(settings['server'], settings['port'])
             
-            # Attach parts
-            part1 = MIMEText(text_content, "plain")
-            part2 = MIMEText(html_content, "html")
-            message.attach(part1)
-            message.attach(part2)
+            # Login if credentials provided
+            if settings['username'] and settings['password']:
+                smtp.login(settings['username'], settings['password'])
             
             # Send email
-            if use_tls:
-                context = ssl.create_default_context()
-                with smtplib.SMTP(smtp_server, smtp_port) as server:
-                    server.starttls(context=context)
-                    server.login(smtp_username, smtp_password)
-                    server.sendmail(from_email, recipient, message.as_string())
-            else:
-                with smtplib.SMTP(smtp_server, smtp_port) as server:
-                    server.login(smtp_username, smtp_password)
-                    server.sendmail(from_email, recipient, message.as_string())
-                    
-            log.info(f"Email sent to {recipient}: {subject}")
+            smtp.sendmail(settings['default_sender'], recipients, msg.as_string())
+            smtp.quit()
+            
+            logger.info(f"Sent email '{subject}' to {len(recipients)} recipients")
             return True
-            
         except Exception as e:
-            log.error(f"Failed to send email: {e}", exc_info=True)
+            logger.error(f"Error sending email: {str(e)}")
             return False
+    
+    def send_template_email(self, subject, recipients, template, context=None):
+        """Send an email using a template.
+        
+        Args:
+            subject: Email subject
+            recipients: List of recipient email addresses
+            template: Template name (without extension)
+            context: Optional dictionary of template variables
             
-    def send_verification_email(self, user, verification_link):
-        """Send email verification link to user"""
-        return self.send_email(
-            recipient=user.email,
-            subject="Verify Your Email - Monzo Credit Card Pot Sync",
-            template_name="email_verification",
-            context={
-                "username": user.username,
-                "verification_link": verification_link
-            }
-        )
+        Returns:
+            bool: True if email was sent, False otherwise
+        """
+        context = context or {}
         
-    def send_password_reset_email(self, user, reset_link):
-        """Send password reset link to user"""
-        return self.send_email(
-            recipient=user.email,
-            subject="Reset Your Password - Monzo Credit Card Pot Sync",
-            template_name="password_reset",
-            context={
-                "username": user.username,
-                "reset_link": reset_link
-            }
-        )
+        try:
+            from flask import render_template
+            
+            # Render template
+            text_body = render_template(f"emails/{template}.txt", **context)
+            html_body = render_template(f"emails/{template}.html", **context)
+            
+            return self.send_email(subject, recipients, text_body, html_body)
+        except Exception as e:
+            logger.error(f"Error sending template email: {str(e)}")
+            return False
+    
+    def send_sync_report(self, user_email, report_data):
+        """Send a synchronization report email.
         
-    def send_two_factor_code(self, user, code):
-        """Send two-factor authentication code to user"""
-        return self.send_email(
-            recipient=user.email,
-            subject="Your Login Verification Code - Monzo Credit Card Pot Sync",
-            template_name="two_factor_code",
-            context={
-                "username": user.username,
-                "code": code
-            }
+        Args:
+            user_email: Recipient email address
+            report_data: Dictionary containing sync report data
+            
+        Returns:
+            bool: True if email was sent, False otherwise
+        """
+        subject = "Sync Report: "
+        if report_data.get('status') == 'success':
+            subject += "Successful Synchronization"
+        elif report_data.get('status') == 'partial':
+            subject += "Partial Synchronization"
+        else:
+            subject += "Failed Synchronization"
+        
+        return self.send_template_email(
+            subject=subject,
+            recipients=[user_email],
+            template="sync_report",
+            context={"report": report_data}
         )

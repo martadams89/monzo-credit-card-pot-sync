@@ -1,210 +1,73 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="h-full">
 <head>
     <meta charset="UTF-8">
-    <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Monzo Credit Card Pot Sync</title>
-
-    <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='img/favicon.ico') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/dist/output.css') }}">
-</head>
-<body class="min-h-screen bg-gray-100 dark:bg-gray-900">
-    <!-- Navigation bar -->
-    <nav class="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 py-2.5">
-        <div class="flex flex-wrap justify-between items-center">
-            <div class="flex items-center">
-                <a href="{{ url_for('dashboard.index') }}" class="flex items-center">
-                    <span class="self-center text-xl font-semibold whitespace-nowrap dark:text-white">Monzo Pot Sync</span>
-                </a>
-            </div>
-            
-            <div class="flex items-center">
-                {% if current_user.is_authenticated %}
-                <div class="flex items-center ml-3">
-                    <div class="relative">
-                        <button type="button" class="flex text-sm bg-gray-800 rounded-full focus:ring-4 focus:ring-gray-300 dark:focus:ring-gray-600" aria-expanded="false">
-                            <span class="sr-only">Open user menu</span>
-                            <div class="relative w-8 h-8 overflow-hidden bg-gray-100 rounded-full dark:bg-gray-600">
-                                <svg class="absolute w-10 h-10 text-gray-400 -left-1" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd"></path></svg>
-                            </div>
-                        </button>
-                        <div id="userMenu" class="z-50 hidden absolute right-0 mt-2 w-48 bg-white rounded divide-y divide-gray-100 shadow dark:bg-gray-700 dark:divide-gray-600">
-                            <div class="py-3 px-4">
-                                <span class="block text-sm text-gray-900 dark:text-white">{{ current_user.username }}</span>
-                                <span class="block text-sm font-medium text-gray-500 truncate dark:text-gray-400">{{ current_user.email }}</span>
-                            </div>
-                            <ul class="py-1" aria-labelledby="user-menu-button">
-                                <li>
-                                    <a href="{{ url_for('auth.security_settings') }}" class="block py-2 px-4 text-sm text-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 dark:text-gray-200 dark:hover:text-white">Security Settings</a>
-                                </li>
-                                <li>
-                                    <a href="{{ url_for('auth.logout') }}" class="block py-2 px-4 text-sm text-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 dark:text-gray-200 dark:hover:text-white">Sign out</a>
-                                </li>
-                            </ul>
-                        </div>
-                    </div>
-                </div>
-                {% endif %}
-                
-                <!-- Dark mode toggle -->
-                <button id="theme-toggle" type="button" class="ml-4 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-4 focus:ring-gray-200 dark:focus:ring-gray-700 rounded-lg text-sm p-2.5">
-                    <svg id="theme-toggle-dark-icon" class="hidden w-5 h-5" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z"></path>
-                    </svg>
-                    <svg id="theme-toggle-light-icon" class="hidden w-5 h-5" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z" fill-rule="evenodd" clip-rule="evenodd"></path>
-                    </svg>
-                </button>
-            </div>
-        </div>
-    </nav>
-
-    <!-- Sidebar & Content -->
-    <div class="flex pt-16">
-        <!-- Sidebar -->
-        {% if current_user.is_authenticated %}
-        <aside class="fixed top-0 left-0 z-40 w-64 h-screen pt-16" aria-label="Sidebar">
-            <div class="h-full px-3 py-4 overflow-y-auto bg-white dark:bg-gray-800">
-                <ul class="space-y-2">
-                    <li>
-                        <a href="{{ url_for('dashboard.index') }}" class="flex items-center p-2 text-base font-normal text-gray-900 rounded-lg dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700">
-                            <svg class="w-6 h-6 text-gray-500 transition duration-75 dark:text-gray-400 group-hover:text-gray-900 dark:group-hover:text-white" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
-                                <path d="M2 10a8 8 0 018-8v8h8a8 8 0 11-16 0z"></path>
-                                <path d="M12 2.252A8.014 8.014 0 0117.748 8H12V2.252z"></path>
-                            </svg>
-                            <span class="ml-3">Dashboard</span>
-                        </a>
-                    </li>
-                    <li>
-                        <a href="{{ url_for('dashboard.analytics') }}" class="flex items-center p-2 text-base font-normal text-gray-900 rounded-lg dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700">
-                            <svg class="w-6 h-6 text-gray-500 transition duration-75 dark:text-gray-400 group-hover:text-gray-900 dark:group-hover:text-white" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
-                                <path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-5zm6-4a1 1 0 011-1h2a1 1 0 011 1v9a1 1 0 01-1 1H9a1 1 0 01-1-1V7zm6-3a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1h-2a1 1 0 01-1-1V4z"></path>
-                            </svg>
-                            <span class="ml-3">Analytics</span>
-                        </a>
-                    </li>
-                    <li>
-                        <a href="{{ url_for('settings.index') }}" class="flex items-center p-2 text-base font-normal text-gray-900 rounded-lg dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700">
-                            <svg class="w-6 h-6 text-gray-500 transition duration-75 dark:text-gray-400 group-hover:text-gray-900 dark:group-hover:text-white" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
-                                <path fill-rule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd"></path>
-                            </svg>
-                            <span class="ml-3">Settings</span>
-                        </a>
-                    </li>
-                    
-                    {% if current_user.is_admin %}
-                    <li>
-                        <button type="button" class="flex items-center p-2 w-full text-base font-normal text-gray-900 rounded-lg transition duration-75 group hover:bg-gray-100 dark:text-white dark:hover:bg-gray-700" aria-controls="dropdown-admin" data-collapse-toggle="dropdown-admin">
-                            <svg class="w-6 h-6 text-gray-500 transition duration-75 dark:text-gray-400 group-hover:text-gray-900 dark:group-hover:text-white" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
-                                <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-2 0c0 .993-.241 1.929-.668 2.754l-1.524-1.525a3.997 3.997 0 00.078-2.183l1.562-1.562C15.802 8.249 16 9.1 16 10zm-5.165 3.913l1.58 1.58A5.98 5.98 0 0110 16a5.976 5.976 0 01-2.516-.552l1.562-1.562a4.006 4.006 0 001.789.027zm-4.677-2.796a4.002 4.002 0 01-.041-2.08l-.08.08-1.53-1.533A5.98 5.98 0 004 10c0 .954.223 1.856.619 2.657l1.54-1.54zm1.088-6.45A5.974 5.974 0 0110 4c.954 0 1.856.223 2.657.619l-1.54 1.54a4.002 4.002 0 00-2.346.033L7.246 4.668zM12 10a2 2 0 11-4 0 2 2 0 014 0z" clip-rule="evenodd"></path>
-                            </svg>
-                            <span class="flex-1 ml-3 text-left whitespace-nowrap">Admin</span>
-                            <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
-                                <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd"></path>
-                            </svg>
-                        </button>
-                        <ul id="dropdown-admin" class="hidden py-2 space-y-2">
-                            <li>
-                                <a href="{{ url_for('settings.email_settings') }}" class="flex items-center p-2 pl-11 w-full text-base font-normal text-gray-900 rounded-lg transition duration-75 group hover:bg-gray-100 dark:text-white dark:hover:bg-gray-700">Email Settings</a>
-                            </li>
-                            <li>
-                                <a href="{{ url_for('main.status') }}" class="flex items-center p-2 pl-11 w-full text-base font-normal text-gray-900 rounded-lg transition duration-75 group hover:bg-gray-100 dark:text-white dark:hover:bg-gray-700">System Status</a>
-                            </li>
-                        </ul>
-                    </li>
-                    {% else %}
-                    <li>
-                        <a href="{{ url_for('main.status') }}" class="flex items-center p-2 text-base font-normal text-gray-900 rounded-lg dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700">
-                            <svg class="w-6 h-6 text-gray-500 transition duration-75 dark:text-gray-400 group-hover:text-gray-900 dark:group-hover:text-white" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
-                                <path d="M10 2a6 6 0 00-6 6v3.586l-.707.707A1 1 0 004 14h12a1 1 0 00.707-1.707L16 11.586V8a6 6 0 00-6-6zM10 18a3 3 0 01-3-3h6a3 3 0 01-3 3z"></path>
-                            </svg>
-                            <span class="ml-3">System Status</span>
-                        </a>
-                    </li>
-                    {% endif %}
-                </ul>
-            </div>
-        </aside>
-        {% endif %}
-
-        <!-- Main content -->
-        <div class="p-4 {% if current_user.is_authenticated %}ml-64{% endif %} flex-1">
-            {% block content %}{% endblock %}
-        </div>
-    </div>
-
-    <!-- JavaScript -->
+    <title>{% if title %}{{ title }} - {% endif %}Monzo Credit Card Pot Sync</title>
+    <meta name="description" content="Automatically keep Monzo pots in sync with your credit card balance">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/tailwind.css') }}">
+    <link rel="shortcut icon" href="{{ url_for('static', filename='favicon.ico') }}">
     <script>
-        // Dark mode toggle functionality
+        // Check for user preference and apply dark mode if needed
+        if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+            document.documentElement.classList.add('dark')
+        } else {
+            document.documentElement.classList.remove('dark')
+        }
+    </script>
+    {% block head %}{% endblock %}
+</head>
+<body class="h-full bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-white">
+    {% if current_user.is_authenticated %}
+        {% include 'components/navigation.html' %}
+    {% endif %}
+    
+    <div class="pt-4">
+        {% block content %}{% endblock %}
+    </div>
+    
+    <footer class="mt-12 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 py-6">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <p class="text-center text-sm text-gray-500 dark:text-gray-400">
+                &copy; {{ current_year }} Monzo Credit Card Pot Sync | 
+                <button id="theme-toggle" class="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300">
+                    <span id="theme-toggle-dark-icon" class="hidden">🌙 Dark Mode</span>
+                    <span id="theme-toggle-light-icon" class="hidden">☀️ Light Mode</span>
+                </button>
+            </p>
+        </div>
+    </footer>
+    
+    <script>
+        // Theme toggle functionality
         const themeToggleBtn = document.getElementById('theme-toggle');
         const themeToggleDarkIcon = document.getElementById('theme-toggle-dark-icon');
         const themeToggleLightIcon = document.getElementById('theme-toggle-light-icon');
 
-        // Change the icons inside the button based on previous settings
-        if (localStorage.getItem('color-theme') === 'dark' || (!('color-theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+        // Set the initial icon based on the current theme
+        if (document.documentElement.classList.contains('dark')) {
             themeToggleLightIcon.classList.remove('hidden');
-            document.documentElement.classList.add('dark');
         } else {
             themeToggleDarkIcon.classList.remove('hidden');
-            document.documentElement.classList.remove('dark');
         }
 
-        // Toggle dark/light mode
+        // Toggle theme when button is clicked
         themeToggleBtn.addEventListener('click', function() {
-            // toggle icons inside button
+            document.documentElement.classList.toggle('dark');
+            
+            // Update icons
             themeToggleDarkIcon.classList.toggle('hidden');
             themeToggleLightIcon.classList.toggle('hidden');
-
-            // if set via local storage previously
-            if (localStorage.getItem('color-theme')) {
-                if (localStorage.getItem('color-theme') === 'light') {
-                    document.documentElement.classList.add('dark');
-                    localStorage.setItem('color-theme', 'dark');
-                } else {
-                    document.documentElement.classList.remove('dark');
-                    localStorage.setItem('color-theme', 'light');
-                }
+            
+            // Save preference to localStorage
+            if (document.documentElement.classList.contains('dark')) {
+                localStorage.theme = 'dark';
             } else {
-                // if NOT set via local storage previously
-                if (document.documentElement.classList.contains('dark')) {
-                    document.documentElement.classList.remove('dark');
-                    localStorage.setItem('color-theme', 'light');
-                } else {
-                    document.documentElement.classList.add('dark');
-                    localStorage.setItem('color-theme', 'dark');
-                }
+                localStorage.theme = 'light';
             }
         });
-
-        // User menu toggle
-        const userMenuBtn = document.querySelector('[aria-expanded="false"]');
-        const userMenu = document.getElementById('userMenu');
-        
-        if (userMenuBtn) {
-            userMenuBtn.addEventListener('click', function() {
-                userMenu.classList.toggle('hidden');
-                this.setAttribute('aria-expanded', this.getAttribute('aria-expanded') === 'true' ? 'false' : 'true');
-            });
-        }
-        
-        // Toggle dropdown menus
-        document.addEventListener('DOMContentLoaded', function() {
-            const dropdownToggles = document.querySelectorAll('[data-collapse-toggle]');
-            
-            dropdownToggles.forEach(toggle => {
-                toggle.addEventListener('click', function() {
-                    const targetId = this.getAttribute('data-collapse-toggle');
-                    const targetElement = document.getElementById(targetId);
-                    
-                    if (targetElement) {
-                        targetElement.classList.toggle('hidden');
-                        // Toggle the icon rotation
-                        this.querySelector('svg:last-child').classList.toggle('rotate-180');
-                    }
-                });
-            });
-        });
     </script>
+    
+    {% block scripts %}{% endblock %}
 </body>
 </html>

@@ -1,0 +1,33 @@
+/* Additional custom styles beyond Tailwind */
+
+/* Fix image sizing */
+img {
+    max-width: 100%;
+    height: auto;
+}
+
+/* Ensure proper sizing for login icons */
+.auth-provider-icon {
+    width: 24px;
+    height: 24px;
+    object-fit: contain;
+}
+
+/* Fix any alignment issues with inline images */
+.inline-icon {
+    vertical-align: middle;
+    display: inline-block;
+}
+
+/* Add some spacing for content sections */
+.content-section {
+    margin-bottom: 2rem;
+}
+
+/* Ensure proper font rendering */
+body {
+    font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}

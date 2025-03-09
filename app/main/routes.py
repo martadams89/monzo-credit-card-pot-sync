@@ -1,7 +1,7 @@
-"""Main blueprint routes"""
+"""Routes for the main application."""
 
 import logging
-from flask import render_template, jsonify, current_app
+from flask import render_template, jsonify, current_app, redirect, url_for, session
 from flask_login import login_required, current_user
 from sqlalchemy.exc import SQLAlchemyError
 from app.main import main_bp
@@ -12,6 +12,15 @@ import datetime
 import json
 
 log = logging.getLogger("main_routes")
+
+@main_bp.route('/')
+def index():
+    """Main landing page."""
+    # Remove any erroneous session-based flash messages that might be appearing
+    if 'registration_complete' in session:
+        session.pop('registration_complete', None)
+    
+    return render_template('index.html')
 
 @main_bp.route('/status')
 @login_required
@@ -80,49 +89,15 @@ def status():
 
 @main_bp.route('/health')
 def health():
-    """Health check endpoint - accessible without login
-    Used by Docker, Kubernetes, and monitoring systems
-    Returns:
-        JSON: Health status with details
-    """
-    health_status = {
-        "status": "ok",
-        "components": {
-            "api": {"status": "ok"},
-            "database": {"status": "ok"},
-            "version": current_app.config.get("VERSION", "unknown")
-        },
-        "checks": []
-    }
-    
-    # Check database connection
-    try:
-        db.session.execute("SELECT 1")
-        health_status["checks"].append({
-            "name": "database_connection",
-            "status": "pass"
-        })
-    except SQLAlchemyError as e:
-        log.error(f"Database connection error: {e}")
-        health_status["status"] = "error"
-        health_status["components"]["database"]["status"] = "error"
-        health_status["checks"].append({
-            "name": "database_connection",
-            "status": "fail",
-            "message": "Database connection failed"
-        })
-    
-    # Status code based on overall health
-    status_code = 200 if health_status["status"] == "ok" else 503
-    
-    return jsonify(health_status), status_code
+    """Health check endpoint."""
+    return {"status": "ok", "version": current_app.config.get('VERSION', '1.0.0')}
 
 @main_bp.route('/readiness')
 def readiness():
-    """Readiness probe for Kubernetes"""
-    return jsonify({"status": "ready"}), 200
+    """Readiness check."""
+    return jsonify({'status': 'ready'}), 200
 
 @main_bp.route('/liveness')
 def liveness():
-    """Liveness probe for Kubernetes"""
-    return jsonify({"status": "alive"}), 200
+    """Liveness check."""
+    return jsonify({'status': 'alive'}), 200

@@ -1,0 +1,14 @@
+Email System Test
+
+Hello {{ username }},
+
+This is a test email from Monzo Credit Card Pot Sync. If you're receiving this email, it means your email configuration is working correctly.
+
+Email details:
+- Recipient: {{ email }}
+- Sent: {{ timestamp }}
+
+No action is required on your part. You can safely ignore this message.
+
+Thanks,
+The Monzo Credit Card Pot Sync Team

@@ -1,14 +1,45 @@
-flask
-flask-apscheduler
-flask-sqlalchemy
-flask-migrate
-gunicorn
-pytest
-pytest-cov
-pytest-mock
-ruff
-requests
-requests-mock
-webauthn==1.9.0
-qrcode==7.4.2
+# Core Flask packages - we need to maintain Flask/Werkzeug compatibility
+Flask==2.0.1
+Flask-SQLAlchemy==2.5.1
+Flask-Migrate==3.1.0
+Flask-Login==0.5.0
+Flask-WTF==1.0.0
+Flask-APScheduler==1.12.4
+Flask-Mail==0.9.1
+flask-limiter==2.4.0
+
+# Werkzeug - needed by Flask
+Werkzeug==2.0.1
+
+# Database - SQLite only
+SQLAlchemy==1.4.23
+alembic==1.12.0
+
+# API and HTTP
+requests==2.26.0
+urllib3>=1.21.1,<1.27
+
+# Security
+itsdangerous==2.0.1
+passlib==1.7.4
 pyotp==2.9.0
+webauthn==1.9.0
+email-validator==1.1.3
+cryptography==41.0.3
+cbor2==5.4.6
+
+# Utils
+python-dotenv==0.19.0
+PyYAML==6.0.1
+
+# Testing
+pytest==6.2.5
+pytest-mock==3.11.1
+pytest-flask==1.2.0
+coverage==6.0.1
+black==21.9b0
+flake8==3.9.2
+isort==5.9.3
+
+# Production server
+gunicorn==20.1.0

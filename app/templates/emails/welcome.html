@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        .header {
+            background-color: #1e40af;
+            color: white;
+            padding: 15px;
+            text-align: center;
+        }
+        .content {
+            padding: 20px;
+        }
+        .footer {
+            background-color: #f3f4f6;
+            padding: 10px;
+            text-align: center;
+            font-size: 12px;
+            color: #6b7280;
+        }
+        .button {
+            display: inline-block;
+            background-color: #2563eb;
+            color: white;
+            padding: 10px 20px;
+            text-decoration: none;
+            border-radius: 4px;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Monzo Credit Card Pot Sync</h1>
+        <p>Welcome to Your Account</p>
+    </div>
+    
+    <div class="content">
+        <h2>Welcome, {{ user.username }}!</h2>
+        
+        <p>Thank you for creating an account with Monzo Credit Card Pot Sync. We're excited to help you keep your credit card accounts and Monzo pots in perfect sync.</p>
+        
+        <p>To get started:</p>
+        <ol>
+            <li>Connect your Monzo account</li>
+            <li>Connect your credit cards</li>
+            <li>Map your credit cards to Monzo pots</li>
+            <li>Set up your synchronization preferences</li>
+        </ol>
+        
+        <p>Our synchronization service will automatically keep your Monzo pots up to date with your credit card balances, making it easier to manage your finances.</p>
+        
+        <a href="{{ url_for('dashboard.index', _external=True) }}" class="button">Go to Dashboard</a>
+    </div>
+    
+    <div class="footer">
+        <p>This is an automated message from Monzo Credit Card Pot Sync. Please do not reply to this email.</p>
+        <p>Monzo Credit Card Pot Sync - <a href="https://github.com/martadams89/monzo-credit-card-pot-sync">Open Source Project</a></p>
+        <p>{{ current_year }} - Licensed under the MIT License</p>
+    </div>
+</body>
+</html>

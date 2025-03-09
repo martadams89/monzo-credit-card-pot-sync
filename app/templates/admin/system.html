@@ -1,0 +1,103 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <div class="max-w-6xl mx-auto">
+        <div class="flex items-center justify-between mb-6">
+            <h1 class="text-2xl font-bold">System Settings</h1>
+            <a href="{{ url_for('admin.index') }}" class="text-blue-600 dark:text-blue-400 hover:underline flex items-center">
+                <svg class="w-4 h-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M9.707 14.707a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 1.414L7.414 9H15a1 1 0 110 2H7.414l2.293 2.293a1 1 0 010 1.414z" clip-rule="evenodd" />
+                </svg>
+                Back to Dashboard
+            </a>
+        </div>
+        
+        {% include 'components/flash_messages.html' %}
+        
+        <!-- System Settings Form -->
+        <div class="bg-white dark:bg-gray-800 shadow overflow-hidden sm:rounded-lg mb-8">
+            <div class="px-4 py-5 sm:px-6">
+                <h2 class="text-lg leading-6 font-medium text-gray-900 dark:text-white">Application Settings</h2>
+                <p class="mt-1 max-w-2xl text-sm text-gray-500 dark:text-gray-400">These settings configure core application behavior.</p>
+            </div>
+            
+            <form method="POST" action="{{ url_for('admin.save_system_settings') }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="border-t border-gray-200 dark:border-gray-700 px-4 py-5 sm:p-6">
+                    <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
+                        {% for setting in settings %}
+                            {% if not setting.key.startswith('oauth_state:') and not setting.key.startswith('user:') and not setting.key.startswith('smtp_password') %}
+                            <div class="col-span-1">
+                                <label for="{{ setting.key }}" class="block text-sm font-medium text-gray-700 dark:text-gray-300">{{ setting.key }}</label>
+                                <input type="text" name="setting_{{ setting.key }}" id="{{ setting.key }}" value="{{ setting.value }}" class="mt-1 focus:ring-blue-500 focus:border-blue-500 block w-full shadow-sm sm:text-sm border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-700 dark:text-white">
+                            </div>
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+                </div>
+                <div class="bg-gray-50 dark:bg-gray-700 px-4 py-4 sm:px-6 flex justify-end">
+                    <button type="submit" class="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                        Save Settings
+                    </button>
+                </div>
+            </form>
+        </div>
+        
+        <!-- Database Information -->
+        <div class="bg-white dark:bg-gray-800 shadow overflow-hidden sm:rounded-lg mb-8">
+            <div class="px-4 py-5 sm:px-6">
+                <h2 class="text-lg leading-6 font-medium text-gray-900 dark:text-white">Database Information</h2>
+                <p class="mt-1 max-w-2xl text-sm text-gray-500 dark:text-gray-400">Information about the database configuration and statistics.</p>
+            </div>
+            <div class="border-t border-gray-200 dark:border-gray-700">
+                <dl>
+                    <div class="bg-gray-50 dark:bg-gray-700 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+                        <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Database Type</dt>
+                        <dd class="mt-1 text-sm text-gray-900 dark:text-white sm:mt-0 sm:col-span-2">{{ config.SQLALCHEMY_DATABASE_URI.split('://')[0] if config.SQLALCHEMY_DATABASE_URI else 'Unknown' }}</dd>
+                    </div>
+                    <div class="bg-white dark:bg-gray-800 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+                        <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Number of Users</dt>
+                        <dd class="mt-1 text-sm text-gray-900 dark:text-white sm:mt-0 sm:col-span-2">{{ user_count }}</dd>
+                    </div>
+                    <div class="bg-gray-50 dark:bg-gray-700 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+                        <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Number of Accounts</dt>
+                        <dd class="mt-1 text-sm text-gray-900 dark:text-white sm:mt-0 sm:col-span-2">{{ account_count }}</dd>
+                    </div>
+                    <div class="bg-white dark:bg-gray-800 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+                        <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Number of Sync Records</dt>
+                        <dd class="mt-1 text-sm text-gray-900 dark:text-white sm:mt-0 sm:col-span-2">{{ sync_count }}</dd>
+                    </div>
+                </dl>
+            </div>
+        </div>
+        
+        <!-- Maintenance Actions -->
+        <div class="bg-white dark:bg-gray-800 shadow overflow-hidden sm:rounded-lg">
+            <div class="px-4 py-5 sm:px-6">
+                <h2 class="text-lg leading-6 font-medium text-gray-900 dark:text-white">Maintenance Actions</h2>
+                <p class="mt-1 max-w-2xl text-sm text-gray-500 dark:text-gray-400">Perform maintenance tasks on the application.</p>
+            </div>
+            <div class="border-t border-gray-200 dark:border-gray-700 px-4 py-5 sm:p-6">
+                <div class="space-y-4">
+                    <form method="POST" action="{{ url_for('admin.run_maintenance') }}" class="flex items-center">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                            Run Maintenance
+                        </button>
+                        <span class="ml-3 text-sm text-gray-500 dark:text-gray-400">Clean up database, apply migrations, reset caches</span>
+                    </form>
+                    
+                    <form method="POST" action="{{ url_for('admin.purge_logs') }}" class="flex items-center">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-yellow-600 hover:bg-yellow-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500">
+                            Purge Logs
+                        </button>
+                        <span class="ml-3 text-sm text-gray-500 dark:text-gray-400">Clear log files</span>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

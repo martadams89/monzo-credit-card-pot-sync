@@ -1,35 +1,59 @@
 version: '3.8'
 
 services:
-  monzo-credit-card-pot-sync-dev:
+  web:
     build:
       context: .
-      dockerfile: Dockerfile
+      target: base
     container_name: monzo-credit-card-pot-sync-dev
     restart: unless-stopped
     ports:
-      - "${PORT:-5000}:5000"
-    environment:
-      - PORT=5000
-      - FLASK_ENV=development
-      - FLASK_APP=app
-      - SECRET_KEY=dev_secret_key
-      - DATABASE_URL=${DATABASE_URL:-sqlite:///instance/app.db}
-      - GUNICORN_WORKERS=1
-      - GUNICORN_THREADS=2
-      - LOG_LEVEL=debug
-      - POT_SYNC_LOCAL_URL=${POT_SYNC_LOCAL_URL:-http://localhost:5000}
+      - "8000:8000"
     volumes:
-      - .:/app
-      - ./instance:/app/instance
+      - ./app:/app/app
+      - ./migrations:/app/migrations
+      - ./instance:/app/instance  # Mount SQLite database directory
       - ./logs:/app/logs
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:5000/main/health"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
-      start_period: 10s
+      - ./tests:/app/tests
+    environment:
+      - FLASK_APP=run.py
+      - FLASK_ENV=development
+      - FLASK_DEBUG=1
+      - SECRET_KEY=dev_secret_key
+      - SKIP_MIGRATIONS=true  # Skip using Flask-Migrate
+      # API credentials
+      - TRUELAYER_CLIENT_ID=${TRUELAYER_CLIENT_ID}
+      - TRUELAYER_CLIENT_SECRET=${TRUELAYER_CLIENT_SECRET}
+      - MONZO_CLIENT_ID=${MONZO_CLIENT_ID}
+      - MONZO_CLIENT_SECRET=${MONZO_CLIENT_SECRET}
+      # Admin user configuration
+      - ADMIN_USERNAME=${ADMIN_USERNAME:-admin}
+      - ADMIN_EMAIL=${ADMIN_EMAIL:-admin@example.com}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-changeme}
+      - ADMIN_REGISTRATION_CODE=${ADMIN_REGISTRATION_CODE:-devcode123}
+      # Email configuration using MailHog for development
+      - EMAIL_SMTP_SERVER=mailhog
+      - EMAIL_SMTP_PORT=1025
+      - EMAIL_SMTP_USERNAME=
+      - EMAIL_SMTP_PASSWORD=
+      - EMAIL_FROM_ADDRESS=dev@example.com
+      - EMAIL_USE_TLS=false
+    command: ["flask", "run", "--host=0.0.0.0", "--port=8000", "--reload"]
+    depends_on:
+      - mailhog
+
+  # Add MailHog for email testing
+  mailhog:
+    image: mailhog/mailhog
+    container_name: monzo-mailhog
+    ports:
+      - "1025:1025"  # SMTP port
+      - "8025:8025"  # Web UI port
+    volumes:
+      - mailhog_data:/maildir  # For email persistence
+    environment:
+      - MH_STORAGE=maildir
+      - MH_MAILDIR_PATH=/maildir
 
 volumes:
-  instance:
-  logs:
+  mailhog_data:

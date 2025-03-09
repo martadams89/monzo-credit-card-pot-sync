@@ -1,1 +1,173 @@
-{% extends 'layout.html' %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Monzo Credit Card Pot Sync{% endblock %}</title>
+    
+    <!-- CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/dist/output.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+    {% block extra_css %}{% endblock %}
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='img/favicon.png') }}">
+    
+    <!-- Dark mode detection -->
+    <script>
+        // Check for dark mode preference
+        if (localStorage.getItem('color-theme') === 'dark' || 
+            (!('color-theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+            document.documentElement.classList.add('dark');
+        } else {
+            document.documentElement.classList.remove('dark')
+        }
+    </script>
+</head>
+<body class="bg-gray-100 dark:bg-gray-900 min-h-screen flex flex-col">
+    <!-- Navigation -->
+    <nav class="bg-white dark:bg-gray-800 shadow-sm">
+        <div class="container mx-auto px-4">
+            <div class="flex justify-between h-16">
+                <div class="flex">
+                    <!-- Logo -->
+                    <div class="flex-shrink-0 flex items-center">
+                        <a href="{{ url_for('main.index') }}" class="text-blue-600 dark:text-blue-400 font-bold text-xl">
+                            Monzo Pot Sync
+                        </a>
+                    </div>
+                    
+                    <!-- Navigation Links -->
+                    <div class="hidden sm:ml-6 sm:flex sm:space-x-8">
+                        {% if current_user.is_authenticated %}
+                        <a href="{{ url_for('dashboard.index') }}" 
+                           class="{% if request.endpoint == 'dashboard.index' %}border-blue-500 text-gray-900 dark:text-white{% else %}border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-gray-700{% endif %} inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
+                            Dashboard
+                        </a>
+                        <a href="{{ url_for('settings.index') }}" 
+                           class="{% if request.endpoint == 'settings.index' %}border-blue-500 text-gray-900 dark:text-white{% else %}border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-gray-700{% endif %} inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
+                            Settings
+                        </a>
+                        {% if current_user.is_admin %}
+                        <a href="{{ url_for('dashboard.admin') if 'admin' in dashboard.__dict__ else '#' }}" 
+                           class="{% if request.endpoint == 'dashboard.admin' %}border-blue-500 text-gray-900 dark:text-white{% else %}border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-gray-700{% endif %} inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
+                            Admin
+                        </a>
+                        {% endif %}
+                        {% endif %}
+                    </div>
+                </div>
+                
+                <!-- Right side nav items -->
+                <div class="flex items-center">
+                    <!-- Dark mode toggle -->
+                    <button id="theme-toggle" class="text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-4 focus:ring-gray-200 dark:focus:ring-gray-700 rounded-lg text-sm p-2">
+                        <svg id="theme-toggle-dark-icon" class="hidden w-5 h-5" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z"></path>
+                        </svg>
+                        <svg id="theme-toggle-light-icon" class="hidden w-5 h-5" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z" fill-rule="evenodd" clip-rule="evenodd"></path>
+                        </svg>
+                    </button>
+                    
+                    {% if current_user.is_authenticated %}
+                    <!-- User dropdown -->
+                    <div class="ml-3 relative">
+                        <div>
+                            <button type="button" class="user-menu-button bg-gray-800 flex text-sm rounded-full focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-800 focus:ring-white" aria-expanded="false" aria-haspopup="true">
+                                <span class="sr-only">Open user menu</span>
+                                <div class="h-8 w-8 rounded-full bg-blue-500 flex items-center justify-center text-white">
+                                    {{ current_user.username[0].upper() }}
+                                </div>
+                            </button>
+                        </div>
+                        
+                        <!-- User menu dropdown -->
+                        <div class="user-menu hidden origin-top-right absolute right-0 mt-2 w-48 rounded-md shadow-lg py-1 bg-white dark:bg-gray-800 ring-1 ring-black ring-opacity-5 focus:outline-none" role="menu" aria-orientation="vertical" aria-labelledby="user-menu-button" tabindex="-1">
+                            <a href="{{ url_for('auth.profile') if 'profile' in auth.__dict__ else '#' }}" class="block px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700" role="menuitem">Your Profile</a>
+                            <a href="{{ url_for('auth.security') if 'security' in auth.__dict__ else '#' }}" class="block px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700" role="menuitem">Security</a>
+                            <a href="{{ url_for('settings.index') }}" class="block px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700" role="menuitem">Settings</a>
+                            <a href="{{ url_for('auth.logout') }}" class="block px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700" role="menuitem">Sign out</a>
+                        </div>
+                    </div>
+                    {% else %}
+                    <!-- Login/Register buttons -->
+                    <div class="flex space-x-2">
+                        <a href="{{ url_for('auth.login') }}" class="text-gray-700 dark:text-gray-300 px-3 py-2 rounded-md text-sm font-medium hover:bg-gray-100 dark:hover:bg-gray-700">Log in</a>
+                        <a href="{{ url_for('auth.register') }}" class="bg-blue-600 text-white px-3 py-2 rounded-md text-sm font-medium hover:bg-blue-700">Register</a>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </nav>
+    
+    <!-- Main content -->
+    <main class="flex-grow">
+        {% block content %}{% endblock %}
+    </main>
+    
+    <!-- Footer -->
+    <footer class="bg-gray-800 dark:bg-gray-900 text-white py-6 mt-auto">
+        <div class="container mx-auto px-4">
+            <div class="flex flex-col md:flex-row justify-between items-center">
+                <div>
+                    <p class="text-sm text-gray-300">© {{ current_year }} Monzo Credit Card Pot Sync</p>
+                </div>
+                <div class="mt-4 md:mt-0">
+                    <p class="text-sm text-gray-300">
+                        <a href="https://github.com/martadams89/monzo-credit-card-pot-sync" class="text-blue-400 hover:text-blue-300">GitHub</a> |
+                        <a href="#" class="text-blue-400 hover:text-blue-300">Privacy Policy</a>
+                    </p>
+                </div>
+            </div>
+        </div>
+    </footer>
+    
+    <!-- JavaScript -->
+    <script>
+        // Toggle dark/light mode
+        document.addEventListener('DOMContentLoaded', function() {
+            const themeToggleBtn = document.getElementById('theme-toggle');
+            const themeToggleDarkIcon = document.getElementById('theme-toggle-dark-icon');
+            const themeToggleLightIcon = document.getElementById('theme-toggle-light-icon');
+            
+            // Set initial icon state based on current theme
+            if (document.documentElement.classList.contains('dark')) {
+                themeToggleLightIcon.classList.remove('hidden');
+            } else {
+                themeToggleDarkIcon.classList.remove('hidden');
+            }
+            
+            // Toggle theme when button is clicked
+            themeToggleBtn.addEventListener('click', function() {
+                const isDarkMode = document.documentElement.classList.toggle('dark');
+                
+                // Toggle icons
+                themeToggleDarkIcon.classList.toggle('hidden', isDarkMode);
+                themeToggleLightIcon.classList.toggle('hidden', !isDarkMode);
+                
+                // Update localStorage
+                localStorage.setItem('color-theme', isDarkMode ? 'dark' : 'light');
+            });
+            
+            // User menu toggle
+            const userMenuButton = document.querySelector('.user-menu-button');
+            if (userMenuButton) {
+                userMenuButton.addEventListener('click', function() {
+                    document.querySelector('.user-menu').classList.toggle('hidden');
+                });
+                
+                // Close menu when clicking elsewhere
+                document.addEventListener('click', function(event) {
+                    if (!userMenuButton.contains(event.target) && !document.querySelector('.user-menu').contains(event.target)) {
+                        document.querySelector('.user-menu').classList.add('hidden');
+                    }
+                });
+            }
+        });
+    </script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>
+<!-- Delete me - functionality has been migrated to base.html -->

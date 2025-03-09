@@ -1,0 +1,85 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <h1 class="text-2xl font-bold mb-6">Manage Pot Mappings</h1>
+    
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="mb-4 p-3 rounded 
+                    {% if category == 'error' %}bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300{% endif %}
+                    {% if category == 'success' %}bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300{% endif %}
+                    {% if category == 'info' or category == 'message' %}bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300{% endif %}">
+                    {{ message }}
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+    
+    <div class="bg-white dark:bg-gray-800 shadow-md rounded-lg p-6">
+        <form method="POST" action="{{ url_for('accounts.update_pot_mappings') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            
+            <div class="mb-6">
+                <h2 class="text-lg font-medium text-gray-900 dark:text-white mb-4">Credit Card to Pot Mappings</h2>
+                <p class="text-gray-600 dark:text-gray-400 mb-4">
+                    Select which Monzo pot should track the balance for each credit card. The pot's balance will be kept in sync with the credit card balance.
+                </p>
+            </div>
+            
+            {% if credit_card_accounts %}
+                <div class="space-y-6">
+                    {% for card in credit_card_accounts %}
+                        <div class="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
+                            <div class="flex items-center justify-between mb-3">
+                                <h3 class="text-md font-medium text-gray-900 dark:text-white">{{ card.name }}</h3>
+                                <span class="text-sm font-semibold text-gray-700 dark:text-gray-300">Balance: £{{ card.balance|default('0.00', true) }}</span>
+                            </div>
+                            
+                            <div class="w-full">
+                                <label for="pot_{{ card.id }}" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Select Monzo Pot</label>
+                                <select id="pot_{{ card.id }}" name="mappings[{{ card.id }}]" class="bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5">
+                                    <option value="">-- None (Do not sync) --</option>
+                                    {% for monzo in monzo_accounts %}
+                                        {% for pot in monzo.pots %}
+                                            <option value="{{ pot.id }}" {% if pot_mappings and pot_mappings.get(card.id) == pot.id %}selected{% endif %}>
+                                                {{ pot.name }} (£{{ pot.balance|default('0.00', true) }})
+                                            </option>
+                                        {% endfor %}
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+                
+                <div class="mt-8">
+                    <button type="submit" class="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                        Save Pot Mappings
+                    </button>
+                </div>
+            {% else %}
+                <div class="text-center py-4">
+                    <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                    </svg>
+                    <h3 class="mt-2 text-sm font-medium text-gray-900 dark:text-white">No Credit Cards</h3>
+                    <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Connect a credit card first to create pot mappings.</p>
+                    <div class="mt-6">
+                        <a href="{{ url_for('accounts.connect') }}" class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                            Connect Credit Card
+                        </a>
+                    </div>
+                </div>
+            {% endif %}
+        </form>
+    </div>
+    
+    <div class="mt-6 flex justify-end">
+        <a href="{{ url_for('accounts.manage') }}" class="text-blue-600 dark:text-blue-400 hover:underline">
+            Back to Account Management
+        </a>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,23 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <div class="max-w-3xl mx-auto">
+        <div class="flex items-center justify-between mb-6">
+            <h1 class="text-2xl font-bold">{{ title }}</h1>
+            {% if show_back_button %}
+            <a href="{{ back_url|default(url_for('settings.index')) }}" class="text-blue-600 dark:text-blue-400 hover:underline flex items-center">
+                <svg class="w-4 h-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M9.707 14.707a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 1.414L7.414 9H15a1 1 0 110 2H7.414l2.293 2.293a1 1 0 010 1.414z" clip-rule="evenodd" />
+                </svg>
+                Back
+            </a>
+            {% endif %}
+        </div>
+        
+        {% include 'components/flash_messages.html' %}
+        
+        {% block settings_content %}{% endblock %}
+    </div>
+</div>
+{% endblock %}
