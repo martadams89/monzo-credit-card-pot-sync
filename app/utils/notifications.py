@@ -2,69 +2,10 @@
 Utility functions for sending notifications.
 """
 import logging
+from datetime import datetime
+from typing import List, Optional
 from flask import render_template, current_app
 from flask_mail import Message
-from app.extensions import mail
-
-logger = logging.getLogger(__name__)
-
-def send_email(subject, recipients, template, **kwargs):
-    """Send an email using the Flask-Mail extension."""
-    try:
-        msg = Message(
-            subject=subject,
-            recipients=recipients,
-            html=render_template(template, **kwargs),
-            sender=current_app.config.get('MAIL_DEFAULT_SENDER')
-        )
-        mail.send(msg)
-        return True
-    except Exception as e:
-        logger.error(f"Failed to send email: {str(e)}")
-        return False
-
-def send_notification(user, notification_type, details=None, **kwargs):
-    """Send notification to a user."""
-    try:
-        # Add common template variables
-        template_vars = {
-            'user': user,
-            'details': details,
-            **kwargs
-        }
-        
-        # Determine email subject and template based on notification type
-        if notification_type == 'sync_success':
-            subject = "Monzo Sync: Sync completed successfully"
-            template = "email/sync_success.html"
-        elif notification_type == 'sync_failure':
-            subject = "Monzo Sync: Sync failed"
-            template = "email/sync_failure.html"
-        elif notification_type == 'security_alert':
-            subject = "Monzo Sync: Security alert"
-            template = "email/security_alert.html"
-        elif notification_type == 'verify_email':
-            subject = "Monzo Sync: Verify your email"
-            template = "email/verify_email.html"
-        elif notification_type == 'password_reset':
-            subject = "Monzo Sync: Password reset request"
-            template = "email/password_reset.html"
-        else:
-            # Default to generic template
-            subject = f"Monzo Sync: {notification_type.replace('_', ' ').title()}"
-            template = "email/generic.html"
-            
-        return send_email(subject, [user.email], template, **template_vars)
-        
-    except Exception as e:
-        logger.error(f"Failed to send notification: {str(e)}")
-        return False
-```
-import logging
-from datetime import datetime
-from flask import current_app
-from flask_mail import Message
-from typing import List, Optional
 
 from app.extensions import db, mail
 from app.models.notification import UserNotification
@@ -156,13 +97,33 @@ def send_email(recipient: str, subject: str, html_body: str, text_body: Optional
             subject=subject,
             recipients=[recipient],
             html=html_body,
-            body=text_body or "Please view this email with an HTML email client."
+            body=text_body or "Please view this email with an HTML email client.",
+            sender=current_app.config.get('MAIL_DEFAULT_SENDER')
         )
         mail.send(msg)
         log.info(f"Email sent to {recipient}: {subject}")
         return True
     except Exception as e:
         log.error(f"Failed to send email to {recipient}: {str(e)}")
+        return False
+
+def send_email_with_template(subject: str, recipients: List[str], template: str, **kwargs) -> bool:
+    """Send an email using a template through Flask-Mail extension."""
+    try:
+        html_content = render_template(template, **kwargs)
+        
+        # Try to get text version if available (template_name.txt instead of .html)
+        text_template = template.replace('.html', '.txt')
+        try:
+            text_content = render_template(text_template, **kwargs)
+        except:
+            text_content = None
+            
+        for recipient in recipients:
+            send_email(recipient, subject, html_content, text_content)
+        return True
+    except Exception as e:
+        log.error(f"Failed to send email with template {template}: {str(e)}")
         return False
 
 def send_security_alert(user: User, event_type: str, details: str, ip_address: str = None) -> bool:
@@ -200,7 +161,6 @@ def send_security_alert(user: User, event_type: str, details: str, ip_address: s
         }
         
         # Render email templates
-        from flask import render_template
         html_content = render_template('email/security_alert.html', **context)
         text_content = render_template('email/security_alert.txt', **context)
         
