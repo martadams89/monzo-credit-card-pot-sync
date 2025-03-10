@@ -17,15 +17,15 @@ class MonzoRepository:
     def __init__(self, db_session=None):
         self._session = db_session or db.session
     
-    def get_account_by_id(self, account_id: str) -> Optional<MonzoAccount]:
+    def get_account_by_id(self, account_id: str) -> Optional[MonzoAccount]:
         """Get a Monzo account by ID."""
         return self._session.query(MonzoAccount).filter_by(id=account_id).one_or_none()
     
-    def get_accounts_by_user_id(self, user_id: str) -> List<MonzoAccount]:
+    def get_accounts_by_user_id(self, user_id: str) -> List[MonzoAccount]:
         """Get all Monzo accounts for a user."""
         return self._session.query(MonzoAccount).filter_by(user_id=user_id).all()
     
-    def get_active_accounts(self) -> List<MonzoAccount]:
+    def get_active_accounts(self) -> List[MonzoAccount]:
         """Get all active accounts."""
         return self._session.query(MonzoAccount).filter_by(is_active=True).all()
     
@@ -54,7 +54,7 @@ class MonzoRepository:
         """Get a pot by ID."""
         return self._session.query(MonzoPot).filter_by(id=pot_id).one_or_none()
     
-    def get_pots_by_account_id(self, account_id: str) -> List<MonzoPot]:
+    def get_pots_by_account_id(self, account_id: str) -> List[MonzoPot]:
         """Get all pots for an account."""
         return self._session.query(MonzoPot).filter_by(account_id=account_id).all()
     
@@ -69,7 +69,7 @@ class MonzoRepository:
             log.error(f"Error saving pot: {str(e)}")
             raise
     
-    def update_pots_from_api(self, account: MonzoAccount) -> List<MonzoPot]:
+    def update_pots_from_api(self, account: MonzoAccount) -> List[MonzoPot]:
         """Fetch and update pots from the Monzo API."""
         try:
             api = MonzoAPI(account.access_token)
