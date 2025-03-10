@@ -8,16 +8,8 @@ mkdir -p instance
 pip install Flask-Migrate
 
 echo "Running database migrations..."
-# Try to upgrade existing database
-if flask db upgrade; then
-    echo "Database migrations applied successfully."
-else
-    # If command fails, initialize the database
-    echo "Initializing database..."
-    flask db init
-    flask db migrate -m "Initial migration"
-    flask db upgrade
-fi
+# Apply database migrations
+flask db upgrade
 
-# Execute the command passed to docker run
+# Execute the command provided as arguments (e.g., gunicorn command)
 exec "$@"

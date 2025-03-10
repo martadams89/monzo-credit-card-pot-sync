@@ -36,7 +36,6 @@ def create_app(test_config=None):
     )
     
     # Initialize extensions
-    from app.extensions import init_extensions
     init_extensions(app)
     
     # Register error handlers
@@ -80,12 +79,22 @@ def create_app(test_config=None):
         from app.extensions import db
         db.session.remove()
     
-    @app.before_request
-    def before_request():
-        """Process request before handling."""
-        pass
-    
     return app
+
+def register_error_handlers(app):
+    """Register error handlers for the app."""
+    
+    @app.errorhandler(404)
+    def page_not_found(error):
+        return render_template('errors/404.html'), 404
+    
+    @app.errorhandler(403)
+    def forbidden(error):
+        return render_template('errors/403.html'), 403
+    
+    @app.errorhandler(500)
+    def internal_server_error(error):
+        return render_template('errors/500.html'), 500
 
 def register_blueprints(app):
     """Register all blueprints with the application."""
@@ -99,7 +108,11 @@ def register_blueprints(app):
     from app.web.webhooks import webhooks_bp
     from app.web.health import health_bp
     from app.web.backup import backup_bp
-    
+    from app.web.pots import pots_bp
+    from app.web.settings import settings_bp
+    from app.web.accounts import accounts_bp
+    from app.web.errors import errors_bp  # Add this line
+
     # Register blueprints
     app.register_blueprint(home_bp)
     app.register_blueprint(auth_bp, url_prefix='/auth')
@@ -110,3 +123,11 @@ def register_blueprints(app):
     app.register_blueprint(webhooks_bp, url_prefix='/webhooks')
     app.register_blueprint(health_bp, url_prefix='/health')
     app.register_blueprint(backup_bp, url_prefix='/backup')
+    app.register_blueprint(pots_bp, url_prefix='/pots')
+    app.register_blueprint(settings_bp, url_prefix='/settings')
+    app.register_blueprint(accounts_bp, url_prefix='/accounts')
+    app.register_blueprint(errors_bp)  # Add this line
+
+    # API routes
+    from app.api.v1 import api_v1_bp
+    app.register_blueprint(api_v1_bp, url_prefix='/api/v1')

@@ -1,9 +1,14 @@
 {
+  "name": "monzo-credit-card-pot-sync",
+  "version": "1.0.0",
+  "private": true,
   "scripts": {
     "start": "flask --app app run --port=1337",
     "dev": "npm run build-css-live & flask --app app run --port=1337 --debug",
     "build-css": "tailwindcss -i ./app/static/css/src/input.css -o ./app/static/css/dist/output.css",
-    "build-css-live": "tailwindcss -i ./app/static/css/src/input.css -o ./app/static/css/dist/output.css --watch"
+    "build-css-live": "tailwindcss -i ./app/static/css/src/input.css -o ./app/static/css/dist/output.css --watch",
+    "build:css": "tailwindcss -i ./app/static/css/src/input.css -o ./app/static/css/dist/output.css --minify",
+    "watch:css": "tailwindcss -i ./app/static/css/src/input.css -o ./app/static/css/dist/output.css --watch"
   },
   "devDependencies": {
     "tailwindcss": "^3.4.17"

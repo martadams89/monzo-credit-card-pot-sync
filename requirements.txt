@@ -48,3 +48,6 @@ requests-mock==1.11.0
 pylint==2.17.5
 black==23.7.0
 flake8==6.1.0
+
+# Add this line to your requirements.txt
+flask-swagger-ui==4.11.1

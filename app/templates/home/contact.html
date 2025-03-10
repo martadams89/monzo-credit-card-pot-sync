@@ -4,7 +4,7 @@
 <div class="max-w-3xl mx-auto py-8">
     <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-8 text-center">Contact Us</h1>
     
-    <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-6 shadow-sm mb-8">
+    <div class="bg-white rounded-lg border border-gray-200 shadow-md p-6 dark:bg-gray-800 dark:border-gray-700">
         <h2 class="text-xl font-bold text-gray-900 dark:text-white mb-4">Get In Touch</h2>
         <p class="text-gray-600 dark:text-gray-400 mb-6">
             Have questions, suggestions, or need help? Fill out the form below and we'll get back to you as soon as possible.
@@ -14,17 +14,17 @@
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             
             <div class="mb-4">
-                <label for="name" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Your Name</label>
+                <label for="name" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Your Name</label>
                 <input type="text" id="name" name="name" required class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white">
             </div>
             
             <div class="mb-4">
-                <label for="email" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email Address</label>
+                <label for="email" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Email Address</label>
                 <input type="email" id="email" name="email" required class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white">
             </div>
             
             <div class="mb-4">
-                <label for="subject" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Subject</label>
+                <label for="subject" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Subject</label>
                 <select id="subject" name="subject" required class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white">
                     <option value="" disabled selected>Select a subject</option>
                     <option value="general">General Question</option>
@@ -37,7 +37,7 @@
             </div>
             
             <div class="mb-6">
-                <label for="message" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Your Message</label>
+                <label for="message" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Your Message</label>
                 <textarea id="message" name="message" rows="5" required class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white"></textarea>
             </div>
             
@@ -47,8 +47,8 @@
         </form>
     </div>
     
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-        <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-6 shadow-sm">
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mt-8">
+        <div class="bg-white border border-gray-200 rounded-lg p-6 shadow-sm dark:bg-gray-800 dark:border-gray-700">
             <h3 class="text-lg font-bold text-gray-900 dark:text-white mb-3">Email Support</h3>
             <p class="text-gray-600 dark:text-gray-400 mb-2">
                 For general inquiries or support:
@@ -58,7 +58,7 @@
             </a>
         </div>
         
-        <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-6 shadow-sm">
+        <div class="bg-white border border-gray-200 rounded-lg p-6 shadow-sm dark:bg-gray-800 dark:border-gray-700">
             <h3 class="text-lg font-bold text-gray-900 dark:text-white mb-3">Response Time</h3>
             <p class="text-gray-600 dark:text-gray-400">
                 We aim to respond to all inquiries within 24-48 hours during business days. For urgent issues, please indicate this in your subject line.

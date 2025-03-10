@@ -12,6 +12,8 @@ from flask_wtf.csrf import CSRFProtect
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from flask_caching import Cache
+from flask_apscheduler import APScheduler
+from flask_swagger_ui import get_swaggerui_blueprint
 
 # SQLAlchemy for database ORM
 db = SQLAlchemy()
@@ -40,6 +42,9 @@ limiter = Limiter(
 # Cache
 cache = Cache()
 
+# Scheduler
+scheduler = APScheduler()
+
 def init_extensions(app):
     """Initialize all Flask extensions."""
     db.init_app(app)
@@ -56,6 +61,21 @@ def init_extensions(app):
     }
     
     cache.init_app(app, config=cache_config)
+
+    # Initialize scheduler
+    scheduler.init_app(app)
+    
+    # Setup Swagger UI
+    swagger_url = '/api/docs'
+    api_url = '/static/swagger.json'
+    swaggerui_blueprint = get_swaggerui_blueprint(
+        swagger_url,
+        api_url,
+        config={
+            'app_name': "Monzo Credit Card Pot Sync API"
+        }
+    )
+    app.register_blueprint(swaggerui_blueprint, url_prefix=swagger_url)
     
     # Load user for Flask-Login
     from app.models.user import User

@@ -1,62 +1,58 @@
 {% extends 'base.html' %}
 
 {% block content %}
-<div class="max-w-5xl mx-auto py-8">
+<div class="max-w-4xl mx-auto py-12">
     <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-8 text-center">About Monzo Credit Card Pot Sync</h1>
     
-    <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-6 shadow-sm mb-12">
-        <h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-4">Our Story</h2>
-        <p class="text-gray-600 dark:text-gray-400 mb-4">
-            Monzo Credit Card Pot Sync was created to solve a common problem faced by many Monzo users: keeping track of credit card payments and ensuring enough money is set aside for when payment is due.
+    <div class="bg-white rounded-lg border border-gray-200 shadow-md p-6 mb-8 dark:bg-gray-800 dark:border-gray-700">
+        <h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-4">Our Mission</h2>
+        <p class="text-gray-700 dark:text-gray-400 mb-4">
+            Monzo Credit Card Pot Sync was created to solve a common problem: keeping track of credit card spending and ensuring you have enough money set aside for when the bill comes due.
         </p>
-        <p class="text-gray-600 dark:text-gray-400 mb-4">
-            The idea came from personal experience. As a Monzo user with several credit cards, I wanted an automated way to move money into my payment pot whenever my credit card balance changed. This would ensure I always had the right amount set aside for payments.
-        </p>
-        <p class="text-gray-600 dark:text-gray-400">
-            What started as a personal project has grown into a tool used by many Monzo customers to better manage their finances and ensure they never miss a credit card payment.
+        <p class="text-gray-700 dark:text-gray-400">
+            Our mission is to help Monzo users manage their finances more effectively by automating the process of syncing credit card balances with savings pots, giving you peace of mind and better control over your money.
         </p>
     </div>
     
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12">
-        <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-6 shadow-sm">
-            <h2 class="text-xl font-bold text-gray-900 dark:text-white mb-4">Our Mission</h2>
-            <p class="text-gray-600 dark:text-gray-400">
-                We believe in making financial management simpler and more automated. Our mission is to help Monzo users maintain better control over their credit card payments through smart automation that works seamlessly in the background.
-            </p>
-        </div>
+    <div class="bg-white rounded-lg border border-gray-200 shadow-md p-6 mb-8 dark:bg-gray-800 dark:border-gray-700">
+        <h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-4">The Team</h2>
+        <p class="text-gray-700 dark:text-gray-400 mb-6">
+            Our small team of developers and financial enthusiasts built this tool because we faced the same challenges in our own financial lives. We're dedicated to creating simple, effective solutions for personal finance management.
+        </p>
         
-        <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-6 shadow-sm">
-            <h2 class="text-xl font-bold text-gray-900 dark:text-white mb-4">Our Values</h2>
-            <ul class="list-disc pl-5 text-gray-600 dark:text-gray-400 space-y-2">
-                <li><strong>Simplicity</strong> - Financial tools should make life easier, not more complex</li>
-                <li><strong>Security</strong> - Your financial data and privacy are our top priority</li>
-                <li><strong>Transparency</strong> - Clear communication about how our service works</li>
-                <li><strong>Community</strong> - Building features based on user feedback</li>
-            </ul>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div class="text-center">
+                <div class="w-24 h-24 rounded-full bg-gray-300 mx-auto mb-4 flex items-center justify-center text-gray-600">
+                    <svg class="w-12 h-12" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                        <path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd"></path>
+                    </svg>
+                </div>
+                <h3 class="text-lg font-medium text-gray-900 dark:text-white">John Doe</h3>
+                <p class="text-gray-700 dark:text-gray-400">Founder & Developer</p>
+            </div>
+            <div class="text-center">
+                <div class="w-24 h-24 rounded-full bg-gray-300 mx-auto mb-4 flex items-center justify-center text-gray-600">
+                    <svg class="w-12 h-12" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                        <path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd"></path>
+                    </svg>
+                </div>
+                <h3 class="text-lg font-medium text-gray-900 dark:text-white">Jane Smith</h3>
+                <p class="text-gray-700 dark:text-gray-400">Financial Analyst</p>
+            </div>
         </div>
     </div>
     
-    <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-6 shadow-sm mb-12">
-        <h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-4">How It Works</h2>
-        <p class="text-gray-600 dark:text-gray-400 mb-4">
-            Monzo Credit Card Pot Sync connects to your Monzo account using the official Monzo API. It uses read access to monitor your credit card balances and write access to move money between your accounts and pots based on rules you define.
+    <div class="bg-white rounded-lg border border-gray-200 shadow-md p-6 dark:bg-gray-800 dark:border-gray-700">
+        <h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-4">Privacy & Security</h2>
+        <p class="text-gray-700 dark:text-gray-400 mb-4">
+            We take your financial privacy and security seriously. All data is encrypted both in transit and at rest, and we never store sensitive financial information like card numbers or PINs.
         </p>
-        <p class="text-gray-600 dark:text-gray-400 mb-4">
-            We use industry-standard OAuth authentication to connect to your account, which means we never see or store your Monzo login credentials. You can revoke our access at any time through the Monzo app or website.
+        <p class="text-gray-700 dark:text-gray-400 mb-4">
+            Our connection to Monzo uses OAuth 2.0, ensuring that you never have to share your Monzo credentials with us directly.
         </p>
-        <p class="text-gray-600 dark:text-gray-400">
-            The service runs entirely in the cloud, so there's no need to install anything on your devices, and your rules will continue to work even when you're not actively using the app.
+        <p class="text-gray-700 dark:text-gray-400">
+            For more information about how we handle your data, please see our <a href="#" class="text-blue-600 dark:text-blue-400 hover:underline">Privacy Policy</a>.
         </p>
-    </div>
-    
-    <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-6 shadow-sm">
-        <h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-4">Contact Us</h2>
-        <p class="text-gray-600 dark:text-gray-400 mb-4">
-            We value your feedback and suggestions. If you have any questions, feature requests, or issues with the service, please don't hesitate to contact us.
-        </p>
-        <a href="{{ url_for('home.contact') }}" class="inline-flex items-center px-4 py-2 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
-            Contact Support
-        </a>
     </div>
 </div>
 {% endblock %}

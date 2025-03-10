@@ -1,135 +1,62 @@
 {% extends 'base.html' %}
 
 {% block content %}
-<div class="max-w-5xl mx-auto py-8">
+<div class="max-w-6xl mx-auto py-12">
     <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-8 text-center">Features</h1>
     
-    <div class="space-y-16">
-        <!-- Feature: Automated Sync -->
-        <section class="border border-gray-200 dark:border-gray-700 rounded-lg p-6 shadow-sm">
-            <h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-4">Automated Credit Card Payments</h2>
-            
-            <div class="flex flex-col md:flex-row gap-8">
-                <div class="md:w-1/2">
-                    <img src="{{ url_for('static', filename='images/feature-sync.svg') }}" alt="Automated Sync" class="w-full h-auto rounded-lg">
-                </div>
-                <div class="md:w-1/2 space-y-4">
-                    <p class="text-gray-600 dark:text-gray-400">
-                        Stay on top of your credit card payments with automated syncing between your Monzo account and designated pots. Set up rules to move money automatically based on your preferences.
+    <div class="space-y-12">
+        <div class="bg-white rounded-lg border border-gray-200 shadow-md p-6 dark:bg-gray-800 dark:border-gray-700">
+            <h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-4">Automatic Pot Syncing</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <p class="text-gray-700 dark:text-gray-400 mb-4">
+                        Our main feature allows you to create rules that automatically sync your credit card balance to designated pots in your Monzo account. This helps you:
                     </p>
-                    
-                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Options include:</h3>
-                    <ul class="list-disc pl-5 text-gray-600 dark:text-gray-400 space-y-2">
-                        <li>Transfer your full credit card balance to a payment pot</li>
-                        <li>Transfer a fixed amount each month</li>
-                        <li>Transfer a percentage of your available balance</li>
-                        <li>Set daily automatic transfers or trigger on balance changes</li>
+                    <ul class="list-disc list-inside space-y-2 text-gray-700 dark:text-gray-400">
+                        <li>Keep track of your credit card spending</li>
+                        <li>Automatically save money for upcoming credit card payments</li>
+                        <li>Never miss a payment due to insufficient funds</li>
+                        <li>Create a clear separation between your spending and saving</li>
                     </ul>
-                    
-                    <div class="border-l-4 border-blue-500 pl-4 py-2 bg-blue-50 dark:bg-blue-900 rounded-r-lg">
-                        <p class="text-sm text-blue-700 dark:text-blue-300 italic">
-                            "I use this to automatically move money to my credit card payment pot the moment my salary arrives. Never missed a payment since!" — Sarah K.
-                        </p>
-                    </div>
+                </div>
+                <div class="flex justify-center items-center">
+                    <svg class="w-48 h-48 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+                    </svg>
                 </div>
             </div>
-        </section>
+        </div>
         
-        <!-- Feature: Smart Notifications -->
-        <section class="border border-gray-200 dark:border-gray-700 rounded-lg p-6 shadow-sm">
-            <h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-4">Smart Notifications</h2>
-            
-            <div class="flex flex-col md:flex-row gap-8">
-                <div class="md:w-1/2 md:order-2">
-                    <img src="{{ url_for('static', filename='images/feature-notifications.svg') }}" alt="Smart Notifications" class="w-full h-auto rounded-lg">
+        <div class="bg-white rounded-lg border border-gray-200 shadow-md p-6 dark:bg-gray-800 dark:border-gray-700">
+            <h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-4">Rule-Based Automation</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="flex justify-center items-center order-last md:order-first">
+                    <svg class="w-48 h-48 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                    </svg>
                 </div>
-                <div class="md:w-1/2 space-y-4 md:order-1">
-                    <p class="text-gray-600 dark:text-gray-400">
-                        Get timely updates about your account activities directly in your Monzo app. Our smart notification system keeps you informed without overwhelming you.
+                <div>
+                    <p class="text-gray-700 dark:text-gray-400 mb-4">
+                        Create flexible rules that match your financial habits:
                     </p>
-                    
-                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Notification types:</h3>
-                    <ul class="list-disc pl-5 text-gray-600 dark:text-gray-400 space-y-2">
-                        <li>Successful syncs and transfers</li>
-                        <li>Payment reminders before due dates</li>
-                        <li>Balance alerts when your credit card balance changes</li>
-                        <li>Error notifications if something needs your attention</li>
+                    <ul class="list-disc list-inside space-y-2 text-gray-700 dark:text-gray-400">
+                        <li>Transfer a percentage of your credit card balance</li>
+                        <li>Transfer fixed amounts on a schedule</li>
+                        <li>Transfer the full balance when it changes</li>
+                        <li>Set triggers based on time or balance changes</li>
+                        <li>Create multiple rules for different accounts</li>
                     </ul>
-                    
-                    <div class="border-l-4 border-green-500 pl-4 py-2 bg-green-50 dark:bg-green-900 rounded-r-lg">
-                        <p class="text-sm text-green-700 dark:text-green-300 italic">
-                            "The notifications are incredibly helpful. I always know exactly when money moves between my accounts." — Michael T.
-                        </p>
-                    </div>
                 </div>
             </div>
-        </section>
+        </div>
         
-        <!-- Feature: Flexible Rules -->
-        <section class="border border-gray-200 dark:border-gray-700 rounded-lg p-6 shadow-sm">
-            <h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-4">Customizable Sync Rules</h2>
-            
-            <div class="flex flex-col md:flex-row gap-8">
-                <div class="md:w-1/2">
-                    <img src="{{ url_for('static', filename='images/feature-rules.svg') }}" alt="Flexible Rules" class="w-full h-auto rounded-lg">
-                </div>
-                <div class="md:w-1/2 space-y-4">
-                    <p class="text-gray-600 dark:text-gray-400">
-                        Create personalized rules that match your financial habits and preferences. Tailor when and how your money moves between accounts.
-                    </p>
-                    
-                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Customization options:</h3>
-                    <ul class="list-disc pl-5 text-gray-600 dark:text-gray-400 space-y-2">
-                        <li>Choose which accounts and pots to sync</li>
-                        <li>Set up multiple rules for different scenarios</li>
-                        <li>Enable or disable rules as needed</li>
-                        <li>Run rules manually or automatically</li>
-                    </ul>
-                    
-                    <div class="border-l-4 border-purple-500 pl-4 py-2 bg-purple-50 dark:bg-purple-900 rounded-r-lg">
-                        <p class="text-sm text-purple-700 dark:text-purple-300 italic">
-                            "I have different rules for my personal and joint accounts. Everything is organized exactly how I want it." — Emma L.
-                        </p>
-                    </div>
-                </div>
-            </div>
-        </section>
-        
-        <!-- Feature: Detailed History -->
-        <section class="border border-gray-200 dark:border-gray-700 rounded-lg p-6 shadow-sm">
-            <h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-4">Complete Transaction History</h2>
-            
-            <div class="flex flex-col md:flex-row gap-8">
-                <div class="md:w-1/2 md:order-2">
-                    <img src="{{ url_for('static', filename='images/feature-history.svg') }}" alt="Transaction History" class="w-full h-auto rounded-lg">
-                </div>
-                <div class="md:w-1/2 space-y-4 md:order-1">
-                    <p class="text-gray-600 dark:text-gray-400">
-                        Keep track of all your sync activities with a comprehensive history log. Monitor when and how much money has been moved between your accounts and pots.
-                    </p>
-                    
-                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white">History features:</h3>
-                    <ul class="list-disc pl-5 text-gray-600 dark:text-gray-400 space-y-2">
-                        <li>View all past sync operations</li>
-                        <li>Track successful and failed transfers</li>
-                        <li>Search and filter by date, amount, and status</li>
-                        <li>Export history for your records</li>
-                    </ul>
-                    
-                    <div class="border-l-4 border-yellow-500 pl-4 py-2 bg-yellow-50 dark:bg-yellow-900 rounded-r-lg">
-                        <p class="text-sm text-yellow-700 dark:text-yellow-300 italic">
-                            "The history feature gives me peace of mind. I can see exactly what's happened and when." — James R.
-                        </p>
-                    </div>
-                </div>
-            </div>
-        </section>
+        <!-- More feature sections here -->
     </div>
     
-    <div class="mt-16 text-center">
-        <h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-6">Ready to get started?</h2>
-        <a href="{{ url_for('auth.register') }}" class="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
-            Create your account now
+    <div class="mt-12 text-center">
+        <a href="{{ url_for('auth.register') }}" class="text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-lg px-6 py-3 text-center dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800">
+            Get Started
         </a>
     </div>
 </div>

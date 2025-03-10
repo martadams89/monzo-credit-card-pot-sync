@@ -3,7 +3,6 @@ from datetime import timedelta
 
 basedir = os.path.abspath(os.path.dirname(__file__))
 
-
 class Config:
     """Base configuration for the application."""
     
@@ -49,65 +48,31 @@ class Config:
     BACKUP_COUNT = int(os.environ.get('BACKUP_COUNT', 5))
     
     # Application settings
-    VERSION = '1.0.0'
+    APP_VERSION = '1.0.0'
     ADMIN_EMAIL = os.environ.get('ADMIN_EMAIL', 'admin@example.com')
-    NOTIFICATION_EMAILS_ENABLED = os.environ.get('NOTIFICATION_EMAILS_ENABLED', 'true').lower() == 'true'
-
 
 class DevelopmentConfig(Config):
     """Development configuration."""
-    
     DEBUG = True
-    
-    # Use SQLite for development
-    SQLALCHEMY_DATABASE_URI = os.environ.get('DEV_DATABASE_URL') or 'sqlite:///dev.db'
-    
-    # Print emails to console instead of sending
-    MAIL_DEBUG = True
-
+    LOG_LEVEL = 'DEBUG'
 
 class TestingConfig(Config):
-    """Testing configuration."""
-    
+    """Test configuration."""
     TESTING = True
     DEBUG = True
-    
-    # Use in-memory SQLite for testing
     SQLALCHEMY_DATABASE_URI = 'sqlite:///:memory:'
-    
-    # Disable CSRF protection for testing
     WTF_CSRF_ENABLED = False
-    
-    # Make password hashing faster for tests
-    BCRYPT_LOG_ROUNDS = 4
-    
-    # Disable emails
-    MAIL_SUPPRESS_SEND = True
-
 
 class ProductionConfig(Config):
     """Production configuration."""
-    
-    # Ensure proper secret key is set
-    SECRET_KEY = os.environ.get('SECRET_KEY')
-    
-    # Production-specific settings
-    SESSION_COOKIE_SECURE = True
-    SESSION_COOKIE_HTTPONLY = True
-    REMEMBER_COOKIE_SECURE = True
-    REMEMBER_COOKIE_HTTPONLY = True
+    LOG_LEVEL = os.environ.get('LOG_LEVEL', 'INFO')
 
-
-# Configuration dictionary
-config_dict = {
-    'development': DevelopmentConfig,
-    'testing': TestingConfig,
-    'production': ProductionConfig,
-    'default': DevelopmentConfig
-}
-
-def get_config(config_name=None):
-    """Get configuration class based on environment."""
-    if not config_name:
-        config_name = os.environ.get('FLASK_ENV', 'default')
-    return config_dict.get(config_name, config_dict['default'])
+def get_config(config_name='default'):
+    """Return config based on environment."""
+    config_map = {
+        'development': DevelopmentConfig,
+        'testing': TestingConfig,
+        'production': ProductionConfig,
+        'default': DevelopmentConfig
+    }
+    return config_map.get(config_name, DevelopmentConfig)
