@@ -1,0 +1,13 @@
+User-agent: *
+Allow: /$
+Allow: /about$
+Allow: /features$
+Allow: /contact$
+Disallow: /auth/
+Disallow: /monzo/
+Disallow: /profile/
+Disallow: /admin/
+Disallow: /api/
+Disallow: /pots/
+Disallow: /settings/
+Disallow: /accounts/

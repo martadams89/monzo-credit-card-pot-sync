@@ -27,12 +27,12 @@ class Config:
     # Monzo API settings
     MONZO_CLIENT_ID = os.environ.get('MONZO_CLIENT_ID')
     MONZO_CLIENT_SECRET = os.environ.get('MONZO_CLIENT_SECRET')
-    MONZO_REDIRECT_URI = os.environ.get('MONZO_REDIRECT_URI', f"{BASE_URL}/auth/callback/monzo")
+    MONZO_REDIRECT_URI = f"{BASE_URL}/auth/callback/monzo"
     
     # TrueLayer API settings
     TRUELAYER_CLIENT_ID = os.environ.get('TRUELAYER_CLIENT_ID')
     TRUELAYER_CLIENT_SECRET = os.environ.get('TRUELAYER_CLIENT_SECRET')
-    TRUELAYER_REDIRECT_URI = os.environ.get('TRUELAYER_REDIRECT_URI', f"{BASE_URL}/auth/callback/truelayer")
+    TRUELAYER_REDIRECT_URI = f"{BASE_URL}/auth/callback/truelayer"
     
     # Mail settings
     MAIL_SERVER = os.environ.get('MAIL_SERVER', 'localhost')
