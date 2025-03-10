@@ -162,10 +162,8 @@ The application is configured through environment variables in the `.env` file:
 | BASE_URL                | Base URL for callbacks and emails                   | http://localhost:8000         | Yes      |
 | MONZO_CLIENT_ID         | Monzo API client ID                                 | -                             | Yes      |
 | MONZO_CLIENT_SECRET     | Monzo API client secret                             | -                             | Yes      |
-| MONZO_REDIRECT_URI      | Monzo OAuth redirect URI                            | http://localhost:8000/auth/callback/monzo | Yes |
 | TRUELAYER_CLIENT_ID     | TrueLayer API client ID                             | -                             | Yes      |
 | TRUELAYER_CLIENT_SECRET | TrueLayer API client secret                         | -                             | Yes      |
-| TRUELAYER_REDIRECT_URI  | TrueLayer OAuth redirect URI                        | http://localhost:8000/auth/callback/truelayer | Yes |
 | MAIL_SERVER             | SMTP mail server                                    | -                             | No       |
 | MAIL_PORT               | SMTP port                                           | 587                           | No       |
 | MAIL_USE_TLS            | Use TLS for SMTP                                    | true                          | No       |
@@ -175,6 +173,8 @@ The application is configured through environment variables in the `.env` file:
 | ADMIN_EMAIL             | Administrator email                                 | admin@example.com             | No       |
 | LOG_LEVEL               | Logging level                                       | INFO                          | No       |
 | DATABASE_URL            | Database connection string                          | sqlite:///app.db              | No       |
+
+**Note:** The application automatically constructs redirect URIs for Monzo and TrueLayer using the BASE_URL. For example, if BASE_URL is set to `https://example.com`, the redirect URIs will be `https://example.com/auth/callback/monzo` and `https://example.com/auth/callback/truelayer`.
 
 ## API Configuration
 
