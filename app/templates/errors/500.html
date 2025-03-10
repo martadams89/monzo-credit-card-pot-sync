@@ -3,16 +3,16 @@
 {% block content %}
 <div class="flex flex-col items-center justify-center py-12">
     <h1 class="text-6xl font-bold text-gray-900 dark:text-white mb-4">500</h1>
-    <h2 class="text-2xl font-semibold text-gray-700 dark:text-gray-300 mb-6">Internal Server Error</h2>
+    <h2 class="text-2xl font-semibold text-gray-700 dark:text-gray-300 mb-6">Server Error</h2>
     <p class="text-center text-gray-600 dark:text-gray-400 max-w-md mb-8">
-        Oops! Something went wrong on our end. We've been notified and will fix this issue as soon as possible.
+        Sorry, something went wrong on our end. Our team has been notified and we're working to fix the issue.
     </p>
     <div class="flex space-x-4">
         <a href="{{ url_for('home.index') }}" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
             Go to Home
         </a>
-        <button onclick="location.reload()" class="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors dark:bg-gray-700 dark:text-white dark:hover:bg-gray-600">
-            Try Again
+        <button onclick="history.back()" class="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors dark:bg-gray-700 dark:text-white dark:hover:bg-gray-600">
+            Go Back
         </button>
     </div>
 </div>

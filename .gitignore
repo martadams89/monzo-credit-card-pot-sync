@@ -1,16 +1,56 @@
-.idea/
-.vscode/
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual Environment
 .venv*/
 venv*/
-__pycache__/
-dist/
-.coverage*
-htmlcov/
-.tox/
-docs/_build/
-.ruff_cache/
-.pytest_cache/
-node_modules/
-*.db
+venv/
+ENV/
+env/
+
+# Flask
 instance/
+.webassets-cache
+
+# Database
+*.db
+*.sqlite
+
+# Tailwind CSS output
+app/static/css/dist/
+
+# Node
+node_modules/
+npm-debug.log
+
+# Environment variables
 .env
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db

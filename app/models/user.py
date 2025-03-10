@@ -31,6 +31,7 @@ class User(db.Model, UserMixin):
     last_login_at = db.Column(db.DateTime, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    email_verified_at = db.Column(db.DateTime, nullable=True)
     
     def set_password(self, password):
         """Set user password."""

@@ -1,6 +1,7 @@
 {
   "name": "monzo-credit-card-pot-sync",
   "version": "1.0.0",
+  "description": "Sync your Monzo pots with credit card balances",
   "private": true,
   "scripts": {
     "start": "flask --app app run --port=1337",
@@ -10,8 +11,10 @@
     "build:css": "tailwindcss -i ./app/static/css/src/input.css -o ./app/static/css/dist/output.css --minify",
     "watch:css": "tailwindcss -i ./app/static/css/src/input.css -o ./app/static/css/dist/output.css --watch"
   },
+  "author": "",
+  "license": "MIT",
   "devDependencies": {
-    "tailwindcss": "^3.4.17"
+    "tailwindcss": "^3.3.3"
   },
   "dependencies": {
     "flowbite": "^2.5.2"

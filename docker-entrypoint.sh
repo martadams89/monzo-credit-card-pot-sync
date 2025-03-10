@@ -1,11 +1,11 @@
 #!/bin/bash
 set -e
 
-# Create database directory if it doesn't exist
+# Create required directories
 mkdir -p instance
-
-# Install Flask-Migrate if not already installed
-pip install Flask-Migrate
+mkdir -p app/static/css/dist
+mkdir -p app/static/images
+mkdir -p app/static/js
 
 echo "Running database migrations..."
 # Apply database migrations

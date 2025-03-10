@@ -15,10 +15,9 @@ def send_email(subject, recipients, template, **kwargs):
             subject=subject,
             recipients=recipients,
             html=render_template(template, **kwargs),
-            sender=current_app.config['MAIL_DEFAULT_SENDER']
+            sender=current_app.config.get('MAIL_DEFAULT_SENDER')
         )
         mail.send(msg)
-        logger.info(f"Email sent to {recipients} with subject: {subject}")
         return True
     except Exception as e:
         logger.error(f"Failed to send email: {str(e)}")
@@ -42,27 +41,21 @@ def send_notification(user, notification_type, details=None, **kwargs):
             subject = "Monzo Sync: Sync failed"
             template = "email/sync_failure.html"
         elif notification_type == 'security_alert':
-            subject = "Monzo Sync: Security Alert"
+            subject = "Monzo Sync: Security alert"
             template = "email/security_alert.html"
         elif notification_type == 'verify_email':
-            subject = "Monzo Sync: Verify your email address"
+            subject = "Monzo Sync: Verify your email"
             template = "email/verify_email.html"
         elif notification_type == 'password_reset':
-            subject = "Monzo Sync: Reset your password"
+            subject = "Monzo Sync: Password reset request"
             template = "email/password_reset.html"
         else:
-            subject = f"Monzo Sync: Notification"
+            # Default to generic template
+            subject = f"Monzo Sync: {notification_type.replace('_', ' ').title()}"
             template = "email/generic.html"
+            
+        return send_email(subject, [user.email], template, **template_vars)
         
-        # Send the email
-        success = send_email(
-            subject=subject,
-            recipients=[user.email],
-            template=template,
-            **template_vars
-        )
-        
-        return success
     except Exception as e:
         logger.error(f"Failed to send notification: {str(e)}")
         return False
