@@ -1,0 +1,14 @@
+Hello {{ user.username }},
+
+Thank you for registering with Monzo Sync! Please verify your email address by clicking the link below:
+
+{{ url }}
+
+If you did not create an account, please ignore this email or contact our support team if you have concerns.
+
+Thank you,
+The Monzo Sync Team
+
+----
+This is an automated message. Please do not reply to this email.
+© {{ now.year }} Monzo Sync. All rights reserved.

@@ -1,0 +1,62 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="max-w-5xl mx-auto py-8">
+    <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-8 text-center">About Monzo Credit Card Pot Sync</h1>
+    
+    <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-6 shadow-sm mb-12">
+        <h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-4">Our Story</h2>
+        <p class="text-gray-600 dark:text-gray-400 mb-4">
+            Monzo Credit Card Pot Sync was created to solve a common problem faced by many Monzo users: keeping track of credit card payments and ensuring enough money is set aside for when payment is due.
+        </p>
+        <p class="text-gray-600 dark:text-gray-400 mb-4">
+            The idea came from personal experience. As a Monzo user with several credit cards, I wanted an automated way to move money into my payment pot whenever my credit card balance changed. This would ensure I always had the right amount set aside for payments.
+        </p>
+        <p class="text-gray-600 dark:text-gray-400">
+            What started as a personal project has grown into a tool used by many Monzo customers to better manage their finances and ensure they never miss a credit card payment.
+        </p>
+    </div>
+    
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12">
+        <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-6 shadow-sm">
+            <h2 class="text-xl font-bold text-gray-900 dark:text-white mb-4">Our Mission</h2>
+            <p class="text-gray-600 dark:text-gray-400">
+                We believe in making financial management simpler and more automated. Our mission is to help Monzo users maintain better control over their credit card payments through smart automation that works seamlessly in the background.
+            </p>
+        </div>
+        
+        <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-6 shadow-sm">
+            <h2 class="text-xl font-bold text-gray-900 dark:text-white mb-4">Our Values</h2>
+            <ul class="list-disc pl-5 text-gray-600 dark:text-gray-400 space-y-2">
+                <li><strong>Simplicity</strong> - Financial tools should make life easier, not more complex</li>
+                <li><strong>Security</strong> - Your financial data and privacy are our top priority</li>
+                <li><strong>Transparency</strong> - Clear communication about how our service works</li>
+                <li><strong>Community</strong> - Building features based on user feedback</li>
+            </ul>
+        </div>
+    </div>
+    
+    <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-6 shadow-sm mb-12">
+        <h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-4">How It Works</h2>
+        <p class="text-gray-600 dark:text-gray-400 mb-4">
+            Monzo Credit Card Pot Sync connects to your Monzo account using the official Monzo API. It uses read access to monitor your credit card balances and write access to move money between your accounts and pots based on rules you define.
+        </p>
+        <p class="text-gray-600 dark:text-gray-400 mb-4">
+            We use industry-standard OAuth authentication to connect to your account, which means we never see or store your Monzo login credentials. You can revoke our access at any time through the Monzo app or website.
+        </p>
+        <p class="text-gray-600 dark:text-gray-400">
+            The service runs entirely in the cloud, so there's no need to install anything on your devices, and your rules will continue to work even when you're not actively using the app.
+        </p>
+    </div>
+    
+    <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-6 shadow-sm">
+        <h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-4">Contact Us</h2>
+        <p class="text-gray-600 dark:text-gray-400 mb-4">
+            We value your feedback and suggestions. If you have any questions, feature requests, or issues with the service, please don't hesitate to contact us.
+        </p>
+        <a href="{{ url_for('home.contact') }}" class="inline-flex items-center px-4 py-2 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+            Contact Support
+        </a>
+    </div>
+</div>
+{% endblock %}

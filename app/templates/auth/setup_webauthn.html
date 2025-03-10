@@ -1,0 +1,316 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="w-full max-w-lg p-4 bg-white border border-gray-200 rounded-lg shadow sm:p-6 md:p-8 dark:bg-gray-800 dark:border-gray-700">
+    <div class="mb-4">
+        <a href="{{ url_for('auth.security_settings') }}" class="text-sm text-blue-700 dark:text-blue-400 hover:underline">← Back to Security Settings</a>
+    </div>
+
+    <h2 class="text-xl font-bold mb-6">Add a Passkey</h2>
+    
+    <div class="mb-6">
+        <p class="text-gray-700 dark:text-gray-300 mb-4">
+            Passkeys allow you to sign in quickly and securely using biometrics (like your fingerprint or face) or a security key, without typing your password.
+        </p>
+        
+        <div class="p-4 mb-6 bg-blue-50 border border-blue-200 rounded-lg dark:bg-blue-900 dark:border-blue-800">
+            <div class="flex">
+                <div class="flex-shrink-0">
+                    <svg class="w-5 h-5 text-blue-700 dark:text-blue-300" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
+                    </svg>
+                </div>
+                <div class="ml-3">
+                    <p class="text-sm text-blue-700 dark:text-blue-300">
+                        <span class="font-medium">Note:</span> Passkeys are tied to your device or account. If you're registering a biometric passkey, you'll need to use the same device to sign in later.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <form id="passkey-form" method="post" action="{{ url_for('auth.setup_webauthn') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="credential_data" id="credential-data">
+        
+        <div class="mb-4">
+            <label for="passkey_name" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Passkey Name</label>
+            <input type="text" id="passkey_name" name="passkey_name" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white" placeholder="e.g., iPhone Face ID, YubiKey" required>
+            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                Give this passkey a recognizable name to identify it later.
+            </p>
+        </div>
+        
+        <div class="mb-4">
+            <label for="password" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Current Password</label>
+            <input type="password" id="password" name="password" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white" placeholder="Enter your password" required>
+            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                Required to confirm this security change.
+            </p>
+        </div>
+
+        <button type="button" id="create-button" class="w-full text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800">
+            Register Passkey
+        </button>
+
+        <div id="status" class="mt-4 text-center hidden">
+            <div class="animate-pulse">
+                <p class="text-gray-700 dark:text-gray-300">
+                    Follow the prompts on your device to register your passkey...
+                </p>
+                <div class="mt-2">
+                    <svg class="mx-auto h-8 w-8 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 11c0 3.517-1.009 6.799-2.753 9.571m-3.44-2.04l.054-.09A13.916 13.916 0 008 11a4 4 0 118 0c0 1.017-.07 2.019-.203 3m-2.118 6.844A21.88 21.88 0 0015.171 17m3.839 1.132c.645-2.266.99-4.659.99-7.132A8 8 0 008 4.07M3 15.364c.64-1.319 1-2.8 1-4.364 0-1.457.39-2.823 1.07-4" />
+                    </svg>
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const createButton = document.getElementById('create-button');
+    const form = document.getElementById('passkey-form');
+    const statusDiv = document.getElementById('status');
+    const credentialDataInput = document.getElementById('credential-data');
+    
+    createButton.addEventListener('click', async function() {
+        const passkey_name = document.getElementById('passkey_name').value;
+        const password = document.getElementById('password').value;
+        
+        if (!passkey_name || !password) {
+            alert('Please fill in all fields');
+            return;
+        }
+        
+        // Show the status indicator
+        statusDiv.classList.remove('hidden');
+        createButton.disabled = true;
+        
+        try {
+            // Fetch challenge from server
+            const response = await fetch("{{ url_for('auth.webauthn_register_begin') }}", {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': "{{ csrf_token() }}"
+                },
+                body: JSON.stringify({ name: passkey_name })
+            });
+            
+            if (!response.ok) {
+                throw new Error('Failed to start registration');
+            }
+            
+            const options = await response.json();
+            
+            // Convert base64 string to ArrayBuffer for the challenge
+            options.publicKey.challenge = _base64ToArrayBuffer(options.publicKey.challenge);
+            
+            // Convert user ID to ArrayBuffer
+            options.publicKey.user.id = _base64ToArrayBuffer(options.publicKey.user.id);
+            
+            // Register credential
+            const credential = await navigator.credentials.create({
+                publicKey: options.publicKey
+            });
+            
+            // Prepare credential for sending to server
+            const credentialData = {
+                id: credential.id,
+                rawId: _arrayBufferToBase64(credential.rawId),
+                type: credential.type,
+                response: {
+                    clientDataJSON: _arrayBufferToBase64(credential.response.clientDataJSON),
+                    attestationObject: _arrayBufferToBase64(credential.response.attestationObject)
+                }
+            };
+            
+            // Set the credential data to the hidden form field
+            credentialDataInput.value = JSON.stringify(credentialData);
+            
+            // Submit the form with the credential data
+            form.submit();
+            
+        } catch (error) {
+            console.error('Error registering passkey:', error);
+            alert('Failed to register passkey: ' + error.message);
+            statusDiv.classList.add('hidden');
+            createButton.disabled = false;
+        }
+    });
+    
+    // Helper function to convert Base64 string to ArrayBuffer
+    function _base64ToArrayBuffer(base64) {
+        const binaryString = window.atob(base64.replace(/-/g, '+').replace(/_/g, '/'));
+        const bytes = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+            bytes[i] = binaryString.charCodeAt(i);
+        }
+        return bytes.buffer;
+    }
+    
+    // Helper function to convert ArrayBuffer to Base64 string
+    function _arrayBufferToBase64(buffer) {
+        let binary = '';
+        const bytes = new Uint8Array(buffer);
+        for (let i = 0; i < bytes.byteLength; i++) {
+            binary += String.fromCharCode(bytes[i]);
+        }
+        return window.btoa(binary)
+            .replace(/\+/g, '-')
+            .replace(/\//g, '_')
+            .replace(/=/g, '');
+    }
+});
+</script>
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const createPasskeyBtn = document.getElementById('create-passkey-btn');
+    const errorMessage = document.getElementById('error-message');
+    const step1 = document.getElementById('step-1');
+    const step2 = document.getElementById('step-2');
+    const step3 = document.getElementById('step-3');
+    const passkeyNameInput = document.getElementById('passkey_name');
+    const passwordInput = document.getElementById('password');
+    
+    // Check if WebAuthn is supported
+    if (!window.PublicKeyCredential) {
+        errorMessage.textContent = 'Your browser does not support passkeys. Try using a more recent browser.';
+        errorMessage.classList.remove('hidden');
+        createPasskeyBtn.disabled = true;
+        return;
+    }
+    
+    createPasskeyBtn.addEventListener('click', async function() {
+        // Validate form
+        if (!passkeyNameInput.value || !passwordInput.value) {
+            errorMessage.textContent = 'Please fill in all fields';
+            errorMessage.classList.remove('hidden');
+            return;
+        }
+        
+        try {
+            // Hide error message
+            errorMessage.classList.add('hidden');
+            
+            // Show loading state
+            step1.classList.add('hidden');
+            step2.classList.remove('hidden');
+            
+            // Get registration options from server
+            const response = await fetch("{{ url_for('auth.webauthn_register_begin') }}", {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': "{{ csrf_token() }}"
+                },
+                body: JSON.stringify({
+                    name: passkeyNameInput.value
+                })
+            });
+            
+            if (!response.ok) {
+                throw new Error('Failed to start registration');
+            }
+            
+            const options = await response.json();
+            
+            // Convert base64 challenge to ArrayBuffer
+            options.publicKey.challenge = _base64ToArrayBuffer(options.publicKey.challenge);
+            
+            // Convert user.id to ArrayBuffer
+            options.publicKey.user.id = _base64ToArrayBuffer(options.publicKey.user.id);
+            
+            // Create credential
+            const credential = await navigator.credentials.create({
+                publicKey: options.publicKey
+            });
+            
+            // Prepare credential data for server
+            const credentialData = {
+                id: credential.id,
+                rawId: _arrayBufferToBase64(credential.rawId),
+                type: credential.type,
+                response: {
+                    clientDataJSON: _arrayBufferToBase64(credential.response.clientDataJSON),
+                    attestationObject: _arrayBufferToBase64(credential.response.attestationObject)
+                }
+            };
+            
+            // Submit form with credential data
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = "{{ url_for('auth.setup_webauthn') }}";
+            
+            // Add CSRF token
+            const csrfInput = document.createElement('input');
+            csrfInput.type = 'hidden';
+            csrfInput.name = 'csrf_token';
+            csrfInput.value = "{{ csrf_token() }}";
+            form.appendChild(csrfInput);
+            
+            // Add passkey name
+            const nameInput = document.createElement('input');
+            nameInput.type = 'hidden';
+            nameInput.name = 'passkey_name';
+            nameInput.value = passkeyNameInput.value;
+            form.appendChild(nameInput);
+            
+            // Add password
+            const pwInput = document.createElement('input');
+            pwInput.type = 'hidden';
+            pwInput.name = 'password';
+            pwInput.value = passwordInput.value;
+            form.appendChild(pwInput);
+            
+            // Add credential data
+            const credInput = document.createElement('input');
+            credInput.type = 'hidden';
+            credInput.name = 'credential_data';
+            credInput.value = JSON.stringify(credentialData);
+            form.appendChild(credInput);
+            
+            // Submit form
+            document.body.appendChild(form);
+            
+            // Show success state
+            step2.classList.add('hidden');
+            step3.classList.remove('hidden');
+            
+            form.submit();
+            
+        } catch (error) {
+            console.error('Error during registration:', error);
+            errorMessage.textContent = `Registration failed: ${error.message}`;
+            errorMessage.classList.remove('hidden');
+            step1.classList.remove('hidden');
+            step2.classList.add('hidden');
+        }
+    });
+    
+    // Helper functions to convert between ArrayBuffer and Base64URL
+    function _base64ToArrayBuffer(base64) {
+        const binary = atob(base64.replace(/-/g, '+').replace(/_/g, '/'));
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i++) {
+            bytes[i] = binary.charCodeAt(i);
+        }
+        return bytes.buffer;
+    }
+    
+    function _arrayBufferToBase64(buffer) {
+        const bytes = new Uint8Array(buffer);
+        let binary = '';
+        for (let i = 0; i < bytes.byteLength; i++) {
+            binary += String.fromCharCode(bytes[i]);
+        }
+        return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+    }
+});
+</script>
+{% endblock %}
+{% endblock %}

@@ -1,0 +1,98 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="w-full p-4 bg-white border border-gray-200 rounded-lg shadow sm:p-6 md:p-8 dark:bg-gray-800 dark:border-gray-700">
+    <div class="mb-2">
+        <a href="{{ url_for('profile.index') }}" class="text-sm text-blue-700 dark:text-blue-400 hover:underline">← Back to Profile</a>
+    </div>
+    
+    <div class="flex justify-between items-center mb-6">
+        <h1 class="text-2xl font-bold">Active Sessions</h1>
+        <form action="{{ url_for('profile.revoke_all_sessions') }}" method="post" onsubmit="return confirm('Are you sure you want to sign out of all other devices? This will not affect your current session.')">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="py-2 px-4 bg-red-600 text-white rounded-lg hover:bg-red-700 dark:bg-red-700 dark:hover:bg-red-800">
+                Sign Out All Other Devices
+            </button>
+        </form>
+    </div>
+    
+    <div class="mb-8">
+        <h2 class="text-lg font-semibold mb-4">Current Session</h2>
+        <div class="p-4 border border-blue-200 rounded-lg bg-blue-50 dark:bg-blue-900 dark:border-blue-800 mb-4">
+            <div class="flex justify-between">
+                <div>
+                    <p class="font-medium text-gray-900 dark:text-white">
+                        {{ current_session.device_info or 'Unknown Device' }}
+                    </p>
+                    <p class="text-sm text-gray-500 dark:text-gray-400">
+                        <span class="font-medium">IP Address:</span> {{ current_session.ip_address }}
+                    </p>
+                    <p class="text-sm text-gray-500 dark:text-gray-400">
+                        <span class="font-medium">Location:</span> {{ current_session.location or 'Unknown' }}
+                    </p>
+                    <p class="text-sm text-gray-500 dark:text-gray-400">
+                        <span class="font-medium">Last Activity:</span> {{ current_session.last_activity_at.strftime('%Y-%m-%d %H:%M:%S') }}
+                    </p>
+                </div>
+                <div class="flex items-start">
+                    <span class="px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300">
+                        Current
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="mb-8">
+        <h2 class="text-lg font-semibold mb-4">Other Active Sessions</h2>
+        {% if other_sessions %}
+            <div class="space-y-4">
+                {% for session in other_sessions %}
+                    <div class="p-4 border border-gray-200 rounded-lg dark:border-gray-700">
+                        <div class="flex justify-between">
+                            <div>
+                                <p class="font-medium text-gray-900 dark:text-white">
+                                    {{ session.device_info or 'Unknown Device' }}
+                                </p>
+                                <p class="text-sm text-gray-500 dark:text-gray-400">
+                                    <span class="font-medium">IP Address:</span> {{ session.ip_address }}
+                                </p>
+                                <p class="text-sm text-gray-500 dark:text-gray-400">
+                                    <span class="font-medium">Location:</span> {{ session.location or 'Unknown' }}
+                                </p>
+                                <p class="text-sm text-gray-500 dark:text-gray-400">
+                                    <span class="font-medium">Last Activity:</span> {{ session.last_activity_at.strftime('%Y-%m-%d %H:%M:%S') }}
+                                </p>
+                            </div>
+                            <div>
+                                <form action="{{ url_for('profile.revoke_session', session_id=session.id) }}" method="post">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <button type="submit" class="text-sm text-red-600 dark:text-red-400 hover:underline">
+                                        Sign Out
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <p class="text-gray-600 dark:text-gray-400 text-center py-4">
+                No other active sessions found.
+            </p>
+        {% endif %}
+    </div>
+    
+    <div>
+        <h2 class="text-lg font-semibold mb-4">About Sessions</h2>
+        <div class="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+            <p class="text-sm text-gray-600 dark:text-gray-400">
+                Each time you sign in from a new device or browser, a new session is created. Sessions allow you to stay signed in across multiple devices.
+            </p>
+            <p class="text-sm text-gray-600 dark:text-gray-400 mt-2">
+                For security reasons, we recommend regularly reviewing your sessions and signing out from devices you no longer use.
+            </p>
+        </div>
+    </div>
+</div>
+{% endblock %}

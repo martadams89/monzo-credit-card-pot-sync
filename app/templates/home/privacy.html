@@ -1,0 +1,77 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto py-8">
+    <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-8 text-center">Privacy Policy</h1>
+    
+    <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-6 shadow-sm">
+        <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">Last updated: {{ now.strftime('%B %d, %Y') }}</p>
+        
+        <div class="prose prose-blue max-w-none dark:prose-invert text-gray-600 dark:text-gray-300">
+            <h2>Introduction</h2>
+            <p>
+                This Privacy Policy explains how Monzo Credit Card Pot Sync ("we", "our", or "us") collects, uses, and shares your information when you use our service.
+            </p>
+            
+            <h2>Information We Collect</h2>
+            <p>We collect several types of information from and about users of our Service, including:</p>
+            <ul>
+                <li>Personal information (such as name, email address, and other contact details) that you provide when creating an account</li>
+                <li>Information about your Monzo account that you grant us access to via the Monzo API</li>
+                <li>Information about your interactions with our service (such as usage data, activity logs, and preferences)</li>
+                <li>Technical information including device data, IP addresses, and browser information</li>
+            </ul>
+            
+            <h2>How We Use Your Information</h2>
+            <p>We use the information we collect to:</p>
+            <ul>
+                <li>Provide, operate, and maintain our service</li>
+                <li>Connect to your Monzo account and execute transfers according to your specified rules</li>
+                <li>Improve, personalize, and expand our service</li>
+                <li>Understand and analyze how you use our service</li>
+                <li>Develop new features, products, and services</li>
+                <li>Communicate with you about our service, including updates and security alerts</li>
+                <li>Prevent fraudulent use of our services</li>
+            </ul>
+            
+            <h2>Data Security</h2>
+            <p>
+                We implement appropriate security measures to protect your personal information. However, no method of transmission over the Internet or electronic storage is 100% secure, and we cannot guarantee absolute security.
+            </p>
+            
+            <h2>API Access and Third-Party Services</h2>
+            <p>
+                Our service connects to the Monzo API to access your accounts and execute transfers. We only access the data necessary to provide our service and only with your explicit consent.
+            </p>
+            <p>
+                We do not sell your data to any third parties. We may use third-party service providers to help us operate our service, but they will only process your data according to our instructions.
+            </p>
+            
+            <h2>Data Retention</h2>
+            <p>
+                We will retain your personal information only for as long as necessary to fulfill the purposes outlined in this Privacy Policy. When your account is deleted, we will delete or anonymize your personal data, except where we need to retain certain information for legal or compliance reasons.
+            </p>
+            
+            <h2>Your Rights</h2>
+            <p>Depending on your location, you may have certain rights regarding your personal information, including:</p>
+            <ul>
+                <li>The right to access the personal information we hold about you</li>
+                <li>The right to request correction of inaccurate information</li>
+                <li>The right to request deletion of your personal information</li>
+                <li>The right to object to processing of your personal information</li>
+                <li>The right to data portability</li>
+            </ul>
+            
+            <h2>Changes to This Privacy Policy</h2>
+            <p>
+                We may update our Privacy Policy from time to time. We will notify you of any changes by posting the new Privacy Policy on this page and updating the "Last updated" date.
+            </p>
+            
+            <h2>Contact Us</h2>
+            <p>
+                If you have any questions about this Privacy Policy, please contact us at <a href="mailto:privacy@monzosync.example.com" class="text-blue-600 dark:text-blue-400 hover:underline">privacy@monzosync.example.com</a>.
+            </p>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,153 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="w-full max-w-lg p-4 bg-white border border-gray-200 rounded-lg shadow sm:p-6 md:p-8 dark:bg-gray-800 dark:border-gray-700">
+    <div class="mb-4">
+        <a href="{{ url_for('auth.security_settings') }}" class="text-sm text-blue-700 dark:text-blue-400 hover:underline">← Back to Security Settings</a>
+    </div>
+    
+    <h2 class="text-xl font-bold mb-6">Set Up Two-Factor Authentication</h2>
+    
+    <div class="mb-6">
+        <h3 class="text-lg font-medium mb-3">1. Scan QR Code</h3>
+        <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
+            Scan this QR code with your authenticator app (like Google Authenticator, Authy, or Microsoft Authenticator).
+        </p>
+        
+        <div class="flex justify-center mb-4">
+            <img src="{{ qr_code }}" alt="QR Code" class="h-48 w-48 border p-2 bg-white">
+        </div>
+        
+        <div class="text-center mb-4">
+            <p class="text-sm font-medium text-gray-700 dark:text-gray-300">Can't scan the code?</p>
+            <div class="mt-2 p-2 bg-gray-100 dark:bg-gray-700 rounded">
+                <p class="text-xs font-mono break-all select-all">{{ secret }}</p>
+            </div>
+        </div>
+    </div>
+    
+    <div class="mb-6">
+        <h3 class="text-lg font-medium mb-3">2. Save Backup Codes</h3>
+        <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
+            Save these backup codes in a secure place. You can use them to sign in if you lose access to your authenticator app.
+        </p>
+        
+        <div class="grid grid-cols-2 gap-2 mb-4">
+            {% for code in backup_codes %}
+                <div class="p-2 bg-gray-100 dark:bg-gray-700 rounded text-center font-mono text-sm">
+                    {{ code }}
+                </div>
+            {% endfor %}
+        </div>
+        
+        <div class="text-center">
+            <button id="printCodes" class="text-sm text-blue-600 hover:underline dark:text-blue-500">
+                Print or Download Codes
+            </button>
+        </div>
+    </div>
+    
+    <div class="mb-6">
+        <h3 class="text-lg font-medium mb-3">3. Verify Setup</h3>
+        <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
+            Enter the verification code from your authenticator app and your current password to complete the setup.
+        </p>
+        
+        <form method="post" action="{{ url_for('auth.setup_totp') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="secret" value="{{ secret }}">
+            
+            <div class="mb-4">
+                <label for="verification_code" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Verification Code</label>
+                <input type="text" id="verification_code" name="verification_code" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white" placeholder="Enter 6-digit code" required>
+            </div>
+            
+            <div class="mb-6">
+                <label for="password" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Current Password</label>
+                <input type="password" id="password" name="password" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white" placeholder="••••••••" required>
+            </div>
+            
+            <button type="submit" class="w-full text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800">
+                Enable 2FA
+            </button>
+        </form>
+    </div>
+</div>
+
+<script>
+    document.getElementById('printCodes').addEventListener('click', function() {
+        // Create a printable version with backup codes
+        const printWindow = window.open('', '', 'width=600,height=600');
+        
+        const codes = [
+            {% for code in backup_codes %}
+                "{{ code }}"{% if not loop.last %},{% endif %}
+            {% endfor %}
+        ];
+        
+        printWindow.document.write(`
+            <html>
+            <head>
+                <title>2FA Backup Codes - Monzo Sync</title>
+                <style>
+                    body {
+                        font-family: Arial, sans-serif;
+                        line-height: 1.6;
+                        max-width: 600px;
+                        margin: 0 auto;
+                        padding: 20px;
+                    }
+                    h1 {
+                        font-size: 24px;
+                        margin-bottom: 20px;
+                    }
+                    .code-grid {
+                        display: grid;
+                        grid-template-columns: repeat(2, 1fr);
+                        gap: 10px;
+                        margin: 20px 0;
+                    }
+                    .code {
+                        padding: 10px;
+                        background: #f1f1f1;
+                        border: 1px solid #ddd;
+                        text-align: center;
+                        font-family: monospace;
+                        font-size: 16px;
+                    }
+                    p {
+                        margin-bottom: 20px;
+                    }
+                    .footer {
+                        margin-top: 30px;
+                        font-size: 12px;
+                        color: #666;
+                    }
+                </style>
+            </head>
+            <body>
+                <h1>Two-Factor Authentication Backup Codes</h1>
+                <p>These are your backup codes for Monzo Sync. Keep these codes in a safe place.</p>
+                <p>Each code can only be used once.</p>
+                
+                <div class="code-grid">
+                    ${codes.map(code => `<div class="code">${code}</div>`).join('')}
+                </div>
+                
+                <p>If you lose access to your authenticator app, you can use one of these backup codes to sign in.</p>
+                
+                <div class="footer">
+                    <p>Generated: ${new Date().toLocaleString()}</p>
+                    <p>Account: {{ current_user.email }}</p>
+                </div>
+            </body>
+            </html>
+        `);
+        
+        printWindow.document.close();
+        printWindow.focus();
+        printWindow.print();
+        // Don't close the window so the user can save it if needed
+    });
+</script>
+{% endblock %}

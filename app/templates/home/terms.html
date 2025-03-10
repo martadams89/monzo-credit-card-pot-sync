@@ -1,0 +1,90 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto py-8">
+    <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-8 text-center">Terms of Service</h1>
+    
+    <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-6 shadow-sm">
+        <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">Last updated: {{ now.strftime('%B %d, %Y') }}</p>
+        
+        <div class="prose prose-blue max-w-none dark:prose-invert text-gray-600 dark:text-gray-300">
+            <h2>1. Acceptance of Terms</h2>
+            <p>
+                By accessing or using the Monzo Credit Card Pot Sync service ("Service"), you agree to be bound by these Terms of Service. If you do not agree to these terms, please do not use the Service.
+            </p>
+            
+            <h2>2. Description of Service</h2>
+            <p>
+                Monzo Credit Card Pot Sync is a service that allows Monzo bank account holders to set up automated rules for transferring money between their accounts and pots, primarily for managing credit card payments.
+            </p>
+            <p>
+                The Service requires connection to your Monzo account via the official Monzo API, and operates according to rules that you configure.
+            </p>
+            
+            <h2>3. User Accounts</h2>
+            <p>
+                To use the Service, you must create an account with us and connect your Monzo account. You are responsible for:
+            </p>
+            <ul>
+                <li>Maintaining the confidentiality of your account credentials</li>
+                <li>All activities that occur under your account</li>
+                <li>Ensuring that your use of the Service complies with applicable laws and regulations</li>
+            </ul>
+            <p>
+                We reserve the right to disable your account if we believe you have violated these Terms.
+            </p>
+            
+            <h2>4. Monzo API Connection</h2>
+            <p>
+                The Service uses the official Monzo API to connect to your Monzo account. By using our Service, you authorize us to:
+            </p>
+            <ul>
+                <li>Access your Monzo account data, including account balances and pot information</li>
+                <li>Transfer money between your accounts and pots according to the rules you configure</li>
+            </ul>
+            <p>
+                You can revoke this authorization at any time by disconnecting your account in the Service settings or via the Monzo app.
+            </p>
+            
+            <h2>5. Limitations of Liability</h2>
+            <p>
+                The Service is provided "as is" without warranties of any kind. We are not responsible for:
+            </p>
+            <ul>
+                <li>Financial losses resulting from the use of our Service</li>
+                <li>Overdrafts or insufficient funds caused by automated transfers</li>
+                <li>Service interruptions due to Monzo API unavailability or changes</li>
+                <li>Any damages arising from your use of the Service</li>
+            </ul>
+            <p>
+                You are solely responsible for monitoring your accounts and ensuring that automated transfers do not cause financial hardship.
+            </p>
+            
+            <h2>6. Financial Advice Disclaimer</h2>
+            <p>
+                Our Service does not provide financial advice. We do not recommend specific financial actions, and the automated rules are entirely configured by you according to your preferences.
+            </p>
+            
+            <h2>7. Data and Privacy</h2>
+            <p>
+                Our collection and use of your data is governed by our <a href="{{ url_for('home.privacy') }}" class="text-blue-600 dark:text-blue-400 hover:underline">Privacy Policy</a>. By using the Service, you consent to the practices described in that policy.
+            </p>
+            
+            <h2>8. Modifications to the Service</h2>
+            <p>
+                We reserve the right to modify or discontinue the Service at any time, with or without notice. We will not be liable to you or any third party for any modification, suspension, or discontinuation of the Service.
+            </p>
+            
+            <h2>9. Changes to Terms</h2>
+            <p>
+                We may update these Terms from time to time. We will notify you of any significant changes by posting the new Terms on this page and updating the "Last updated" date.
+            </p>
+            
+            <h2>10. Contact Information</h2>
+            <p>
+                If you have any questions about these Terms, please contact us at <a href="mailto:terms@monzosync.example.com" class="text-blue-600 dark:text-blue-400 hover:underline">terms@monzosync.example.com</a>.
+            </p>
+        </div>
+    </div>
+</div>
+{% endblock %}

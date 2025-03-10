@@ -1,0 +1,146 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="w-full max-w-lg p-4 bg-white border border-gray-200 rounded-lg shadow sm:p-6 md:p-8 dark:bg-gray-800 dark:border-gray-700">
+    <div class="mb-4">
+        <a href="{{ url_for('monzo.index') }}" class="text-sm text-blue-700 dark:text-blue-400 hover:underline">← Back to Dashboard</a>
+    </div>
+    
+    <h2 class="text-xl font-bold mb-6">Create Sync Rule</h2>
+    
+    <form method="post" action="{{ url_for('monzo.create_rule') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        
+        <!-- Rule name -->
+        <div class="mb-4">
+            <label for="name" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Rule Name</label>
+            <input type="text" id="name" name="name" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white" placeholder="My Sync Rule" required>
+        </div>
+        
+        <!-- Source account -->
+        <div class="mb-4">
+            <label for="source_account_id" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Source Account</label>
+            <select id="source_account_id" name="source_account_id" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white" required>
+                <option value="" disabled selected>Select an account</option>
+                {% for account in accounts %}
+                    <option value="{{ account.id }}">{{ account.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        
+        <!-- Target pot -->
+        <div class="mb-4">
+            <label for="target_pot_id" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Target Pot</label>
+            <select id="target_pot_id" name="target_pot_id" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white" required>
+                <option value="" disabled selected>Select a pot</option>
+                {% for pot in pots %}
+                    <option value="{{ pot.id }}" data-account="{{ pot.account_id }}">{{ pot.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        
+        <!-- Trigger type -->
+        <div class="mb-4">
+            <label class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">When to sync</label>
+            <div class="bg-gray-50 border border-gray-300 rounded-lg p-3 dark:bg-gray-700 dark:border-gray-600">
+                <div class="flex items-center mb-2">
+                    <input id="trigger-manual" type="radio" name="trigger" value="manual" class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 dark:bg-gray-700 dark:border-gray-600" checked>
+                    <label for="trigger-manual" class="ms-2 text-sm font-medium text-gray-900 dark:text-white">Manual only (you trigger it)</label>
+                </div>
+                <div class="flex items-center mb-2">
+                    <input id="trigger-daily" type="radio" name="trigger" value="daily" class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 dark:bg-gray-700 dark:border-gray-600">
+                    <label for="trigger-daily" class="ms-2 text-sm font-medium text-gray-900 dark:text-white">Daily sync</label>
+                </div>
+                <div class="flex items-center">
+                    <input id="trigger-balance-change" type="radio" name="trigger" value="balance_change" class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 dark:bg-gray-700 dark:border-gray-600">
+                    <label for="trigger-balance-change" class="ms-2 text-sm font-medium text-gray-900 dark:text-white">When balance changes</label>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Action type -->
+        <div class="mb-6">
+            <label class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">What to sync</label>
+            <div class="bg-gray-50 border border-gray-300 rounded-lg p-3 dark:bg-gray-700 dark:border-gray-600">
+                <div class="flex items-center mb-2">
+                    <input id="action-full" type="radio" name="action" value="transfer_full_balance" class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 dark:bg-gray-700 dark:border-gray-600" checked onchange="toggleActionParams()">
+                    <label for="action-full" class="ms-2 text-sm font-medium text-gray-900 dark:text-white">Full balance</label>
+                </div>
+                <div class="flex items-center mb-2">
+                    <input id="action-amount" type="radio" name="action" value="transfer_amount" class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 dark:bg-gray-700 dark:border-gray-600" onchange="toggleActionParams()">
+                    <label for="action-amount" class="ms-2 text-sm font-medium text-gray-900 dark:text-white">Fixed amount</label>
+                </div>
+                <div class="flex items-center mb-3">
+                    <input id="action-percentage" type="radio" name="action" value="transfer_percentage" class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 dark:bg-gray-700 dark:border-gray-600" onchange="toggleActionParams()">
+                    <label for="action-percentage" class="ms-2 text-sm font-medium text-gray-900 dark:text-white">Percentage of balance</label>
+                </div>
+                
+                <!-- Fixed amount parameter -->
+                <div id="amount-params" class="ml-6 hidden">
+                    <label for="amount" class="block mb-1 text-xs font-medium text-gray-900 dark:text-white">Amount (£)</label>
+                    <input type="number" id="amount" name="amount" step="0.01" min="0" class="bg-gray-50 border border-gray-300 text-gray-900 text-xs rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-32 p-1.5 dark:bg-gray-700 dark:border-gray-600 dark:text-white" placeholder="10.00">
+                </div>
+                
+                <!-- Percentage parameter -->
+                <div id="percentage-params" class="ml-6 hidden">
+                    <label for="percentage" class="block mb-1 text-xs font-medium text-gray-900 dark:text-white">Percentage (%)</label>
+                    <input type="number" id="percentage" name="percentage" step="1" min="1" max="100" class="bg-gray-50 border border-gray-300 text-gray-900 text-xs rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-32 p-1.5 dark:bg-gray-700 dark:border-gray-600 dark:text-white" placeholder="50">
+                </div>
+            </div>
+        </div>
+        
+        <button type="submit" class="w-full text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800">
+            Create Rule
+        </button>
+        <div class="mt-4 text-center">
+            <a href="{{ url_for('monzo.index') }}" class="text-blue-700 hover:underline dark:text-blue-500">
+                Cancel
+            </a>
+        </div>
+    </form>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Set up account-pot filtering
+    const sourceAccountSelect = document.getElementById('source_account_id');
+    const targetPotSelect = document.getElementById('target_pot_id');
+    
+    sourceAccountSelect.addEventListener('change', function() {
+        const selectedAccountId = this.value;
+        
+        // Reset pot options
+        Array.from(targetPotSelect.options).forEach(option => {
+            if (option.value === "") {
+                // Skip the default placeholder option
+                return;
+            }
+            
+            const potAccountId = option.getAttribute('data-account');
+            if (potAccountId === selectedAccountId) {
+                option.classList.remove('hidden');
+            } else {
+                option.classList.add('hidden');
+            }
+        });
+        
+        // Reset selection
+        targetPotSelect.value = "";
+    });
+    
+    // Initialize action params visibility
+    toggleActionParams();
+});
+
+function toggleActionParams() {
+    const amountInputContainer = document.getElementById('amount-params');
+    const percentageInputContainer = document.getElementById('percentage-params');
+    
+    const isAmountSelected = document.getElementById('action-amount').checked;
+    const isPercentageSelected = document.getElementById('action-percentage').checked;
+    
+    amountInputContainer.classList.toggle('hidden', !isAmountSelected);
+    percentageInputContainer.classList.toggle('hidden', !isPercentageSelected);
+}
+</script>
+{% endblock %}

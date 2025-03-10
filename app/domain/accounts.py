@@ -401,3 +401,43 @@ class TrueLayerAccount(Account):
         log.info(f"Total balance calculated: £{total_balance:.2f}")
         self._cached_balance = int(total_balance * 100)  # Convert balance to pence
         return self._cached_balance
+
+from dataclasses import dataclass, field
+from typing import Optional
+
+@dataclass
+class MonzoAccount:
+    """Domain model for a Monzo account."""
+    access_token: str
+    refresh_token: str
+    token_expires_at: int
+    pot_id: str = None
+    id: Optional[str] = None
+    user_id: Optional[str] = None
+    name: str = "Monzo Account"
+    is_active: bool = True
+    sync_enabled: bool = True
+    type: str = "monzo"
+    
+    def is_token_expired(self, current_time: int) -> bool:
+        """Check if the access token is expired."""
+        return current_time >= self.token_expires_at
+
+@dataclass
+class TrueLayerAccount:
+    """Domain model for a TrueLayer account."""
+    provider: str  # e.g., "barclays", "hsbc", etc.
+    access_token: str
+    refresh_token: str
+    token_expires_at: int
+    pot_id: str = None
+    id: Optional[str] = None
+    user_id: Optional[str] = None
+    name: str = "TrueLayer Account"
+    is_active: bool = True
+    sync_enabled: bool = True
+    type: str = "truelayer"
+    
+    def is_token_expired(self, current_time: int) -> bool:
+        """Check if the access token is expired."""
+        return current_time >= self.token_expires_at

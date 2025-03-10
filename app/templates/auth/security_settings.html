@@ -1,0 +1,168 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="w-full p-4 bg-white border border-gray-200 rounded-lg shadow sm:p-6 md:p-8 dark:bg-gray-800 dark:border-gray-700">
+    <h1 class="text-2xl font-bold mb-6">Security Settings</h1>
+    
+    <!-- Password Section -->
+    <div class="mb-8">
+        <div class="flex justify-between items-center mb-4">
+            <h2 class="text-xl font-semibold">Password</h2>
+            <a href="{{ url_for('auth.change_password') }}" class="text-blue-600 hover:text-blue-700 font-medium dark:text-blue-500">
+                Change Password
+            </a>
+        </div>
+        <div class="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+            <div class="flex items-center justify-between">
+                <div>
+                    <span class="block text-gray-600 dark:text-gray-400">Password status:</span>
+                    <span class="font-medium">●●●●●●●● <span class="text-green-600 dark:text-green-400">(Set)</span></span>
+                </div>
+                <div>
+                    <span class="text-xs text-gray-500 dark:text-gray-400">
+                        Last changed: 
+                        {% if user.updated_at != user.created_at %}
+                            {{ user.updated_at.strftime('%Y-%m-%d') }}
+                        {% else %}
+                            When account was created
+                        {% endif %}
+                    </span>
+                </div>
+            </div>
+        </div>
+        <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">
+            Use a unique, strong password that you don't use for other websites.
+        </p>
+    </div>
+    
+    <!-- Two-Factor Authentication Section -->
+    <div class="mb-8">
+        <div class="flex justify-between items-center mb-4">
+            <h2 class="text-xl font-semibold">Two-Factor Authentication</h2>
+            
+            {% if user.is_totp_enabled %}
+                <form action="{{ url_for('auth.disable_totp') }}" method="post" class="inline" onsubmit="return confirm('Are you sure you want to disable two-factor authentication? This will make your account less secure.')">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="text-red-600 hover:text-red-700 font-medium dark:text-red-500">
+                        Disable
+                    </button>
+                </form>
+            {% else %}
+                <a href="{{ url_for('auth.setup_totp') }}" class="text-blue-600 hover:text-blue-700 font-medium dark:text-blue-500">
+                    Setup 2FA
+                </a>
+            {% endif %}
+        </div>
+        <div class="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+            <div class="flex items-center">
+                <div>
+                    <span class="block text-gray-600 dark:text-gray-400">Status:</span>
+                    <span class="font-medium {% if user.is_totp_enabled %}text-green-600 dark:text-green-400{% else %}text-yellow-600 dark:text-yellow-400{% endif %}">
+                        {% if user.is_totp_enabled %}
+                            Enabled
+                        {% else %}
+                            Not Enabled
+                        {% endif %}
+                    </span>
+                </div>
+            </div>
+        </div>
+        <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">
+            Two-factor authentication adds an extra layer of security to your account by requiring a verification code in addition to your password.
+        </p>
+    </div>
+    
+    <!-- Passkeys (WebAuthn) Section -->
+    <div class="mb-8">
+        <div class="flex justify-between items-center mb-4">
+            <h2 class="text-xl font-semibold">Passkeys</h2>
+            <a href="{{ url_for('auth.setup_webauthn') }}" class="text-blue-600 hover:text-blue-700 font-medium dark:text-blue-500">
+                Add Passkey
+            </a>
+        </div>
+        <div class="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+            <div class="flex justify-between items-center mb-4">
+                <div>
+                    <span class="block text-gray-600 dark:text-gray-400">Status:</span>
+                    <span class="font-medium {% if user.is_webauthn_enabled %}text-green-600 dark:text-green-400{% else %}text-yellow-600 dark:text-yellow-400{% endif %}">
+                        {% if user.is_webauthn_enabled %}
+                            Enabled ({{ credentials|length }} passkeys)
+                        {% else %}
+                            Not Configured
+                        {% endif %}
+                    </span>
+                </div>
+            </div>
+            
+            {% if credentials %}
+                <div class="mt-4">
+                    <h3 class="font-medium text-gray-700 dark:text-gray-300 mb-2">Your Passkeys</h3>
+                    <ul class="space-y-2">
+                        {% for credential in credentials %}
+                            <li class="flex items-center justify-between p-3 bg-white dark:bg-gray-600 rounded border border-gray-200 dark:border-gray-700">
+                                <div>
+                                    <span class="font-medium">{{ credential.name }}</span>
+                                    <div class="text-xs text-gray-500 dark:text-gray-400">
+                                        Added: {{ credential.created_at.strftime('%Y-%m-%d') }}
+                                        {% if credential.last_used_at %}
+                                            <span class="mx-1">•</span> Last used: {{ credential.last_used_at.strftime('%Y-%m-%d') }}
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                <form action="{{ url_for('auth.remove_passkey', credential_id=credential.id) }}" method="post" class="inline" onsubmit="return confirm('Are you sure you want to remove this passkey?')">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <button type="submit" class="text-red-600 hover:text-red-700">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                        </svg>
+                                    </button>
+                                </form>
+                            </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            {% endif %}
+        </div>
+        <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">
+            Passkeys let you sign in without a password using biometrics (fingerprint, face recognition) or your device PIN.
+        </p>
+    </div>
+    
+    <!-- Login Sessions Section -->
+    <div class="mb-8">
+        <div class="flex justify-between items-center mb-4">
+            <h2 class="text-xl font-semibold">Login Sessions</h2>
+            <a href="{{ url_for('profile.sessions') }}" class="text-blue-600 hover:text-blue-700 font-medium dark:text-blue-500">
+                Manage Sessions
+            </a>
+        </div>
+        <div class="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+            <div>
+                <span class="block text-gray-600 dark:text-gray-400">Current session:</span>
+                <span class="font-medium">{{ request.user_agent.string|truncate(40) }}</span>
+                <div class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    IP: {{ request.remote_addr }}
+                </div>
+            </div>
+        </div>
+        <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">
+            View and manage all your active login sessions.
+        </p>
+    </div>
+    
+    <!-- Account Activity Section -->
+    <div>
+        <div class="flex justify-between items-center mb-4">
+            <h2 class="text-xl font-semibold">Account Activity</h2>
+            <a href="{{ url_for('profile.activity_log') }}" class="text-blue-600 hover:text-blue-700 font-medium dark:text-blue-500">
+                View Activity Log
+            </a>
+        </div>
+        <div class="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+            <p class="text-gray-600 dark:text-gray-400">
+                Monitor recent account activity for suspicious behaviors.
+            </p>
+        </div>
+    </div>
+</div>
+{% endblock %}

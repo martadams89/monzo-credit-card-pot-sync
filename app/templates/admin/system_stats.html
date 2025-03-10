@@ -1,0 +1,176 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="w-full p-4 bg-white border border-gray-200 rounded-lg shadow sm:p-6 md:p-8 dark:bg-gray-800 dark:border-gray-700">
+    <div class="mb-2">
+        <a href="{{ url_for('admin.index') }}" class="text-sm text-blue-700 dark:text-blue-400 hover:underline">← Back to Admin Dashboard</a>
+    </div>
+    
+    <h1 class="text-2xl font-bold mb-6">System Statistics</h1>
+    
+    <!-- User statistics -->
+    <div class="mb-8">
+        <h2 class="text-xl font-semibold mb-4">User Statistics</h2>
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div class="p-4 bg-blue-50 dark:bg-blue-900 rounded-lg">
+                <h3 class="text-lg font-medium text-blue-700 dark:text-blue-300">Total Users</h3>
+                <p class="text-3xl font-bold text-blue-900 dark:text-blue-100 mt-2">{{ stats.total_users }}</p>
+            </div>
+            <div class="p-4 bg-green-50 dark:bg-green-900 rounded-lg">
+                <h3 class="text-lg font-medium text-green-700 dark:text-green-300">Active Users</h3>
+                <p class="text-3xl font-bold text-green-900 dark:text-green-100 mt-2">{{ stats.active_users }}</p>
+                <p class="text-sm text-green-700 dark:text-green-300">{{ stats.active_percentage }}% of total</p>
+            </div>
+            <div class="p-4 bg-yellow-50 dark:bg-yellow-900 rounded-lg">
+                <h3 class="text-lg font-medium text-yellow-700 dark:text-yellow-300">Verified Users</h3>
+                <p class="text-3xl font-bold text-yellow-900 dark:text-yellow-100 mt-2">{{ stats.verified_users }}</p>
+                <p class="text-sm text-yellow-700 dark:text-yellow-300">{{ stats.verified_percentage }}% of total</p>
+            </div>
+            <div class="p-4 bg-purple-50 dark:bg-purple-900 rounded-lg">
+                <h3 class="text-lg font-medium text-purple-700 dark:text-purple-300">New Users (7d)</h3>
+                <p class="text-3xl font-bold text-purple-900 dark:text-purple-100 mt-2">{{ stats.new_users_week }}</p>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Security statistics -->
+    <div class="mb-8">
+        <h2 class="text-xl font-semibold mb-4">Security Statistics</h2>
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div class="p-4 bg-blue-50 dark:bg-blue-900 rounded-lg">
+                <h3 class="text-lg font-medium text-blue-700 dark:text-blue-300">2FA Enabled</h3>
+                <p class="text-3xl font-bold text-blue-900 dark:text-blue-100 mt-2">{{ stats.totp_enabled_users }}</p>
+                <p class="text-sm text-blue-700 dark:text-blue-300">{{ stats.totp_enabled_percentage }}% of users</p>
+            </div>
+            <div class="p-4 bg-green-50 dark:bg-green-900 rounded-lg">
+                <h3 class="text-lg font-medium text-green-700 dark:text-green-300">Passkeys Enabled</h3>
+                <p class="text-3xl font-bold text-green-900 dark:text-green-100 mt-2">{{ stats.webauthn_enabled_users }}</p>
+                <p class="text-sm text-green-700 dark:text-green-300">{{ stats.webauthn_enabled_percentage }}% of users</p>
+            </div>
+            <div class="p-4 bg-red-50 dark:bg-red-900 rounded-lg">
+                <h3 class="text-lg font-medium text-red-700 dark:text-red-300">Failed Logins (24h)</h3>
+                <p class="text-3xl font-bold text-red-900 dark:text-red-100 mt-2">{{ stats.failed_logins_24h }}</p>
+            </div>
+            <div class="p-4 bg-yellow-50 dark:bg-yellow-900 rounded-lg">
+                <h3 class="text-lg font-medium text-yellow-700 dark:text-yellow-300">Password Resets (7d)</h3>
+                <p class="text-3xl font-bold text-yellow-900 dark:text-yellow-100 mt-2">{{ stats.password_resets_week }}</p>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Activity statistics -->
+    <div class="mb-8">
+        <h2 class="text-xl font-semibold mb-4">Activity Statistics</h2>
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div class="p-4 bg-blue-50 dark:bg-blue-900 rounded-lg">
+                <h3 class="text-lg font-medium text-blue-700 dark:text-blue-300">Connected Accounts</h3>
+                <p class="text-3xl font-bold text-blue-900 dark:text-blue-100 mt-2">{{ stats.connected_accounts }}</p>
+            </div>
+            <div class="p-4 bg-green-50 dark:bg-green-900 rounded-lg">
+                <h3 class="text-lg font-medium text-green-700 dark:text-green-300">Active Rules</h3>
+                <p class="text-3xl font-bold text-green-900 dark:text-green-100 mt-2">{{ stats.active_rules }}</p>
+            </div>
+            <div class="p-4 bg-purple-50 dark:bg-purple-900 rounded-lg">
+                <h3 class="text-lg font-medium text-purple-700 dark:text-purple-300">Syncs Today</h3>
+                <p class="text-3xl font-bold text-purple-900 dark:text-purple-100 mt-2">{{ stats.syncs_today }}</p>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Monthly stats chart -->
+    <div class="mb-8">
+        <h2 class="text-xl font-semibold mb-4">Monthly Activity</h2>
+        <div class="bg-white dark:bg-gray-700 p-4 rounded-lg border border-gray-200 dark:border-gray-600">
+            <canvas id="monthlyStatsChart" height="300"></canvas>
+        </div>
+    </div>
+    
+    <!-- System health -->
+    <div>
+        <h2 class="text-xl font-semibold mb-4">System Health</h2>
+        <div class="bg-white dark:bg-gray-700 p-4 rounded-lg border border-gray-200 dark:border-gray-600">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <h3 class="text-lg font-medium mb-2">CPU Usage</h3>
+                    <div class="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-4 mb-4">
+                        <div class="bg-blue-600 h-4 rounded-full" style="width: {{ health.cpu_usage_percent }}%"></div>
+                    </div>
+                    <p class="text-sm text-gray-600 dark:text-gray-300">{{ health.cpu_usage_percent }}% CPU usage</p>
+                </div>
+                <div>
+                    <h3 class="text-lg font-medium mb-2">Memory Usage</h3>
+                    <div class="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-4 mb-4">
+                        <div class="bg-green-600 h-4 rounded-full" style="width: {{ health.memory_usage_percent }}%"></div>
+                    </div>
+                    <p class="text-sm text-gray-600 dark:text-gray-300">{{ health.memory_usage }} / {{ health.memory_total }} ({{ health.memory_usage_percent }}%)</p>
+                </div>
+                <div>
+                    <h3 class="text-lg font-medium mb-2">Disk Usage</h3>
+                    <div class="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-4 mb-4">
+                        <div class="bg-yellow-600 h-4 rounded-full" style="width: {{ health.disk_usage_percent }}%"></div>
+                    </div>
+                    <p class="text-sm text-gray-600 dark:text-gray-300">{{ health.disk_usage }} / {{ health.disk_total }} ({{ health.disk_usage_percent }}%)</p>
+                </div>
+                <div>
+                    <h3 class="text-lg font-medium mb-2">Database Size</h3>
+                    <div class="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-4 mb-4">
+                        <div class="bg-purple-600 h-4 rounded-full" style="width: {{ health.db_size_percent }}%"></div>
+                    </div>
+                    <p class="text-sm text-gray-600 dark:text-gray-300">{{ health.db_size }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Chart data from the server
+    const monthlyData = {{ monthly_data|tojson }};
+    
+    // Set up chart
+    const ctx = document.getElementById('monthlyStatsChart').getContext('2d');
+    new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: monthlyData.labels,
+            datasets: [
+                {
+                    label: 'New Users',
+                    data: monthlyData.newUsers,
+                    borderColor: 'rgb(59, 130, 246)',
+                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                    tension: 0.3,
+                    fill: true
+                },
+                {
+                    label: 'Syncs Completed',
+                    data: monthlyData.syncs,
+                    borderColor: 'rgb(16, 185, 129)',
+                    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                    tension: 0.3,
+                    fill: true
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: {
+                    position: 'top',
+                },
+                title: {
+                    display: false
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true
+                }
+            }
+        }
+    });
+});
+</script>
+{% endblock %}

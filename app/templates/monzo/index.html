@@ -1,0 +1,229 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="w-full p-4 bg-white border border-gray-200 rounded-lg shadow sm:p-6 md:p-8 dark:bg-gray-800 dark:border-gray-700">
+    <div class="flex justify-between items-center mb-6">
+        <h1 class="text-2xl font-bold">Monzo Sync Dashboard</h1>
+        <a href="{{ url_for('monzo.add_account') }}" class="text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800">
+            Add Monzo Account
+        </a>
+    </div>
+    
+    {% if accounts_data %}
+        <div class="space-y-8">
+            {% for account_data in accounts_data %}
+                <div class="border border-gray-200 rounded-lg dark:border-gray-700">
+                    <!-- Account header -->
+                    <div class="flex justify-between items-center p-4 bg-gray-50 dark:bg-gray-700 rounded-t-lg">
+                        <div>
+                            <h2 class="text-xl font-semibold text-gray-900 dark:text-white">{{ account_data.account.name }}</h2>
+                            <p class="text-sm text-gray-600 dark:text-gray-400">
+                                Balance: {{ (account_data.account.balance/100)|round(2) }} {{ account_data.account.currency }}
+                                {% if account_data.account.last_refreshed %}
+                                    <span class="ml-2 text-xs">(Updated: {{ account_data.account.last_refreshed.strftime('%Y-%m-%d %H:%M') }})</span>
+                                {% endif %}
+                            </p>
+                        </div>
+                        <div class="flex space-x-2">
+                            <form action="{{ url_for('monzo.refresh_account', account_id=account_data.account.id) }}" method="post" class="inline">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <button type="submit" class="py-1 px-3 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 dark:bg-blue-900 dark:text-blue-300 dark:hover:bg-blue-800">
+                                    Refresh
+                                </button>
+                            </form>
+                            <div class="relative" x-data="{ open: false }">
+                                <button @click="open = !open" type="button" class="py-1 px-3 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700">
+                                    Actions
+                                </button>
+                                <div x-show="open" @click.outside="open = false" class="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-10 dark:bg-gray-800" style="display: none;">
+                                    <a href="{{ url_for('monzo.transactions', account_id=account_data.account.id) }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700">
+                                        View Transactions
+                                    </a>
+                                    <form action="{{ url_for('monzo.toggle_account', account_id=account_data.account.id) }}" method="post" class="block w-full text-left">
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                        <button type="submit" class="w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700 text-left">
+                                            {% if account_data.account.sync_enabled %}Disable{% else %}Enable{% endif %} Sync
+                                        </button>
+                                    </form>
+                                    <form action="{{ url_for('monzo.delete_account', account_id=account_data.account.id) }}" method="post" class="block w-full text-left" onsubmit="return confirm('Are you sure you want to delete this account?');">
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                        <button type="submit" class="w-full px-4 py-2 text-sm text-red-700 hover:bg-gray-100 dark:text-red-400 dark:hover:bg-gray-700 text-left">
+                                            Delete Account
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Account body -->
+                    <div class="p-4">
+                        <!-- Pots -->
+                        <div class="mb-6">
+                            <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-3">Pots</h3>
+                            {% if account_data.pots %}
+                                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                                    {% for pot in account_data.pots %}
+                                        <div class="p-3 border border-gray-200 rounded-lg dark:border-gray-700 bg-white dark:bg-gray-800">
+                                            <div class="font-medium">{{ pot.name }}</div>
+                                            <div class="text-sm text-gray-600 dark:text-gray-400">
+                                                {{ (pot.balance/100)|round(2) }} {{ pot.currency }}
+                                            </div>
+                                        </div>
+                                    {% endfor %}
+                                </div>
+                            {% else %}
+                                <p class="text-gray-600 dark:text-gray-400">No pots found for this account.</p>
+                            {% endif %}
+                        </div>
+                        
+                        <!-- Sync Rules -->
+                        <div>
+                            <div class="flex justify-between items-center mb-3">
+                                <h3 class="text-lg font-medium text-gray-900 dark:text-white">Sync Rules</h3>
+                                <a href="{{ url_for('monzo.create_rule') }}" class="text-sm text-blue-700 hover:underline dark:text-blue-500">
+                                    Add Rule
+                                </a>
+                            </div>
+                            
+                            {% if account_data.rules %}
+                                <div class="overflow-x-auto">
+                                    <table class="w-full text-sm text-left text-gray-500 dark:text-gray-400">
+                                        <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
+                                            <tr>
+                                                <th scope="col" class="px-4 py-3">Name</th>
+                                                <th scope="col" class="px-4 py-3">Target Pot</th>
+                                                <th scope="col" class="px-4 py-3">Trigger</th>
+                                                <th scope="col" class="px-4 py-3">Action</th>
+                                                <th scope="col" class="px-4 py-3">Status</th>
+                                                <th scope="col" class="px-4 py-3">Controls</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for rule in account_data.rules %}
+                                                <tr class="bg-white border-b dark:bg-gray-800 dark:border-gray-700">
+                                                    <td class="px-4 py-3">{{ rule.name }}</td>
+                                                    <td class="px-4 py-3">
+                                                        {% for pot in account_data.pots %}
+                                                            {% if pot.id == rule.target_pot_id %}
+                                                                {{ pot.name }}
+                                                            {% endif %}
+                                                        {% endfor %}
+                                                    </td>
+                                                    <td class="px-4 py-3">
+                                                        {% if rule.trigger_type == 'manual' %}
+                                                            Manual
+                                                        {% elif rule.trigger_type == 'daily' %}
+                                                            Daily
+                                                        {% elif rule.trigger_type == 'balance_change' %}
+                                                            On Balance Change
+                                                        {% endif %}
+                                                    </td>
+                                                    <td class="px-4 py-3">
+                                                        {% if rule.action_type == 'transfer_full_balance' %}
+                                                            Full Balance
+                                                        {% elif rule.action_type == 'transfer_amount' %}
+                                                            £{{ (rule.action_amount/100)|round(2) }}
+                                                        {% elif rule.action_type == 'transfer_percentage' %}
+                                                            {{ rule.action_percentage }}%
+                                                        {% endif %}
+                                                    </td>
+                                                    <td class="px-4 py-3">
+                                                        <span class="px-2 py-1 text-xs font-medium rounded-full {% if rule.is_active %}bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300{% else %}bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300{% endif %}">
+                                                            {% if rule.is_active %}Active{% else %}Disabled{% endif %}
+                                                        </span>
+                                                    </td>
+                                                    <td class="px-4 py-3">
+                                                        <div class="flex items-center space-x-3">
+                                                            <form action="{{ url_for('monzo.toggle_rule', rule_id=rule.id) }}" method="post" class="inline">
+                                                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                                                <button type="submit" class="text-blue-600 hover:underline dark:text-blue-500">
+                                                                    {% if rule.is_active %}Disable{% else %}Enable{% endif %}
+                                                                </button>
+                                                            </form>
+                                                            <a href="{{ url_for('monzo.edit_rule', rule_id=rule.id) }}" class="text-yellow-600 hover:underline dark:text-yellow-500">Edit</a>
+                                                            
+                                                            {% if rule.is_active %}
+                                                            <form action="{{ url_for('monzo.execute_rule', rule_id=rule.id) }}" method="post" class="inline">
+                                                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                                                <button type="submit" class="text-green-600 hover:underline dark:text-green-500">Run</button>
+                                                            </form>
+                                                            {% endif %}
+                                                            
+                                                            <form action="{{ url_for('monzo.delete_rule', rule_id=rule.id) }}" method="post" class="inline" onsubmit="return confirm('Are you sure you want to delete this rule?');">
+                                                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                                                <button type="submit" class="text-red-600 hover:underline dark:text-red-500">Delete</button>
+                                                            </form>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            {% else %}
+                                <div class="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg text-center">
+                                    <p class="text-gray-600 dark:text-gray-400 mb-4">No sync rules created yet.</p>
+                                    <a href="{{ url_for('monzo.create_rule') }}" class="text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800">
+                                        Create First Rule
+                                    </a>
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="p-8 bg-gray-50 dark:bg-gray-700 rounded-lg text-center">
+            <h3 class="text-xl font-medium text-gray-900 dark:text-white mb-4">No Monzo Accounts Connected</h3>
+            <p class="text-gray-600 dark:text-gray-400 mb-6">
+                Connect your Monzo account to start setting up automatic sync rules for your credit card payments.
+            </p>
+            <a href="{{ url_for('monzo.add_account') }}" class="text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800">
+                Connect Monzo Account
+            </a>
+        </div>
+    {% endif %}
+    
+    <!-- Sync History -->
+    <div class="mt-8">
+        <h2 class="text-xl font-bold text-gray-900 dark:text-white mb-4">Recent Sync Activity</h2>
+        
+        {% if history %}
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm text-left text-gray-500 dark:text-gray-400">
+                    <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
+                        <tr>
+                            <th scope="col" class="px-4 py-3">Date</th>
+                            <th scope="col" class="px-4 py-3">Source</th>
+                            <th scope="col" class="px-4 py-3">Target</th>
+                            <th scope="col" class="px-4 py-3">Amount</th>
+                            <th scope="col" class="px-4 py-3">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for entry in history %}
+                            <tr class="bg-white border-b dark:bg-gray-800 dark:border-gray-700">
+                                <td class="px-4 py-3">{{ entry.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                                <td class="px-4 py-3">{{ entry.source_account.name }}</td>
+                                <td class="px-4 py-3">{{ entry.target_pot.name }}</td>
+                                <td class="px-4 py-3 {% if entry.amount > 0 %}text-green-600 dark:text-green-400{% else %}text-red-600 dark:text-red-400{% endif %}">
+                                    {{ (entry.amount/100)|round(2) }} {{ entry.currency }}
+                                </td>
+                                <td class="px-4 py-3">
+                                    <span class="px-2 py-1 text-xs font-medium rounded-full {% if entry.status == 'success' %}bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300{% else %}bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300{% endif %}">
+                                        {{ entry.status|capitalize }}
+                                    </span>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <p class="text-gray-600 dark:text-gray-400">No sync activity yet.</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

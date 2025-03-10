@@ -1,11 +1,36 @@
-FROM python:3.13-slim-bookworm
+FROM python:3.9-slim
 
-WORKDIR /monzo-credit-card-pot-sync
+WORKDIR /app
 
-COPY requirements.txt wsgi.py ./
+# Install system dependencies required for building Python packages
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc \
+    python3-dev \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
 
-RUN pip3 install -r requirements.txt
+# Copy requirements first for better layer caching
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
 
-COPY app ./app
+# Copy app code
+COPY . .
 
-CMD ["gunicorn", "--bind", "0.0.0.0:1337", "wsgi:app"]
+# Set environment variables
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    FLASK_APP=app.wsgi:app
+
+# Create volume for SQLite database
+VOLUME /app/instance
+
+# Expose port
+EXPOSE 8000
+
+# Run the entry point script
+COPY docker-entrypoint.sh /docker-entrypoint.sh
+RUN chmod +x /docker-entrypoint.sh
+ENTRYPOINT ["/docker-entrypoint.sh"]
+
+# Default command
+CMD ["gunicorn", "--bind", "0.0.0.0:8000", "--workers", "4", "app.wsgi:app"]

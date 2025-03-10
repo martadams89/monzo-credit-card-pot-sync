@@ -1,0 +1,44 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="w-full max-w-md p-4 bg-white border border-gray-200 rounded-lg shadow sm:p-6 md:p-8 dark:bg-gray-800 dark:border-gray-700">
+    <h2 class="text-xl font-bold mb-6">Add Monzo Account</h2>
+    
+    <div class="mb-6">
+        <div class="p-4 bg-yellow-50 dark:bg-yellow-900 border border-yellow-200 dark:border-yellow-800 rounded-lg mb-6">
+            <p class="text-sm text-yellow-800 dark:text-yellow-200">
+                You'll need to authorize this application to access your Monzo account. Follow these steps:
+            </p>
+            <ol class="mt-2 list-decimal list-inside text-sm text-yellow-800 dark:text-yellow-200">
+                <li class="mb-1">Click the "Connect Monzo Account" button below</li>
+                <li class="mb-1">Sign in to your Monzo account if prompted</li>
+                <li class="mb-1">Review and approve the requested permissions</li>
+                <li>You'll be redirected back to this application automatically</li>
+            </ol>
+        </div>
+    
+        <form method="get" action="{{ auth_url }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="mb-4">
+                <p class="text-gray-600 dark:text-gray-400">
+                    This application needs permission to:
+                </p>
+                <ul class="list-disc list-inside mt-2 text-sm text-gray-600 dark:text-gray-400">
+                    <li>View your accounts and balances</li>
+                    <li>Access your pots</li>
+                    <li>Move money between your accounts and pots</li>
+                </ul>
+            </div>
+            <button type="submit" class="w-full text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800">
+                Connect Monzo Account
+            </button>
+        </form>
+    </div>
+    
+    <div class="text-center">
+        <a href="{{ url_for('monzo.index') }}" class="text-blue-700 hover:underline dark:text-blue-500">
+            Back to Monzo Dashboard
+        </a>
+    </div>
+</div>
+{% endblock %}

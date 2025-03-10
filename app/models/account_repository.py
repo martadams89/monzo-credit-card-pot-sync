@@ -1,12 +1,20 @@
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import not_
 from sqlalchemy.exc import NoResultFound
+from typing import List, Optional
+from datetime import datetime
+import uuid
+import logging
+from sqlalchemy.exc import SQLAlchemyError
 
 from app.domain.accounts import Account, MonzoAccount, TrueLayerAccount
 from app.models.account import AccountModel
 
+log = logging.getLogger(__name__)
 
 class SqlAlchemyAccountRepository:
+    """Repository for accounts using SQLAlchemy."""
+    
     def __init__(self, db: SQLAlchemy) -> None:
         self._session = db.session
 
@@ -123,3 +131,119 @@ class SqlAlchemyAccountRepository:
         record.cooldown_until = cooldown_until
         self._session.commit()
         return self._to_domain(record)
+
+    def get_by_id(self, account_id: str) -> Optional[MonzoAccount]:
+        """Get an account by ID."""
+        # Check Monzo accounts
+        from app.models.monzo import MonzoAccount as DbMonzoAccount
+        monzo_account = self._session.query(DbMonzoAccount).filter_by(id=account_id).first()
+        if (monzo_account):
+            return self._map_monzo_db_to_domain(monzo_account)
+        
+        # Check TrueLayer accounts if not found in Monzo
+        # In a real implementation, you'd have a proper TrueLayer account model
+        return None
+    
+    def get_by_user_id(self, user_id: str) -> List[MonzoAccount]:
+        """Get all accounts for a user."""
+        from app.models.monzo import MonzoAccount as DbMonzoAccount
+        
+        accounts = []
+        
+        # Get Monzo accounts
+        monzo_accounts = self._session.query(DbMonzoAccount).filter_by(user_id=user_id).all()
+        for account in monzo_accounts:
+            accounts.append(self._map_monzo_db_to_domain(account))
+        
+        # Get TrueLayer accounts
+        # In a real implementation, you'd add TrueLayer accounts here
+        
+        return accounts
+    
+    def save(self, account) -> None:
+        """Save an account."""
+        try:
+            if isinstance(account, MonzoAccount):
+                self._save_monzo_account(account)
+            elif isinstance(account, TrueLayerAccount):
+                self._save_truelayer_account(account)
+            else:
+                raise ValueError(f"Unsupported account type: {type(account)}")
+        except SQLAlchemyError as e:
+            self._session.rollback()
+            log.error(f"Error saving account: {str(e)}")
+            raise
+    
+    def _save_monzo_account(self, account: MonzoAccount) -> None:
+        """Save a Monzo account."""
+        from app.models.monzo import MonzoAccount as DbMonzoAccount
+        
+        db_account = self._session.query(DbMonzoAccount).filter_by(id=account.id).first()
+        
+        if db_account:
+            # Update existing account
+            db_account.name = account.name
+            db_account.access_token = account.access_token
+            db_account.refresh_token = account.refresh_token
+            db_account.token_expires_at = datetime.fromtimestamp(account.token_expires_at)
+            db_account.is_active = account.is_active
+            db_account.sync_enabled = account.sync_enabled
+            db_account.updated_at = datetime.utcnow()
+        else:
+            # Create new account
+            db_account = DbMonzoAccount(
+                id=account.id if account.id else str(uuid.uuid4()),
+                user_id=account.user_id,
+                name=account.name,
+                type="monzo",
+                access_token=account.access_token,
+                refresh_token=account.refresh_token,
+                token_expires_at=datetime.fromtimestamp(account.token_expires_at),
+                is_active=account.is_active,
+                sync_enabled=account.sync_enabled,
+                created_at=datetime.utcnow(),
+                updated_at=datetime.utcnow()
+            )
+            self._session.add(db_account)
+        
+        self._session.commit()
+    
+    def _save_truelayer_account(self, account: TrueLayerAccount) -> None:
+        """Save a TrueLayer account."""
+        # In a real implementation, you'd have a proper TrueLayer account model
+        # For now, let's assume it's similar to Monzo
+        pass
+    
+    def delete(self, account_id: str) -> bool:
+        """Delete an account by ID."""
+        try:
+            # Try to delete from Monzo accounts
+            from app.models.monzo import MonzoAccount as DbMonzoAccount
+            monzo_account = self._session.query(DbMonzoAccount).filter_by(id=account_id).first()
+            if monzo_account:
+                self._session.delete(monzo_account)
+                self._session.commit()
+                return True
+            
+            # If not found in Monzo, try TrueLayer
+            # In a real implementation, you'd try to delete from TrueLayer accounts
+            
+            return False
+        except SQLAlchemyError as e:
+            self._session.rollback()
+            log.error(f"Error deleting account: {str(e)}")
+            raise
+    
+    def _map_monzo_db_to_domain(self, db_account) -> MonzoAccount:
+        """Map a database Monzo account to domain model."""
+        return MonzoAccount(
+            id=db_account.id,
+            user_id=db_account.user_id,
+            name=db_account.name,
+            access_token=db_account.access_token,
+            refresh_token=db_account.refresh_token,
+            token_expires_at=int(db_account.token_expires_at.timestamp()),
+            pot_id=db_account.pot_id,
+            is_active=db_account.is_active,
+            sync_enabled=db_account.sync_enabled
+        )

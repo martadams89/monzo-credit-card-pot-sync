@@ -1,0 +1,20 @@
+Hello {{ user.username }},
+
+We detected a security-related event on your Monzo Sync account that you should be aware of:
+
+Event: {{ event_type }}
+Time: {{ now.strftime('%Y-%m-%d %H:%M:%S UTC') }}
+{% if ip_address %}IP Address: {{ ip_address }}{% endif %}
+Details: {{ details }}
+
+If you performed this action, you can ignore this alert. If you did not initiate this change, please secure your account immediately:
+
+1. Change your password
+2. Enable two-factor authentication if not already enabled
+3. Contact our support team
+
+Thank you,
+The Monzo Sync Security Team
+
+---
+This is an automated message. Please do not reply to this email.

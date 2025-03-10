@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .header {
+            background-color: #ff3e00;
+            color: #fff;
+            padding: 20px;
+            text-align: center;
+        }
+        .content {
+            padding: 20px;
+            background-color: #f9f9f9;
+        }
+        .alert-info {
+            background-color: #f8f8f8;
+            border-left: 4px solid #ff3e00;
+            padding: 15px;
+            margin: 20px 0;
+        }
+        .footer {
+            padding: 20px;
+            text-align: center;
+            font-size: 0.8em;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Security Alert</h1>
+        </div>
+        <div class="content">
+            <p>Hello {{ user.username }},</p>
+            
+            <p>We detected a security-related event on your Monzo Sync account that you should be aware of:</p>
+            
+            <div class="alert-info">
+                <p><strong>Event:</strong> {{ event_type }}</p>
+                <p><strong>Time:</strong> {{ now.strftime('%Y-%m-%d %H:%M:%S UTC') }}</p>
+                {% if ip_address %}
+                <p><strong>IP Address:</strong> {{ ip_address }}</p>
+                {% endif %}
+                <p><strong>Details:</strong> {{ details }}</p>
+            </div>
+            
+            <p>If you performed this action, you can ignore this alert. If you did not initiate this change, please secure your account immediately:</p>
+            
+            <ol>
+                <li>Change your password</li>
+                <li>Enable two-factor authentication if not already enabled</li>
+                <li>Contact our support team</li>
+            </ol>
+            
+            <p>Thank you,<br>
+            The Monzo Sync Security Team</p>
+        </div>
+        <div class="footer">
+            <p>This is an automated message. Please do not reply to this email.</p>
+            <p>&copy; {{ now.year }} Monzo Sync. All rights reserved.</p>
+        </div>
+    </div>
+</body>
+</html>

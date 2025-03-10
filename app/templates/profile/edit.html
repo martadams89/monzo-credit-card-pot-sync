@@ -1,0 +1,53 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="w-full max-w-lg p-4 bg-white border border-gray-200 rounded-lg shadow sm:p-6 md:p-8 dark:bg-gray-800 dark:border-gray-700">
+    <div class="mb-4">
+        <a href="{{ url_for('profile.index') }}" class="text-sm text-blue-700 dark:text-blue-400 hover:underline">← Back to Profile</a>
+    </div>
+    
+    <h2 class="text-xl font-bold mb-6">Edit Profile</h2>
+    
+    <form method="post" action="{{ url_for('profile.edit') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        
+        <div class="mb-4">
+            <label for="username" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Username</label>
+            <input type="text" id="username" name="username" value="{{ current_user.username }}" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white" required>
+        </div>
+        
+        <div class="mb-4">
+            <label for="email" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Email Address</label>
+            <input type="email" id="email" name="email" value="{{ current_user.email }}" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white" required>
+            {% if current_user.is_email_verified %}
+                <span class="inline-flex items-center mt-2 text-sm text-green-600 dark:text-green-400">
+                    <svg class="w-3 h-3 mr-1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                    </svg>
+                    Email verified
+                </span>
+            {% else %}
+                <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                    <a href="{{ url_for('auth.resend_verification') }}" class="text-blue-600 dark:text-blue-400 hover:underline">Resend verification email</a>
+                </p>
+            {% endif %}
+        </div>
+        
+        <div class="mb-4">
+            <label for="current_password" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Current Password</label>
+            <input type="password" id="current_password" name="current_password" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white" placeholder="••••••••" required>
+            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Required to confirm changes</p>
+        </div>
+        
+        <div class="flex justify-between mt-8">
+            <button type="submit" class="text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800">
+                Save Changes
+            </button>
+            
+            <a href="{{ url_for('profile.delete_account') }}" class="text-red-700 hover:text-red-800 focus:outline-none font-medium rounded-lg text-sm px-5 py-2.5 text-center dark:text-red-400 dark:hover:text-red-300">
+                Delete Account
+            </a>
+        </div>
+    </form>
+</div>
+{% endblock %}

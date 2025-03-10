@@ -1,0 +1,161 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="flex flex-col items-center justify-center px-6 py-8 mx-auto md:h-screen lg:py-0">
+    <div class="w-full bg-white rounded-lg shadow dark:border md:mt-0 sm:max-w-md xl:p-0 dark:bg-gray-800 dark:border-gray-700">
+        <div class="p-6 space-y-4 md:space-y-6 sm:p-8">
+            <h1 class="text-xl font-bold leading-tight tracking-tight text-gray-900 md:text-2xl dark:text-white">
+                Login with Passkey
+            </h1>
+            
+            <p class="text-sm text-gray-600 dark:text-gray-400">
+                Use your biometrics (fingerprint, face recognition) or device PIN to sign in without a password.
+            </p>
+            
+            <div id="error-message" class="hidden p-4 mb-4 text-sm text-red-800 rounded-lg bg-red-50 dark:bg-red-900 dark:text-red-300" role="alert"></div>
+            
+            <div id="webauthn-waiting" class="hidden">
+                <div class="flex justify-center mb-4">
+                    <svg class="animate-spin h-10 w-10 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                </div>
+                <p class="text-center text-gray-600 dark:text-gray-400">
+                    Follow your device's prompts to verify your identity...
+                </p>
+            </div>
+            
+            <button id="passkey-button" class="flex items-center justify-center w-full text-gray-900 bg-white border border-gray-300 focus:outline-none hover:bg-gray-100 focus:ring-4 focus:ring-gray-200 font-medium rounded-lg text-sm px-5 py-2.5 dark:bg-gray-800 dark:text-white dark:border-gray-600 dark:hover:bg-gray-700 dark:hover:border-gray-600 dark:focus:ring-gray-700">
+                <svg class="w-5 h-5 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M7.864 4.243A7.5 7.5 0 0119.5 10.5c0 2.92-.556 5.709-1.568 8.268M5.742 6.364A7.465 7.465 0 004.5 10.5a7.464 7.464 0 01-1.15 3.993m1.989 3.559A11.209 11.209 0 008.25 10.5a3.75 3.75 0 117.5 0c0 .527-.021 1.049-.064 1.565M12 10.5a14.94 14.94 0 01-3.6 9.75m6.633-4.596a18.666 18.666 0 01-2.485 5.33" />
+                </svg>
+                Sign in with Passkey
+            </button>
+            
+            <div class="text-sm font-light text-gray-500 dark:text-gray-400">
+                Don't have a passkey? <a href="{{ url_for('auth.login') }}" class="font-medium text-blue-600 hover:underline dark:text-blue-500">Sign in with password</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const passKeyButton = document.getElementById('passkey-button');
+    const errorMessage = document.getElementById('error-message');
+    const webauthnWaiting = document.getElementById('webauthn-waiting');
+    
+    // Check if WebAuthn is supported by the browser
+    if (!window.PublicKeyCredential) {
+        errorMessage.textContent = 'Your browser does not support passkeys. Please use a modern browser or sign in with your password.';
+        errorMessage.classList.remove('hidden');
+        passKeyButton.disabled = true;
+        return;
+    }
+    
+    passKeyButton.addEventListener('click', async function() {
+        try {
+            errorMessage.classList.add('hidden');
+            passKeyButton.classList.add('hidden');
+            webauthnWaiting.classList.remove('hidden');
+            
+            // Get authentication options from the server
+            const response = await fetch("{{ url_for('auth.webauthn_login_begin') }}", {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': "{{ csrf_token() }}"
+                }
+            });
+            
+            if (!response.ok) {
+                throw new Error('Failed to start authentication');
+            }
+            
+            const options = await response.json();
+            
+            if (options.error) {
+                throw new Error(options.error);
+            }
+            
+            // Convert base64 values to ArrayBuffer as required by the WebAuthn API
+            options.publicKey.challenge = _base64ToArrayBuffer(options.publicKey.challenge);
+            
+            if (options.publicKey.allowCredentials) {
+                options.publicKey.allowCredentials = options.publicKey.allowCredentials.map(credential => {
+                    return {
+                        ...credential,
+                        id: _base64ToArrayBuffer(credential.id)
+                    };
+                });
+            }
+            
+            // Get the credential
+            const credential = await navigator.credentials.get({
+                publicKey: options.publicKey
+            });
+            
+            // Prepare the credential for sending to the server
+            const authData = {
+                id: credential.id,
+                rawId: _arrayBufferToBase64(credential.rawId),
+                type: credential.type,
+                response: {
+                    authenticatorData: _arrayBufferToBase64(credential.response.authenticatorData),
+                    clientDataJSON: _arrayBufferToBase64(credential.response.clientDataJSON),
+                    signature: _arrayBufferToBase64(credential.response.signature),
+                    userHandle: credential.response.userHandle ? _arrayBufferToBase64(credential.response.userHandle) : null
+                }
+            };
+            
+            // Send the credential to the server for verification
+            const verifyResponse = await fetch("{{ url_for('auth.webauthn_login_complete') }}", {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': "{{ csrf_token() }}"
+                },
+                body: JSON.stringify(authData)
+            });
+            
+            const verifyResult = await verifyResponse.json();
+            
+            if (verifyResult.error) {
+                throw new Error(verifyResult.error);
+            }
+            
+            if (verifyResult.success) {
+                // Redirect to the dashboard or wherever specified
+                window.location.href = verifyResult.redirect;
+            }
+            
+        } catch (error) {
+            errorMessage.textContent = `Authentication failed: ${error.message}`;
+            errorMessage.classList.remove('hidden');
+            passKeyButton.classList.remove('hidden');
+            webauthnWaiting.classList.add('hidden');
+        }
+    });
+    
+    // Helper functions to convert between ArrayBuffer and Base64URL
+    function _base64ToArrayBuffer(base64) {
+        const binary = atob(base64.replace(/-/g, '+').replace(/_/g, '/'));
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i++) {
+            bytes[i] = binary.charCodeAt(i);
+        }
+        return bytes.buffer;
+    }
+    
+    function _arrayBufferToBase64(buffer) {
+        const bytes = new Uint8Array(buffer);
+        let binary = '';
+        for (let i = 0; i < bytes.byteLength; i++) {
+            binary += String.fromCharCode(bytes[i]);
+        }
+        return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+    }
+});
+</script>
+{% endblock %}

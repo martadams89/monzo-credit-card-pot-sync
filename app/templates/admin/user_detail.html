@@ -1,0 +1,195 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="w-full p-4 bg-white border border-gray-200 rounded-lg shadow sm:p-6 md:p-8 dark:bg-gray-800 dark:border-gray-700">
+    <div class="mb-4">
+        <a href="{{ url_for('admin.users_list') }}" class="text-sm text-blue-700 dark:text-blue-400 hover:underline">← Back to Users List</a>
+    </div>
+    
+    <div class="flex justify-between items-start mb-6">
+        <h1 class="text-2xl font-bold">User: {{ user.username }}</h1>
+        <div class="flex space-x-2">
+            <a href="{{ url_for('admin.user_edit', user_id=user.id) }}" class="py-2 px-4 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 dark:bg-yellow-700 dark:hover:bg-yellow-800">
+                Edit User
+            </a>
+            {% if current_user.id != user.id %}
+            <form action="{{ url_for('admin.user_delete', user_id=user.id) }}" method="post" onsubmit="return confirm('Are you sure you want to delete this user? This action cannot be undone.')">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="py-2 px-4 bg-red-600 text-white rounded-lg hover:bg-red-700 dark:bg-red-700 dark:hover:bg-red-800">
+                    Delete User
+                </button>
+            </form>
+            {% endif %}
+        </div>
+    </div>
+    
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+        <!-- User Information -->
+        <div class="border rounded-lg p-4 dark:border-gray-700">
+            <h2 class="font-semibold text-lg mb-3 border-b pb-2 border-gray-200 dark:border-gray-700">User Information</h2>
+            <div class="space-y-3">
+                <div>
+                    <span class="block text-sm text-gray-500 dark:text-gray-400">ID</span>
+                    <span class="block font-medium text-gray-900 dark:text-white">{{ user.id }}</span>
+                </div>
+                <div>
+                    <span class="block text-sm text-gray-500 dark:text-gray-400">Username</span>
+                    <span class="block font-medium text-gray-900 dark:text-white">{{ user.username }}</span>
+                </div>
+                <div>
+                    <span class="block text-sm text-gray-500 dark:text-gray-400">Email</span>
+                    <span class="block font-medium text-gray-900 dark:text-white">{{ user.email }}</span>
+                </div>
+                <div>
+                    <span class="block text-sm text-gray-500 dark:text-gray-400">Role</span>
+                    <span class="px-2 py-1 text-xs font-medium rounded-full {% if user.role == 'admin' %}bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300{% else %}bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300{% endif %}">
+                        {{ user.role|capitalize }}
+                    </span>
+                </div>
+                <div>
+                    <span class="block text-sm text-gray-500 dark:text-gray-400">Status</span>
+                    <span class="px-2 py-1 text-xs font-medium rounded-full 
+                        {% if user.is_active and user.is_email_verified %}
+                            bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300
+                        {% elif not user.is_active %}
+                            bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300
+                        {% else %}
+                            bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300
+                        {% endif %}">
+                        {% if user.is_active and user.is_email_verified %}
+                            Active
+                        {% elif not user.is_active %}
+                            Inactive
+                        {% else %}
+                            Unverified
+                        {% endif %}
+                    </span>
+                </div>
+                <div>
+                    <span class="block text-sm text-gray-500 dark:text-gray-400">Created At</span>
+                    <span class="block font-medium text-gray-900 dark:text-white">{{ user.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</span>
+                </div>
+                <div>
+                    <span class="block text-sm text-gray-500 dark:text-gray-400">Last Updated</span>
+                    <span class="block font-medium text-gray-900 dark:text-white">{{ user.updated_at.strftime('%Y-%m-%d %H:%M:%S') }}</span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Security Information -->
+        <div class="border rounded-lg p-4 dark:border-gray-700">
+            <h2 class="font-semibold text-lg mb-3 border-b pb-2 border-gray-200 dark:border-gray-700">Security Information</h2>
+            <div class="space-y-3">
+                <div>
+                    <span class="block text-sm text-gray-500 dark:text-gray-400">Email Verified</span>
+                    <span class="px-2 py-1 text-xs font-medium rounded-full {% if user.is_email_verified %}bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300{% else %}bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300{% endif %}">
+                        {% if user.is_email_verified %}Yes{% else %}No{% endif %}
+                    </span>
+                </div>
+                <div>
+                    <span class="block text-sm text-gray-500 dark:text-gray-400">Two-Factor Authentication</span>
+                    <span class="px-2 py-1 text-xs font-medium rounded-full {% if user.is_totp_enabled %}bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300{% else %}bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300{% endif %}">
+                        {% if user.is_totp_enabled %}Enabled{% else %}Disabled{% endif %}
+                    </span>
+                </div>
+                <div>
+                    <span class="block text-sm text-gray-500 dark:text-gray-400">Passkeys</span>
+                    <span class="px-2 py-1 text-xs font-medium rounded-full {% if user.is_webauthn_enabled %}bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300{% else %}bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300{% endif %}">
+                        {% if user.is_webauthn_enabled %}Enabled{% else %}Disabled{% endif %}
+                    </span>
+                </div>
+                <div>
+                    <span class="block text-sm text-gray-500 dark:text-gray-400">Last Login</span>
+                    <span class="block font-medium text-gray-900 dark:text-white">
+                        {% if user.last_login_at %}
+                            {{ user.last_login_at.strftime('%Y-%m-%d %H:%M:%S') }}
+                        {% else %}
+                            Never
+                        {% endif %}
+                    </span>
+                </div>
+            </div>
+            <div class="mt-4">
+                <a href="{{ url_for('admin.user_reset_password', user_id=user.id) }}" class="text-blue-600 hover:underline dark:text-blue-400">Reset Password</a>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Monzo Accounts -->
+    <div class="mb-8">
+        <h2 class="text-xl font-semibold mb-4">Monzo Accounts</h2>
+        {% if monzo_accounts %}
+            <div class="overflow-x-auto relative shadow-md sm:rounded-lg">
+                <table class="w-full text-sm text-left text-gray-500 dark:text-gray-400">
+                    <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
+                        <tr>
+                            <th scope="col" class="px-4 py-3">Name</th>
+                            <th scope="col" class="px-4 py-3">Account ID</th>
+                            <th scope="col" class="px-4 py-3">Balance</th>
+                            <th scope="col" class="px-4 py-3">Status</th>
+                            <th scope="col" class="px-4 py-3">Last Refreshed</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for account in monzo_accounts %}
+                            <tr class="bg-white border-b dark:bg-gray-800 dark:border-gray-700">
+                                <td class="px-4 py-3 font-medium text-gray-900 dark:text-white">{{ account.name }}</td>
+                                <td class="px-4 py-3">{{ account.account_id }}</td>
+                                <td class="px-4 py-3">{{ (account.balance/100)|round(2) }} {{ account.currency }}</td>
+                                <td class="px-4 py-3">
+                                    <span class="px-2 py-1 text-xs font-medium rounded-full {% if account.is_active %}bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300{% else %}bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300{% endif %}">
+                                        {% if account.is_active %}Active{% else %}Inactive{% endif %}
+                                    </span>
+                                </td>
+                                <td class="px-4 py-3">
+                                    {% if account.last_refreshed %}
+                                        {{ account.last_refreshed.strftime('%Y-%m-%d %H:%M:%S') }}
+                                    {% else %}
+                                        Never
+                                    {% endif %}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <p class="text-gray-600 dark:text-gray-400">No Monzo accounts connected.</p>
+        {% endif %}
+    </div>
+    
+    <!-- Recent Activity -->
+    <div>
+        <h2 class="text-xl font-semibold mb-4">Recent Activity</h2>
+        {% if audit_logs %}
+            <div class="overflow-x-auto relative shadow-md sm:rounded-lg">
+                <table class="w-full text-sm text-left text-gray-500 dark:text-gray-400">
+                    <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
+                        <tr>
+                            <th scope="col" class="px-4 py-3">Date</th>
+                            <th scope="col" class="px-4 py-3">Action</th>
+                            <th scope="col" class="px-4 py-3">IP Address</th>
+                            <th scope="col" class="px-4 py-3">Details</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for log in audit_logs %}
+                            <tr class="bg-white border-b dark:bg-gray-800 dark:border-gray-700">
+                                <td class="px-4 py-3">{{ log.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                                <td class="px-4 py-3">{{ log.action }}</td>
+                                <td class="px-4 py-3">{{ log.ip_address or '-' }}</td>
+                                <td class="px-4 py-3">{{ log.details }}</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            <div class="mt-2 text-right">
+                <a href="{{ url_for('admin.audit_logs', user_id=user.id) }}" class="text-sm text-blue-600 hover:underline dark:text-blue-400">View all activity →</a>
+            </div>
+        {% else %}
+            <p class="text-gray-600 dark:text-gray-400">No activity logs found for this user.</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

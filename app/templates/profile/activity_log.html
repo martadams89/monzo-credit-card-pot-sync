@@ -1,0 +1,131 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="w-full p-4 bg-white border border-gray-200 rounded-lg shadow sm:p-6 md:p-8 dark:bg-gray-800 dark:border-gray-700">
+    <div class="mb-4">
+        <a href="{{ url_for('profile.index') }}" class="text-sm text-blue-700 dark:text-blue-400 hover:underline">← Back to Profile</a>
+    </div>
+    
+    <div class="flex justify-between items-center mb-6">
+        <h1 class="text-2xl font-bold">Activity Log</h1>
+        <div>
+            <button id="exportButton" class="text-gray-900 bg-white border border-gray-300 focus:outline-none hover:bg-gray-100 focus:ring-4 focus:ring-gray-200 font-medium rounded-lg text-sm px-5 py-2.5 dark:bg-gray-800 dark:text-white dark:border-gray-600 dark:hover:bg-gray-700 dark:focus:ring-gray-700">
+                Export to CSV
+            </button>
+        </div>
+    </div>
+    
+    <!-- Filter controls -->
+    <div class="mb-6">
+        <form action="{{ url_for('profile.activity_log') }}" method="get" class="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                    <label for="action" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Action</label>
+                    <select id="action" name="action" class="bg-white border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-600 dark:border-gray-500 dark:placeholder-gray-400 dark:text-white">
+                        <option value="">All Actions</option>
+                        <option value="login" {% if request.args.get('action') == 'login' %}selected{% endif %}>Login</option>
+                        <option value="logout" {% if request.args.get('action') == 'logout' %}selected{% endif %}>Logout</option>
+                        <option value="sync" {% if request.args.get('action') == 'sync' %}selected{% endif %}>Sync Operations</option>
+                        <option value="settings" {% if request.args.get('action') == 'settings' %}selected{% endif %}>Settings Changed</option>
+                        <option value="security" {% if request.args.get('action') == 'security' %}selected{% endif %}>Security Events</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="start_date" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Start Date</label>
+                    <input type="date" id="start_date" name="start_date" value="{{ request.args.get('start_date', '') }}" class="bg-white border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-600 dark:border-gray-500 dark:placeholder-gray-400 dark:text-white">
+                </div>
+                <div>
+                    <label for="end_date" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">End Date</label>
+                    <input type="date" id="end_date" name="end_date" value="{{ request.args.get('end_date', '') }}" class="bg-white border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-600 dark:border-gray-500 dark:placeholder-gray-400 dark:text-white">
+                </div>
+            </div>
+            <div class="flex mt-4 gap-2">
+                <button type="submit" class="py-2 px-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-800">
+                    Apply Filters
+                </button>
+                <a href="{{ url_for('profile.activity_log') }}" class="py-2 px-4 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 dark:bg-gray-600 dark:text-white dark:hover:bg-gray-500">
+                    Reset
+                </a>
+            </div>
+        </form>
+    </div>
+    
+    <!-- Activity logs table -->
+    <div class="relative overflow-x-auto shadow-md sm:rounded-lg mb-6">
+        <table class="w-full text-sm text-left text-gray-500 dark:text-gray-400">
+            <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
+                <tr>
+                    <th scope="col" class="px-4 py-3">Date & Time</th>
+                    <th scope="col" class="px-4 py-3">Action</th>
+                    <th scope="col" class="px-4 py-3">IP Address</th>
+                    <th scope="col" class="px-4 py-3">Details</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for log in logs %}
+                <tr class="bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
+                    <td class="px-4 py-3">{{ log.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                    <td class="px-4 py-3">{{ log.action }}</td>
+                    <td class="px-4 py-3">{{ log.ip_address or '-' }}</td>
+                    <td class="px-4 py-3">{{ log.details }}</td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="4" class="px-4 py-3 text-center">No activity logs found.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    
+    <!-- Pagination -->
+    {% if pagination %}
+    <div class="flex items-center justify-between">
+        <div class="text-sm text-gray-700 dark:text-gray-400">
+            Showing <span class="font-medium">{{ pagination.first_item }}</span> to 
+            <span class="font-medium">{{ pagination.last_item }}</span> of 
+            <span class="font-medium">{{ pagination.total }}</span> logs
+        </div>
+        
+        <div class="inline-flex gap-1">
+            {% if pagination.has_prev %}
+                <a href="{{ url_for('profile.activity_log', page=pagination.prev_num, **filter_params) }}" class="px-3 py-1 border rounded-md hover:bg-gray-50 dark:hover:bg-gray-600 dark:border-gray-600">
+                    Previous
+                </a>
+            {% endif %}
+            
+            {% for page in pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+                {% if page %}
+                    {% if page == pagination.page %}
+                        <span class="px-3 py-1 border rounded-md bg-blue-600 text-white dark:bg-blue-600">{{ page }}</span>
+                    {% else %}
+                        <a href="{{ url_for('profile.activity_log', page=page, **filter_params) }}" class="px-3 py-1 border rounded-md hover:bg-gray-50 dark:hover:bg-gray-600 dark:border-gray-600">{{ page }}</a>
+                    {% endif %}
+                {% else %}
+                    <span class="px-3 py-1">…</span>
+                {% endif %}
+            {% endfor %}
+            
+            {% if pagination.has_next %}
+                <a href="{{ url_for('profile.activity_log', page=pagination.next_num, **filter_params) }}" class="px-3 py-1 border rounded-md hover:bg-gray-50 dark:hover:bg-gray-600 dark:border-gray-600">
+                    Next
+                </a>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    document.getElementById('exportButton').addEventListener('click', function() {
+        // Get current filters
+        const params = new URLSearchParams(window.location.search);
+        params.append('format', 'csv');
+        
+        // Redirect to export endpoint
+        window.location.href = `{{ url_for('profile.export_activity_log') }}?${params.toString()}`;
+    });
+});
+</script>
+{% endblock %}

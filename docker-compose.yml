@@ -1,14 +1,30 @@
+version: '3.8'
+
 services:
-  monzo-credit-card-pot-sync:
+  app:
     image: ghcr.io/martadams89/monzo-credit-card-pot-sync:latest
-    container_name: monzo-credit-card-pot-sync
-    restart: always
-    environment:
-      - DATABASE_URI=sqlite:////monzo-credit-card-pot-sync/data/app.db
-    ports:
-      - 1337:1337
+    container_name: monzo-sync
+    restart: unless-stopped
     volumes:
-      - data:/monzo-credit-card-pot-sync/data:rw
+      - sqlite_data:/app/instance
+    ports:
+      - "8000:8000"
+    environment:
+      - FLASK_ENV=production
+      - SECRET_KEY=change-this-in-production
+      - BASE_URL=http://localhost:8000
+      - MONZO_CLIENT_ID=your-monzo-client-id
+      - MONZO_CLIENT_SECRET=your-monzo-client-secret
+      - MONZO_REDIRECT_URI=http://localhost:8000/auth/callback/monzo
+      - TRUELAYER_CLIENT_ID=your-truelayer-client-id
+      - TRUELAYER_CLIENT_SECRET=your-truelayer-client-secret
+      - TRUELAYER_REDIRECT_URI=http://localhost:8000/auth/callback/truelayer
+      - MAIL_SERVER=smtp.example.com
+      - MAIL_PORT=587
+      - MAIL_USE_TLS=true
+      - MAIL_USERNAME=user@example.com
+      - MAIL_PASSWORD=mail-password
+      - MAIL_DEFAULT_SENDER=noreply@example.com
 
 volumes:
-  data:
+  sqlite_data:

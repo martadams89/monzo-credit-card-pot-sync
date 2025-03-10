@@ -1,17 +1,49 @@
+version: '3.8'
+
 services:
-  monzo-credit-card-pot-sync-dev:
-    build: .
-    container_name: monzo-credit-card-pot-sync
-    command: flask --app app run --host=0.0.0.0 --port=1337
-    restart: always
-    environment:
-      - DATABASE_URI=sqlite:////monzo-credit-card-pot-sync/data/app.db
-      - LOCAL_URL=http://localhost:1337
-    ports:
-      - 1337:1337
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: monzo-sync-dev
+    restart: unless-stopped
     volumes:
-      - data:/monzo-credit-card-pot-sync/data:rw
-      - ./app:/monzo-credit-card-pot-sync/app:rw
+      - .:/app
+      - sqlite_data:/app/instance
+    ports:
+      - "8000:8000"
+    environment:
+      - FLASK_ENV=development
+      - FLASK_APP=app.wsgi:app
+      - FLASK_DEBUG=1
+      - SECRET_KEY=dev-secret-key-please-change
+      - BASE_URL=http://localhost:8000
+      - SQLALCHEMY_DATABASE_URI=sqlite:///app.db
+      - MONZO_CLIENT_ID=your-monzo-client-id
+      - MONZO_CLIENT_SECRET=your-monzo-client-secret
+      - MONZO_REDIRECT_URI=http://localhost:8000/auth/callback/monzo
+      - TRUELAYER_CLIENT_ID=your-truelayer-client-id
+      - TRUELAYER_CLIENT_SECRET=your-truelayer-client-secret
+      - TRUELAYER_REDIRECT_URI=http://localhost:8000/auth/callback/truelayer
+      - NOTIFICATION_EMAILS_ENABLED=true
+      - ADMIN_EMAIL=admin@example.com
+      - MAIL_SERVER=smtp.example.com
+      - MAIL_PORT=587
+      - MAIL_USE_TLS=true
+      - MAIL_USE_SSL=false
+      - MAIL_USERNAME=user@example.com
+      - MAIL_PASSWORD=mail-password
+      - MAIL_DEFAULT_SENDER=noreply@example.com
+      - LOG_LEVEL=DEBUG
+      - BACKUP_DIRECTORY=backups
+      - BACKUP_COUNT=5
+    command: flask run --host=0.0.0.0 --port=8000
+  
+  mailhog:
+    image: mailhog/mailhog
+    ports:
+      - "8025:8025"
+      - "1025:1025"
 
 volumes:
-  data:
+  sqlite_data:

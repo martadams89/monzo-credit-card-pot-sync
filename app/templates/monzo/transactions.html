@@ -1,0 +1,144 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="w-full p-4 bg-white border border-gray-200 rounded-lg shadow sm:p-6 md:p-8 dark:bg-gray-800 dark:border-gray-700">
+    <div class="mb-4 flex justify-between items-center">
+        <div>
+            <a href="{{ url_for('monzo.index') }}" class="text-sm text-blue-700 dark:text-blue-400 hover:underline">← Back to Dashboard</a>
+            <h1 class="text-2xl font-bold mt-2">Transactions: {{ account.name }}</h1>
+        </div>
+        <div class="flex">
+            <form action="{{ url_for('monzo.refresh_account', account_id=account.id) }}" method="post" class="inline">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="py-2 px-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-800">
+                    Refresh Transactions
+                </button>
+            </form>
+        </div>
+    </div>
+    
+    <div class="mb-4 flex justify-between items-center">
+        <p class="text-gray-600 dark:text-gray-400">
+            Current balance: <span class="font-semibold">{{ (account.balance/100)|round(2) }} {{ account.currency }}</span>
+            {% if account.last_refreshed %}
+                <span class="text-sm">(Updated: {{ account.last_refreshed.strftime('%Y-%m-%d %H:%M') }})</span>
+            {% endif %}
+        </p>
+    </div>
+    
+    <!-- Transaction filters -->
+    <div class="mb-6 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+        <form action="{{ url_for('monzo.transactions', account_id=account.id) }}" method="get" class="flex flex-wrap gap-4">
+            <div class="flex flex-col">
+                <label for="date_from" class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">From Date</label>
+                <input type="date" id="date_from" name="date_from" value="{{ request.args.get('date_from', '') }}" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 p-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+            </div>
+            <div class="flex flex-col">
+                <label for="date_to" class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">To Date</label>
+                <input type="date" id="date_to" name="date_to" value="{{ request.args.get('date_to', '') }}" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 p-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+            </div>
+            <div class="flex flex-col">
+                <label for="min_amount" class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Min Amount (£)</label>
+                <input type="number" id="min_amount" name="min_amount" step="0.01" value="{{ request.args.get('min_amount', '') }}" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 p-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+            </div>
+            <div class="flex flex-col">
+                <label for="max_amount" class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Max Amount (£)</label>
+                <input type="number" id="max_amount" name="max_amount" step="0.01" value="{{ request.args.get('max_amount', '') }}" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 p-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+            </div>
+            <div class="flex flex-col">
+                <label for="search" class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Search</label>
+                <input type="text" id="search" name="search" placeholder="Search..." value="{{ request.args.get('search', '') }}" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 p-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+            </div>
+            <div class="flex items-end">
+                <button type="submit" class="py-2 px-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-800">
+                    Filter
+                </button>
+                <a href="{{ url_for('monzo.transactions', account_id=account.id) }}" class="py-2 px-4 ml-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 dark:bg-gray-600 dark:text-white dark:hover:bg-gray-500">
+                    Reset
+                </a>
+            </div>
+        </form>
+    </div>
+    
+    <!-- Transactions table -->
+    {% if transactions %}
+        <div class="overflow-x-auto relative shadow-md sm:rounded-lg">
+            <table class="w-full text-sm text-left text-gray-500 dark:text-gray-400">
+                <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
+                    <tr>
+                        <th scope="col" class="py-3 px-6">Date</th>
+                        <th scope="col" class="py-3 px-6">Description</th>
+                        <th scope="col" class="py-3 px-6">Merchant</th>
+                        <th scope="col" class="py-3 px-6">Category</th>
+                        <th scope="col" class="py-3 px-6">Amount</th>
+                        <th scope="col" class="py-3 px-6">Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for transaction in transactions %}
+                    <tr class="bg-white border-b dark:bg-gray-800 dark:border-gray-700">
+                        <td class="py-4 px-6">{{ transaction.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                        <td class="py-4 px-6">{{ transaction.description }}</td>
+                        <td class="py-4 px-6">{{ transaction.merchant_name or 'N/A' }}</td>
+                        <td class="py-4 px-6">
+                            {% if transaction.merchant_category %}
+                                <span class="px-2 py-1 text-xs rounded-full bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300">
+                                    {{ transaction.merchant_category }}
+                                </span>
+                            {% else %}
+                                N/A
+                            {% endif %}
+                        </td>
+                        <td class="py-4 px-6 {% if transaction.amount < 0 %}text-red-600 dark:text-red-400{% else %}text-green-600 dark:text-green-400{% endif %}">
+                            {{ (transaction.amount/100)|round(2) }} {{ transaction.currency }}
+                        </td>
+                        <td class="py-4 px-6">
+                            {% if transaction.settled %}
+                                <span class="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300">Settled</span>
+                            {% else %}
+                                <span class="px-2 py-1 text-xs rounded-full bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300">Pending</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
+        <!-- Pagination -->
+        {% if pagination %}
+        <div class="flex items-center justify-between mt-6">
+            <span class="text-sm text-gray-700 dark:text-gray-400">
+                Showing <span class="font-medium">{{ pagination.start_idx }}</span> to 
+                <span class="font-medium">{{ pagination.end_idx }}</span> of 
+                <span class="font-medium">{{ pagination.total }}</span> transactions
+            </span>
+            <div class="inline-flex">
+                {% if pagination.has_prev %}
+                    <a href="{{ url_for('monzo.transactions', account_id=account.id, page=pagination.prev_page, **filter_params) }}" class="px-3 py-1 border rounded-md hover:bg-gray-50 dark:hover:bg-gray-600 dark:border-gray-600">
+                        Previous
+                    </a>
+                {% endif %}
+                
+                {% for p in pagination.pages %}
+                    <a href="{{ url_for('monzo.transactions', account_id=account.id, page=p, **filter_params) }}" class="px-3 py-1 border rounded-md {% if p == pagination.current_page %}bg-blue-600 text-white dark:bg-blue-600{% else %}hover:bg-gray-50 dark:hover:bg-gray-600 dark:border-gray-600{% endif %}">
+                        {{ p }}
+                    </a>
+                {% endfor %}
+                
+                {% if pagination.has_next %}
+                    <a href="{{ url_for('monzo.transactions', account_id=account.id, page=pagination.next_page, **filter_params) }}" class="px-3 py-1 border rounded-md hover:bg-gray-50 dark:hover:bg-gray-600 dark:border-gray-600">
+                        Next
+                    </a>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+    {% else %}
+        <div class="text-center p-8 bg-gray-50 dark:bg-gray-700 rounded-lg">
+            <p class="text-gray-600 dark:text-gray-400">No transactions found.</p>
+            <p class="mt-2 text-sm text-gray-500 dark:text-gray-500">Try adjusting your filters or refreshing your account data.</p>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,129 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="w-full p-4 bg-white border border-gray-200 rounded-lg shadow sm:p-6 md:p-8 dark:bg-gray-800 dark:border-gray-700">
+    <h1 class="text-2xl font-bold mb-6">System Settings</h1>
+    
+    <div class="mb-6">
+        <div class="p-4 bg-yellow-50 border border-yellow-200 rounded-lg dark:bg-yellow-900 dark:border-yellow-800">
+            <p class="text-sm text-yellow-800 dark:text-yellow-200">
+                <strong>Important:</strong> Changes to these settings may affect the operation of the entire system. Make changes carefully.
+            </p>
+        </div>
+    </div>
+    
+    <form method="post" action="{{ url_for('admin.settings') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        
+        <!-- App Settings -->
+        <div class="mb-8">
+            <h2 class="text-lg font-semibold mb-4 pb-2 border-b border-gray-200 dark:border-gray-700">Application Settings</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label for="app_name" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Application Name</label>
+                    <input type="text" id="app_name" name="app_name" value="{{ settings.get('app_name', 'Monzo Credit Card Pot Sync') }}" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+                </div>
+                
+                <div>
+                    <label for="maintenance_mode" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Maintenance Mode</label>
+                    <select id="maintenance_mode" name="maintenance_mode" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+                        <option value="0" {% if not settings.get('maintenance_mode', '0') == '1' %}selected{% endif %}>Disabled</option>
+                        <option value="1" {% if settings.get('maintenance_mode') == '1' %}selected{% endif %}>Enabled</option>
+                    </select>
+                </div>
+                
+                <div class="md:col-span-2">
+                    <label for="maintenance_message" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Maintenance Message</label>
+                    <textarea id="maintenance_message" name="maintenance_message" rows="3" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:text-white">{{ settings.get('maintenance_message', 'System is currently under maintenance. Please check back later.') }}</textarea>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Monzo API Settings -->
+        <div class="mb-8">
+            <h2 class="text-lg font-semibold mb-4 pb-2 border-b border-gray-200 dark:border-gray-700">Monzo API Settings</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label for="monzo_client_id" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Monzo Client ID</label>
+                    <input type="text" id="monzo_client_id" name="monzo_client_id" value="{{ settings.get('monzo_client_id', '') }}" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+                </div>
+                
+                <div>
+                    <label for="monzo_client_secret" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Monzo Client Secret</label>
+                    <input type="password" id="monzo_client_secret" name="monzo_client_secret" value="{{ '●●●●●●●●●●●●●●●●' if settings.get('monzo_client_secret') else '' }}" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+                    <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Leave blank to keep current value</p>
+                </div>
+                
+                <div>
+                    <label for="monzo_redirect_uri" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Redirect URI</label>
+                    <input type="text" id="monzo_redirect_uri" name="monzo_redirect_uri" value="{{ settings.get('monzo_redirect_uri', request.host_url + 'auth/callback/monzo') }}" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+                </div>
+                
+                <div>
+                    <label for="monzo_webhook_secret" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Webhook Secret</label>
+                    <input type="password" id="monzo_webhook_secret" name="monzo_webhook_secret" value="{{ '●●●●●●●●●●●●●●●●' if settings.get('monzo_webhook_secret') else '' }}" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+                    <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Leave blank to keep current value</p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Email Settings -->
+        <div class="mb-8">
+            <h2 class="text-lg font-semibold mb-4 pb-2 border-b border-gray-200 dark:border-gray-700">Email Settings</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label for="mail_server" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Mail Server</label>
+                    <input type="text" id="mail_server" name="mail_server" value="{{ settings.get('mail_server', '') }}" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+                </div>
+                
+                <div>
+                    <label for="mail_port" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Mail Port</label>
+                    <input type="number" id="mail_port" name="mail_port" value="{{ settings.get('mail_port', '587') }}" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+                </div>
+                
+                <div>
+                    <label for="mail_username" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Mail Username</label>
+                    <input type="text" id="mail_username" name="mail_username" value="{{ settings.get('mail_username', '') }}" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+                </div>
+                
+                <div>
+                    <label for="mail_password" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Mail Password</label>
+                    <input type="password" id="mail_password" name="mail_password" value="{{ '●●●●●●●●●●●●●●●●' if settings.get('mail_password') else '' }}" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+                    <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Leave blank to keep current value</p>
+                </div>
+                
+                <div>
+                    <label for="mail_use_tls" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Use TLS</label>
+                    <select id="mail_use_tls" name="mail_use_tls" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+                        <option value="0" {% if not settings.get('mail_use_tls', '1') == '1' %}selected{% endif %}>No</option>
+                        <option value="1" {% if settings.get('mail_use_tls', '1') == '1' %}selected{% endif %}>Yes</option>
+                    </select>
+                </div>
+                
+                <div>
+                    <label for="mail_default_sender" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Default Sender</label>
+                    <input type="email" id="mail_default_sender" name="mail_default_sender" value="{{ settings.get('mail_default_sender', 'noreply@example.com') }}" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+                </div>
+            </div>
+        </div>
+        
+        <div class="flex justify-between">
+            <button type="submit" class="text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800">
+                Save Settings
+            </button>
+            
+            <button type="button" onclick="resetToDefaults()" class="text-gray-900 bg-white border border-gray-300 focus:outline-none hover:bg-gray-100 focus:ring-4 focus:ring-gray-200 font-medium rounded-lg text-sm px-5 py-2.5 text-center dark:bg-gray-800 dark:text-white dark:border-gray-600 dark:hover:bg-gray-700 dark:focus:ring-gray-700">
+                Reset to Defaults
+            </button>
+        </div>
+    </form>
+</div>
+
+<script>
+function resetToDefaults() {
+    if (confirm('Are you sure you want to reset all settings to their default values? This cannot be undone.')) {
+        window.location.href = "{{ url_for('admin.reset_settings') }}";
+    }
+}
+</script>
+{% endblock %}

@@ -1,0 +1,51 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="w-full max-w-lg p-4 bg-white border border-gray-200 rounded-lg shadow sm:p-6 md:p-8 dark:bg-gray-800 dark:border-gray-700">
+    <div class="mb-4">
+        <a href="{{ url_for('profile.edit') }}" class="text-sm text-blue-700 dark:text-blue-400 hover:underline">← Back to Edit Profile</a>
+    </div>
+    
+    <h2 class="text-xl font-bold text-red-600 dark:text-red-400 mb-4">Delete Your Account</h2>
+    
+    <div class="p-4 mb-6 bg-red-50 border border-red-200 rounded-lg dark:bg-red-900 dark:border-red-800">
+        <p class="text-sm text-red-800 dark:text-red-200">
+            <strong>Warning:</strong> Deleting your account is permanent and cannot be undone.
+        </p>
+        <p class="mt-2 text-sm text-red-800 dark:text-red-200">
+            All your data, including connected accounts, sync rules, and history will be permanently removed.
+        </p>
+    </div>
+    
+    <form method="post" action="{{ url_for('profile.delete_account_confirm') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        
+        <div class="mb-4">
+            <label for="password" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Confirm Password</label>
+            <input type="password" id="password" name="password" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-red-500 focus:border-red-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white" placeholder="••••••••" required>
+            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Enter your password to confirm account deletion</p>
+        </div>
+        
+        <div class="mb-4">
+            <div class="flex items-start">
+                <div class="flex items-center h-5">
+                    <input id="confirm_delete" name="confirm_delete" type="checkbox" class="w-4 h-4 border border-gray-300 rounded bg-gray-50 focus:ring-3 focus:ring-red-300 dark:bg-gray-700 dark:border-gray-600 dark:focus:ring-red-600 dark:ring-offset-gray-800" required>
+                </div>
+                <label for="confirm_delete" class="ml-2 text-sm font-medium text-gray-900 dark:text-white">
+                    I understand this action cannot be undone and all my data will be permanently deleted
+                </label>
+            </div>
+        </div>
+        
+        <div class="flex justify-between">
+            <button type="submit" class="text-white bg-red-600 hover:bg-red-700 focus:ring-4 focus:outline-none focus:ring-red-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center dark:bg-red-500 dark:hover:bg-red-600 dark:focus:ring-red-800">
+                Delete My Account
+            </button>
+            
+            <a href="{{ url_for('profile.edit') }}" class="text-gray-900 bg-white border border-gray-300 focus:outline-none hover:bg-gray-100 focus:ring-4 focus:ring-gray-200 font-medium rounded-lg text-sm px-5 py-2.5 text-center dark:bg-gray-800 dark:text-white dark:border-gray-600 dark:hover:bg-gray-700 dark:focus:ring-gray-700">
+                Cancel
+            </a>
+        </div>
+    </form>
+</div>
+{% endblock %}

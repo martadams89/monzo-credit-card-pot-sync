@@ -1,0 +1,116 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="w-full p-4 bg-white border border-gray-200 rounded-lg shadow sm:p-6 md:p-8 dark:bg-gray-800 dark:border-gray-700">
+    <h1 class="text-2xl font-bold mb-6">System Health</h1>
+    
+    <!-- Status Overview -->
+    <div class="mb-8">
+        <div class="flex items-center gap-2">
+            <span class="w-4 h-4 rounded-full {% if app_status.db_connection %}bg-green-500{% else %}bg-red-500{% endif %}"></span>
+            <h2 class="text-xl font-semibold">System Status: 
+                {% if app_status.db_connection %}
+                    <span class="text-green-600 dark:text-green-400">Healthy</span>
+                {% else %}
+                    <span class="text-red-600 dark:text-red-400">Issues Detected</span>
+                {% endif %}
+            </h2>
+        </div>
+    </div>
+    
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+        <!-- Application Status -->
+        <div class="border rounded-lg p-4 dark:border-gray-700">
+            <h3 class="text-lg font-semibold mb-4">Application</h3>
+            <ul class="space-y-3">
+                <li class="flex justify-between">
+                    <span class="text-gray-600 dark:text-gray-400">Version:</span>
+                    <span class="font-medium">{{ app_status.version }}</span>
+                </li>
+                <li class="flex justify-between">
+                    <span class="text-gray-600 dark:text-gray-400">Mode:</span>
+                    <span class="font-medium">
+                        {% if app_status.debug_mode %}
+                            <span class="text-yellow-600 dark:text-yellow-400">Debug</span>
+                        {% else %}
+                            Production
+                        {% endif %}
+                    </span>
+                </li>
+                <li class="flex justify-between">
+                    <span class="text-gray-600 dark:text-gray-400">Database Connection:</span>
+                    <span class="font-medium">
+                        {% if app_status.db_connection %}
+                            <span class="text-green-600 dark:text-green-400">Connected</span>
+                        {% else %}
+                            <span class="text-red-600 dark:text-red-400">Disconnected</span>
+                        {% endif %}
+                    </span>
+                </li>
+            </ul>
+        </div>
+        
+        <!-- System Information -->
+        <div class="border rounded-lg p-4 dark:border-gray-700">
+            <h3 class="text-lg font-semibold mb-4">Server</h3>
+            <ul class="space-y-3">
+                <li class="flex justify-between">
+                    <span class="text-gray-600 dark:text-gray-400">Platform:</span>
+                    <span class="font-medium">{{ system_info.platform }}</span>
+                </li>
+                <li class="flex justify-between">
+                    <span class="text-gray-600 dark:text-gray-400">Python Version:</span>
+                    <span class="font-medium">{{ system_info.python_version }}</span>
+                </li>
+                <li class="flex justify-between">
+                    <span class="text-gray-600 dark:text-gray-400">Start Time:</span>
+                    <span class="font-medium">{{ system_info.start_time }}</span>
+                </li>
+                <li class="flex justify-between">
+                    <span class="text-gray-600 dark:text-gray-400">Uptime:</span>
+                    <span class="font-medium">{{ system_info.uptime }}</span>
+                </li>
+            </ul>
+        </div>
+    </div>
+    
+    <!-- System Resources -->
+    <div class="mb-8">
+        <h3 class="text-lg font-semibold mb-4">System Resources</h3>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div class="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                <h4 class="text-md font-medium mb-2">CPU Usage</h4>
+                <p class="text-2xl font-bold">{{ system_resources.cpu_usage }}</p>
+            </div>
+            <div class="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                <h4 class="text-md font-medium mb-2">Memory Usage</h4>
+                <p class="text-2xl font-bold">{{ system_resources.memory_usage }}</p>
+                <p class="text-sm text-gray-600 dark:text-gray-400">Available: {{ system_resources.memory_available }}</p>
+            </div>
+            <div class="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                <h4 class="text-md font-medium mb-2">Disk Usage</h4>
+                <p class="text-2xl font-bold">{{ system_resources.disk_usage }}</p>
+                <p class="text-sm text-gray-600 dark:text-gray-400">Free: {{ system_resources.disk_free }}</p>
+            </div>
+        </div>
+    </div>
+    
+    <!-- User Statistics -->
+    <div>
+        <h3 class="text-lg font-semibold mb-4">User Statistics</h3>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div class="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                <h4 class="text-md font-medium mb-2">Total Users</h4>
+                <p class="text-2xl font-bold">{{ user_stats.total_users }}</p>
+            </div>
+            <div class="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                <h4 class="text-md font-medium mb-2">Active Users</h4>
+                <p class="text-2xl font-bold">{{ user_stats.active_users }}</p>
+                <p class="text-sm text-gray-600 dark:text-gray-400">
+                    {{ (user_stats.active_users / user_stats.total_users * 100)|round(1) if user_stats.total_users else 0 }}% of total
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

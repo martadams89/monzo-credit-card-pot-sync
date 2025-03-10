@@ -1,0 +1,255 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="w-full p-4 bg-white border border-gray-200 rounded-lg shadow sm:p-6 md:p-8 dark:bg-gray-800 dark:border-gray-700">
+    <div class="mb-2">
+        <a href="{{ url_for('profile.index') }}" class="text-sm text-blue-700 dark:text-blue-400 hover:underline">← Back to Profile</a>
+    </div>
+    
+    <div class="flex justify-between items-center mb-6">
+        <h1 class="text-2xl font-bold">API Keys</h1>
+        <button id="createApiKeyBtn" class="text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800">
+            Create API Key
+        </button>
+    </div>
+    
+    <div class="mb-6">
+        <p class="text-sm text-gray-600 dark:text-gray-400">
+            API keys allow you to access the Monzo Credit Card Pot Sync API programmatically. Be careful when creating and sharing API keys, as they grant access to your account.
+        </p>
+    </div>
+    
+    <!-- List of API keys -->
+    {% if api_keys %}
+        <div class="relative overflow-x-auto shadow-md sm:rounded-lg mb-6">
+            <table class="w-full text-sm text-left text-gray-500 dark:text-gray-400">
+                <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
+                    <tr>
+                        <th scope="col" class="px-4 py-3">Name</th>
+                        <th scope="col" class="px-4 py-3">Created</th>
+                        <th scope="col" class="px-4 py-3">Last Used</th>
+                        <th scope="col" class="px-4 py-3">Expires</th>
+                        <th scope="col" class="px-4 py-3">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for key in api_keys %}
+                    <tr class="bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
+                        <td class="px-4 py-3 font-medium text-gray-900 dark:text-white">{{ key.name }}</td>
+                        <td class="px-4 py-3">{{ key.created_at.strftime('%Y-%m-%d') }}</td>
+                        <td class="px-4 py-3">{{ key.last_used_at.strftime('%Y-%m-%d %H:%M:%S') if key.last_used_at else 'Never' }}</td>
+                        <td class="px-4 py-3">
+                            {% if key.expires_at %}
+                                {% if key.is_expired %}
+                                    <span class="text-red-600 dark:text-red-400">Expired</span>
+                                {% else %}
+                                    {{ key.expires_at.strftime('%Y-%m-%d') }}
+                                {% endif %}
+                            {% else %}
+                                Never
+                            {% endif %}
+                        </td>
+                        <td class="px-4 py-3">
+                            <form action="{{ url_for('profile.revoke_api_key', key_id=key.id) }}" method="post" onsubmit="return confirm('Are you sure you want to revoke this API key? This action cannot be undone.')">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <button type="submit" class="text-red-600 dark:text-red-400 hover:underline">Revoke</button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% else %}
+        <div class="p-6 text-center bg-gray-50 dark:bg-gray-700 rounded-lg mb-6">
+            <p class="text-gray-600 dark:text-gray-400">You don't have any API keys yet.</p>
+            <p class="text-sm text-gray-500 dark:text-gray-500 mt-1">Create an API key to get started with the API.</p>
+        </div>
+    {% endif %}
+</div>
+
+<!-- API Key creation modal -->
+<div id="apiKeyModal" class="fixed inset-0 z-50 hidden overflow-y-auto bg-gray-900 bg-opacity-50 flex justify-center items-center p-4">
+    <div class="relative bg-white rounded-lg shadow dark:bg-gray-800 max-w-md w-full">
+        <div class="flex justify-between items-center p-4 border-b dark:border-gray-700">
+            <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Create API Key</h3>
+            <button id="closeModal" type="button" class="text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm p-1.5 ml-auto inline-flex items-center dark:hover:bg-gray-700 dark:hover:text-white">
+                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                    <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+                </svg>
+            </button>
+        </div>
+        
+        <form id="apiKeyForm" method="post" action="{{ url_for('profile.create_api_key') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            
+            <div class="p-4">
+                <div class="mb-4">
+                    <label for="key_name" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Key Name</label>
+                    <input type="text" id="key_name" name="key_name" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white" placeholder="My API Key" required>
+                </div>
+                
+                <div class="mb-4">
+                    <label for="expires_at" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Expiry Date (Optional)</label>
+                    <input type="date" id="expires_at" name="expires_at" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white">
+                    <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Leave blank for a non-expiring key</p>
+                </div>
+                
+                <div class="mb-4">
+                    <label for="confirm_password" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Confirm Your Password</label>
+                    <input type="password" id="confirm_password" name="confirm_password" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white" required>
+                </div>
+            </div>
+            
+            <div class="flex justify-end space-x-2 p-4 border-t dark:border-gray-700">
+                <button id="cancelBtn" type="button" class="text-gray-500 bg-white hover:bg-gray-100 focus:ring-4 focus:outline-none focus:ring-blue-300 rounded-lg border border-gray-200 text-sm font-medium px-5 py-2.5 hover:text-gray-900 focus:z-10 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-500 dark:hover:text-white dark:hover:bg-gray-700 dark:focus:ring-gray-700">
+                    Cancel
+                </button>
+                <button type="submit" class="text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800">
+                    Create API Key
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- API Key display modal -->
+<div id="apiKeyDisplayModal" class="fixed inset-0 z-50 hidden overflow-y-auto bg-gray-900 bg-opacity-50 flex justify-center items-center p-4">
+    <div class="relative bg-white rounded-lg shadow dark:bg-gray-800 max-w-md w-full">
+        <div class="flex justify-between items-center p-4 border-b dark:border-gray-700">
+            <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Your New API Key</h3>
+            <button id="closeDisplayModal" type="button" class="text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm p-1.5 ml-auto inline-flex items-center dark:hover:bg-gray-700 dark:hover:text-white">
+                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                    <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+                </svg>
+            </button>
+        </div>
+        
+        <div class="p-4">
+            <div class="mb-6">
+                <p class="text-yellow-600 dark:text-yellow-400 text-sm mb-4">
+                    <strong>Important:</strong> This key will only be shown once. Please copy it and store it securely.
+                </p>
+                
+                <div class="relative">
+                    <input id="apiKeyValue" type="text" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 pr-10 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white" readonly>
+                    <button id="copyApiKey" type="button" class="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
+                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z"></path>
+                            <path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z"></path>
+                        </svg>
+                    </button>
+                </div>
+                <p id="copyMessage" class="text-green-600 dark:text-green-400 text-sm mt-1 hidden">Copied to clipboard!</p>
+            </div>
+            
+            <h4 class="font-medium text-gray-900 dark:text-white mb-2">Using your API key</h4>
+            <p class="text-gray-600 dark:text-gray-400 mb-2 text-sm">
+                Include your API key in API requests using the <code class="bg-gray-200 dark:bg-gray-700 px-1 py-0.5 rounded">X-API-Key</code> header:
+            </p>
+            <div class="bg-gray-800 text-gray-200 p-2 rounded-lg text-xs font-mono overflow-x-auto">
+                <pre>curl -X GET https://api.monzosync.example/api/accounts \
+-H "X-API-Key: your-api-key-here"</pre>
+            </div>
+        </div>
+        
+        <div class="flex justify-end space-x-2 p-4 border-t dark:border-gray-700">
+            <button id="doneBtn" type="button" class="text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800">
+                Done
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const modal = document.getElementById('apiKeyModal');
+    const displayModal = document.getElementById('apiKeyDisplayModal');
+    const createBtn = document.getElementById('createApiKeyBtn');
+    const closeBtn = document.getElementById('closeModal');
+    const cancelBtn = document.getElementById('cancelBtn');
+    const closeDisplayBtn = document.getElementById('closeDisplayModal');
+    const doneBtn = document.getElementById('doneBtn');
+    const copyBtn = document.getElementById('copyApiKey');
+    const copyMsg = document.getElementById('copyMessage');
+    const apiKeyForm = document.getElementById('apiKeyForm');
+    
+    // Open modal
+    createBtn.addEventListener('click', function() {
+        modal.classList.remove('hidden');
+    });
+    
+    // Close modal functions
+    function closeModal() {
+        modal.classList.add('hidden');
+    }
+    
+    function closeDisplayModal() {
+        displayModal.classList.add('hidden');
+        window.location.reload(); // Refresh to show the new key in the list
+    }
+    
+    closeBtn.addEventListener('click', closeModal);
+    cancelBtn.addEventListener('click', closeModal);
+    closeDisplayBtn.addEventListener('click', closeDisplayModal);
+    doneBtn.addEventListener('click', closeDisplayModal);
+    
+    // Close when clicking outside
+    modal.addEventListener('click', function(event) {
+        if (event.target === modal) {
+            closeModal();
+        }
+    });
+    
+    displayModal.addEventListener('click', function(event) {
+        if (event.target === displayModal) {
+            closeDisplayModal();
+        }
+    });
+    
+    // Copy API key to clipboard
+    copyBtn.addEventListener('click', function() {
+        const apiKeyInput = document.getElementById('apiKeyValue');
+        apiKeyInput.select();
+        document.execCommand('copy');
+        
+        copyMsg.classList.remove('hidden');
+        setTimeout(function() {
+            copyMsg.classList.add('hidden');
+        }, 3000);
+    });
+    
+    // Handle form submission
+    apiKeyForm.addEventListener('submit', function(event) {
+        event.preventDefault();
+        
+        const formData = new FormData(apiKeyForm);
+        
+        fetch(apiKeyForm.action, {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Close the creation modal
+                closeModal();
+                
+                // Display the API key
+                document.getElementById('apiKeyValue').value = data.api_key;
+                displayModal.classList.remove('hidden');
+            } else {
+                alert(data.message || 'Failed to create API key. Please try again.');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('An error occurred. Please try again.');
+        });
+    });
+});
+</script>
+{% endblock %}

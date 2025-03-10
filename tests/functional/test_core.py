@@ -161,7 +161,7 @@ def test_core_flow_successful_withdrawal(mocker, test_client, requests_mock, see
 #         json={"accounts": [{"id": "acc_id", "type": "uk_retail", "currency": "GBP"}]},
 #     )
 #     requests_mock.get(
-#         "https://api.monzo.com/balance?account_id=acc_id", json={"balance": 50000}
+#         "https://api.monzo.com/balance?account_id=acc_id", json={"balance": 80000}
 #     )
 
 #     # Mock a post to the feed for insufficient funds notification

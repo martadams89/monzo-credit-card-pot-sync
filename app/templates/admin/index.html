@@ -1,0 +1,129 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="w-full p-4 bg-white border border-gray-200 rounded-lg shadow sm:p-6 md:p-8 dark:bg-gray-800 dark:border-gray-700">
+    <h1 class="text-2xl font-bold mb-6">Admin Dashboard</h1>
+    
+    <!-- Quick Stats -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+        <div class="p-4 bg-blue-50 dark:bg-blue-900 rounded-lg border border-blue-200 dark:border-blue-800">
+            <h3 class="text-lg font-medium text-blue-800 dark:text-blue-300">Total Users</h3>
+            <p class="text-3xl font-bold text-blue-900 dark:text-blue-200">{{ stats.total_users }}</p>
+        </div>
+        <div class="p-4 bg-green-50 dark:bg-green-900 rounded-lg border border-green-200 dark:border-green-800">
+            <h3 class="text-lg font-medium text-green-800 dark:text-green-300">Active Accounts</h3>
+            <p class="text-3xl font-bold text-green-900 dark:text-green-200">{{ stats.active_accounts }}</p>
+        </div>
+        <div class="p-4 bg-purple-50 dark:bg-purple-900 rounded-lg border border-purple-200 dark:border-purple-800">
+            <h3 class="text-lg font-medium text-purple-800 dark:text-purple-300">Syncs Today</h3>
+            <p class="text-3xl font-bold text-purple-900 dark:text-purple-200">{{ stats.syncs_today }}</p>
+        </div>
+        <div class="p-4 bg-yellow-50 dark:bg-yellow-900 rounded-lg border border-yellow-200 dark:border-yellow-800">
+            <h3 class="text-lg font-medium text-yellow-800 dark:text-yellow-300">New Users (7d)</h3>
+            <p class="text-3xl font-bold text-yellow-900 dark:text-yellow-200">{{ stats.new_users_week }}</p>
+        </div>
+    </div>
+    
+    <!-- Admin Menu -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <a href="{{ url_for('admin.users_list') }}" class="p-6 bg-white dark:bg-gray-700 rounded-lg shadow hover:shadow-md transition-shadow border border-gray-200 dark:border-gray-600">
+            <div class="flex items-center mb-2">
+                <svg class="w-6 h-6 text-blue-600 dark:text-blue-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path>
+                </svg>
+                <h3 class="text-lg font-semibold">User Management</h3>
+            </div>
+            <p class="text-gray-600 dark:text-gray-300">View, create, edit, and manage user accounts</p>
+        </a>
+        
+        <a href="{{ url_for('admin.audit_logs') }}" class="p-6 bg-white dark:bg-gray-700 rounded-lg shadow hover:shadow-md transition-shadow border border-gray-200 dark:border-gray-600">
+            <div class="flex items-center mb-2">
+                <svg class="w-6 h-6 text-blue-600 dark:text-blue-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"></path>
+                </svg>
+                <h3 class="text-lg font-semibold">Audit Logs</h3>
+            </div>
+            <p class="text-gray-600 dark:text-gray-300">Review system activity and security events</p>
+        </a>
+        
+        <a href="{{ url_for('admin.system_stats') }}" class="p-6 bg-white dark:bg-gray-700 rounded-lg shadow hover:shadow-md transition-shadow border border-gray-200 dark:border-gray-600">
+            <div class="flex items-center mb-2">
+                <svg class="w-6 h-6 text-blue-600 dark:text-blue-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                </svg>
+                <h3 class="text-lg font-semibold">System Statistics</h3>
+            </div>
+            <p class="text-gray-600 dark:text-gray-300">View detailed system performance metrics</p>
+        </a>
+        
+        <a href="{{ url_for('backup.index') }}" class="p-6 bg-white dark:bg-gray-700 rounded-lg shadow hover:shadow-md transition-shadow border border-gray-200 dark:border-gray-600">
+            <div class="flex items-center mb-2">
+                <svg class="w-6 h-6 text-blue-600 dark:text-blue-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2"></path>
+                </svg>
+                <h3 class="text-lg font-semibold">Backup & Restore</h3>
+            </div>
+            <p class="text-gray-600 dark:text-gray-300">Manage database backups and restoration</p>
+        </a>
+        
+        <a href="{{ url_for('admin.settings') }}" class="p-6 bg-white dark:bg-gray-700 rounded-lg shadow hover:shadow-md transition-shadow border border-gray-200 dark:border-gray-600">
+            <div class="flex items-center mb-2">
+                <svg class="w-6 h-6 text-blue-600 dark:text-blue-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                </svg>
+                <h3 class="text-lg font-semibold">System Settings</h3>
+            </div>
+            <p class="text-gray-600 dark:text-gray-300">Configure application settings and parameters</p>
+        </a>
+        
+        <a href="{{ url_for('health.index') }}" class="p-6 bg-white dark:bg-gray-700 rounded-lg shadow hover:shadow-md transition-shadow border border-gray-200 dark:border-gray-600">
+            <div class="flex items-center mb-2">
+                <svg class="w-6 h-6 text-blue-600 dark:text-blue-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+                <h3 class="text-lg font-semibold">System Health</h3>
+            </div>
+            <p class="text-gray-600 dark:text-gray-300">Monitor system performance and health status</p>
+        </a>
+    </div>
+    
+    <!-- Recent Activity -->
+    <div class="mb-8">
+        <h2 class="text-xl font-semibold mb-4">Recent Admin Activity</h2>
+        <div class="overflow-x-auto relative shadow-md sm:rounded-lg">
+            <table class="w-full text-sm text-left text-gray-500 dark:text-gray-400">
+                <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
+                    <tr>
+                        <th scope="col" class="py-3 px-6">Time</th>
+                        <th scope="col" class="py-3 px-6">Admin</th>
+                        <th scope="col" class="py-3 px-6">Action</th>
+                        <th scope="col" class="py-3 px-6">Details</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for log in admin_logs %}
+                    <tr class="bg-white border-b dark:bg-gray-800 dark:border-gray-700">
+                        <td class="py-4 px-6">{{ log.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                        <td class="py-4 px-6">
+                            <a href="{{ url_for('admin.user_detail', user_id=log.user.id) }}" class="text-blue-600 hover:underline dark:text-blue-500">
+                                {{ log.user.username }}
+                            </a>
+                        </td>
+                        <td class="py-4 px-6">{{ log.action }}</td>
+                        <td class="py-4 px-6">{{ log.details }}</td>
+                    </tr>
+                    {% else %}
+                    <tr class="bg-white border-b dark:bg-gray-800 dark:border-gray-700">
+                        <td class="py-4 px-6" colspan="4">No recent admin activity</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <div class="mt-2 text-right">
+            <a href="{{ url_for('admin.audit_logs') }}" class="text-sm text-blue-600 hover:underline dark:text-blue-500">View all activity →</a>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,47 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="w-full max-w-lg p-4 bg-white border border-gray-200 rounded-lg shadow sm:p-6 md:p-8 dark:bg-gray-800 dark:border-gray-700 mx-auto">
+    <div class="mb-4">
+        <a href="{{ url_for('backup.index') }}" class="text-sm text-blue-700 dark:text-blue-400 hover:underline">← Back to Backups</a>
+    </div>
+    
+    <h2 class="text-xl font-bold text-red-600 dark:text-red-400 mb-4">Restore Database Backup</h2>
+    
+    <div class="p-4 mb-6 bg-red-50 border border-red-200 rounded-lg dark:bg-red-900 dark:border-red-800">
+        <p class="text-sm text-red-800 dark:text-red-200">
+            <strong>Warning:</strong> This will overwrite your current database with the backup. All changes made since the backup was created will be lost.
+        </p>
+        <p class="mt-2 text-sm text-red-800 dark:text-red-200">
+            This action cannot be undone. It's recommended to create a new backup before proceeding.
+        </p>
+    </div>
+    
+    <div class="mb-6">
+        <h3 class="text-lg font-semibold mb-2">Backup Information</h3>
+        <p><strong>Filename:</strong> {{ filename }}</p>
+    </div>
+    
+    <form method="post" action="{{ url_for('backup.restore_backup', filename=filename) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        
+        <div class="mb-6">
+            <label for="password" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Confirm Password</label>
+            <input type="password" id="password" name="password" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-red-500 focus:border-red-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white" placeholder="••••••••" required>
+            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                Enter your admin password to confirm this dangerous operation.
+            </p>
+        </div>
+        
+        <div class="flex justify-between">
+            <button type="submit" class="text-white bg-red-600 hover:bg-red-700 focus:ring-4 focus:outline-none focus:ring-red-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center dark:bg-red-500 dark:hover:bg-red-600 dark:focus:ring-red-800">
+                Restore Database
+            </button>
+            
+            <a href="{{ url_for('backup.index') }}" class="text-gray-900 bg-white border border-gray-300 focus:outline-none hover:bg-gray-100 focus:ring-4 focus:ring-gray-200 font-medium rounded-lg text-sm px-5 py-2.5 dark:bg-gray-800 dark:text-white dark:border-gray-600 dark:hover:bg-gray-700 dark:focus:ring-gray-700">
+                Cancel
+            </a>
+        </div>
+    </form>
+</div>
+{% endblock %}
