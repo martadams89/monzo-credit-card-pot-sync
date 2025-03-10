@@ -61,17 +61,29 @@ def test_monzo_account_get_account_id(requests_mock):
 
 
 def test_monzo_account_get_pots_joint_account(requests_mock):
-    # When testing for joint accounts, update mocked response to include the joint type.
-    account_response = {"accounts": [{"id": "joint_123", "type": "uk_retail_joint", "currency": "GBP"}]}
-    requests_mock.get("https://api.monzo.com/accounts", status_code=200, json=account_response)
-
-    pot_response = {"pots": [{"id": "1", "deleted": False}]}
-    req_url = f"https://api.monzo.com/pots?{parse.urlencode({'current_account_id': 'joint_123'})}"
-    requests_mock.get(req_url, status_code=200, json=pot_response)
-
-    account = MonzoAccount("access_token", "refresh_token", int(time()) + 1000, "pot", account_id="joint_123")
-    pots = account.get_pots("joint")
-    assert pots == [{"id": "1", "deleted": False}]
+    # Mock accounts response with joint account
+    accounts_response = {"accounts": [
+        {"id": "personal_id", "type": "uk_retail", "currency": "GBP"},
+        {"id": "joint_id", "type": "uk_retail_joint", "currency": "GBP"}
+    ]}
+    requests_mock.get("https://api.monzo.com/accounts", status_code=200, json=accounts_response)
+    
+    # Mock pots response
+    pots_response = {"pots": [
+        {"id": "pot1", "name": "Pot 1", "balance": 1000, "deleted": False},
+        {"id": "pot2", "name": "Pot 2", "balance": 2000, "deleted": False}
+    ]}
+    requests_mock.get("https://api.monzo.com/pots", status_code=200, json=pots_response)
+    
+    # Create account and test getting pots with joint account
+    account = MonzoAccount("access_token", "refresh_token", int(time()) + 1000)
+    pots = account.get_pots(account_type="joint")
+    
+    # Verify the correct account ID was used in the request
+    assert requests_mock.last_request.qs.get("current_account_id") == ["joint_id"]
+    assert len(pots) == 2
+    assert pots[0]["id"] == "pot1"
+    assert pots[1]["id"] == "pot2"
 
 
 def test_monzo_account_get_pots(requests_mock):

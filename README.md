@@ -1,14 +1,15 @@
 # Monzo Credit Card Pot Sync
 
-A service that automatically syncs your credit card payments with Monzo pots, making it easy to set aside money for upcoming credit card payments.
+A Flask-based web application that synchronizes your credit card balances with Monzo pots, helping you stay on top of your finances automatically.
 
 ## Features
 
-- Connect to Monzo and credit card accounts via secure APIs
-- Create custom rules for syncing funds between accounts and pots
-- Schedule automatic transfers based on your preferences
-- Monitor sync history and account balances
-- Get notifications about transfers and account activity
+- Connect multiple credit cards to your Monzo account
+- Automatically keep track of credit card spending
+- Move money to designated Monzo pots based on spending
+- Support for both personal and joint accounts
+- Customizable sync rules and schedules
+- User-friendly web interface with dark mode support
 
 ## Getting Started
 
@@ -40,12 +41,32 @@ A service that automatically syncs your credit card payments with Monzo pots, ma
 
 1. Clone the repository as above
 
-2. Start the development container:
+2. Install dependencies:
    ```bash
-   docker-compose -f docker-compose.dev.yml up -d
+   # Python dependencies
+   python -m venv venv
+   source venv/bin/activate  # On Windows: venv\Scripts\activate
+   pip install -r requirements.txt
+
+   # JavaScript dependencies
+   npm install
    ```
 
-3. Make changes and the application will automatically reload
+3. Set up environment variables:
+   ```bash
+   cp .env.example .env
+   # Edit .env with your configuration
+   ```
+
+4. Start the development server:
+   ```bash
+   npm run dev
+   ```
+
+5. For testing:
+   ```bash
+   pytest
+   ```
 
 ## Configuration
 
@@ -55,6 +76,13 @@ All configuration options can be set through environment variables:
 - `MONZO_CLIENT_ID` and `MONZO_CLIENT_SECRET`: Your Monzo API credentials
 - `TRUELAYER_CLIENT_ID` and `TRUELAYER_CLIENT_SECRET`: Your TrueLayer API credentials
 - See `docker-compose.yml` for other available options
+
+## Testing
+
+The project uses pytest for testing. Run the test suite with:
+   ```bash
+   pytest
+   ```
 
 ## Contributing
 

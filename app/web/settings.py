@@ -53,21 +53,28 @@ def save():
 
 @settings_bp.route("/clear_cooldown", methods=["POST"])
 def clear_cooldown():
-    # Clear cooldown
-    monzo_account = account_repository.get_monzo_account()  # get the MonzoAccount for pot balance
-    selected_type = request.form.get("account_type")
-    if selected_type:
-        credit_accounts = [
-            acct for acct in account_repository.get_credit_accounts()
-            if acct.type == selected_type
-        ]
-    else:
-        credit_accounts = account_repository.get_credit_accounts()
-    for account in credit_accounts:
-        account.cooldown_until = None
-        # Use the monzo_account to retrieve the pot balance
-        new_baseline = monzo_account.get_pot_balance(account.pot_id)
-        account.prev_balance = new_baseline
-        account = account_repository.update_credit_account_fields(account.type, account.pot_id, new_baseline, None)
-    flash("Cooldown cleared—baseline updated for selected account(s).")
+    """Clear the deposit cooldown timer for selected or all accounts."""
+    try:
+        account_type = request.form.get("account_type")
+        
+        from app.models.cooldown import SqlAlchemyCooldownRepository
+        cooldown_repo = SqlAlchemyCooldownRepository(db)
+        
+        if account_type:
+            # Clear cooldown for specific account type
+            accounts = account_repository.get_credit_accounts_by_type(account_type)
+            for account in accounts:
+                cooldown_repo.clear_cooldown(account.id)
+            flash(f"Cooldown cleared for {account_type} accounts", "success")
+        else:
+            # Clear cooldown for all accounts
+            accounts = account_repository.get_credit_accounts()
+            for account in accounts:
+                cooldown_repo.clear_cooldown(account.id)
+            flash("Cooldown cleared for all accounts", "success")
+            
+    except Exception as e:
+        log.error("Failed to clear cooldown", exc_info=e)
+        flash("Error clearing cooldown", "error")
+        
     return redirect(url_for("settings.index"))

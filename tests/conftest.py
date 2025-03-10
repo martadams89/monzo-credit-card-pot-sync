@@ -137,35 +137,17 @@ def barclaycard_sandbox_provider(mocker):
 @pytest.fixture
 def app():
     """Create and configure a Flask app for testing."""
-    # Create a temp file to isolate the database for each test
-    db_fd, db_path = tempfile.mkstemp()
+    app = create_app(testing=True)
+    app.config['TESTING'] = True
+    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///:memory:'
+    app.config['WTF_CSRF_ENABLED'] = False
+    app.config['SERVER_NAME'] = 'localhost'
     
-    app = create_app({
-        'TESTING': True,
-        'SQLALCHEMY_DATABASE_URI': f'sqlite:///{db_path}',
-        'SQLALCHEMY_TRACK_MODIFICATIONS': False,
-        'WTF_CSRF_ENABLED': False,  # Disable CSRF for testing
-        'SECRET_KEY': 'test-key',
-        'MONZO_CLIENT_ID': 'test-client-id',
-        'MONZO_CLIENT_SECRET': 'test-client-secret',
-        'MONZO_REDIRECT_URI': 'http://localhost:8000/auth/callback/monzo',
-        'MAIL_DEFAULT_SENDER': 'test@example.com',
-        'MAIL_SERVER': 'localhost',
-        'MAIL_PORT': 25,
-        'MAIL_USE_TLS': False,
-        'MAIL_USERNAME': None,
-        'MAIL_PASSWORD': None,
-    })
-    
-    # Create the database and tables
     with app.app_context():
         _db.create_all()
-    
-    yield app
-    
-    # Close and remove the temp database
-    os.close(db_fd)
-    os.unlink(db_path)
+        yield app
+        _db.session.remove()
+        _db.drop_all()
 
 @pytest.fixture
 def db(app):

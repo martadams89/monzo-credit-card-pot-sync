@@ -138,5 +138,6 @@ def sanitize_input(text):
     text = text.replace(">", "&gt;")
     text = text.replace('"', "&quot;")
     text = text.replace("'", "&#x27;")
+    text = text.replace("/", "&#x2F;")
     
     return text
