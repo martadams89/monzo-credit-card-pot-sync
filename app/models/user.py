@@ -19,7 +19,7 @@ class User(db.Model, UserMixin):
     username = db.Column(db.String(64), index=True, unique=True, nullable=False)
     email = db.Column(db.String(120), index=True, unique=True, nullable=False)
     password_hash = db.Column(db.String(256), nullable=False)
-    role = db.Column(db.String(20), default="user")
+    role = db.Column(db.String(20), default=Role.USER.value)
     is_active = db.Column(db.Boolean, default=True)
     is_email_verified = db.Column(db.Boolean, default=False)
     email_verification_token = db.Column(db.String(36), unique=True, nullable=True)
@@ -28,6 +28,8 @@ class User(db.Model, UserMixin):
     totp_secret = db.Column(db.String(32), nullable=True)
     is_totp_enabled = db.Column(db.Boolean, default=False)
     is_webauthn_enabled = db.Column(db.Boolean, default=False)
+    login_attempts = db.Column(db.Integer, default=0)
+    locked_until = db.Column(db.DateTime, nullable=True)
     last_login_at = db.Column(db.DateTime, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -43,7 +45,18 @@ class User(db.Model, UserMixin):
     
     def is_admin(self):
         """Check if user is an administrator."""
-        return self.role == "admin"
+        return self.role == Role.ADMIN.value
+    
+    def generate_email_token(self):
+        """Generate email verification token."""
+        self.email_verification_token = str(uuid.uuid4())
+        return self.email_verification_token
+    
+    def generate_password_reset_token(self):
+        """Generate password reset token."""
+        self.password_reset_token = str(uuid.uuid4())
+        self.password_reset_expires = datetime.utcnow() + timedelta(hours=2)
+        return self.password_reset_token
     
     def __repr__(self):
         return f'<User {self.username}>'
@@ -74,21 +87,3 @@ class LoginSession(db.Model):
 def load_user(user_id):
     """Load user for Flask-Login."""
     return User.query.get(user_id)
-
-
-class WebAuthnCredential(db.Model):
-    """Model for storing WebAuthn (passkey) credentials."""
-    
-    id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
-    user_id = db.Column(db.String(36), db.ForeignKey('user.id'), nullable=False)
-    credential_id = db.Column(db.String(250), unique=True, nullable=False)
-    public_key = db.Column(db.Text, nullable=False)
-    sign_count = db.Column(db.Integer, default=0)
-    name = db.Column(db.String(64), nullable=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    last_used_at = db.Column(db.DateTime, nullable=True)
-    
-    user = db.relationship('User', backref=db.backref('webauthn_credentials', lazy=True))
-    
-    def __repr__(self):
-        return f'<WebAuthnCredential {self.name or self.id}>'

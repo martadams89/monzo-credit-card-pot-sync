@@ -7,11 +7,11 @@ class UserNotification(db.Model):
     
     __tablename__ = "notifications"
     
-    id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))  # Add default UUID
     user_id = db.Column(db.String(36), db.ForeignKey('user.id'), nullable=False)
-    title = db.Column(db.String(255), nullable=False)
+    title = db.Column(db.String(100), nullable=False)
     message = db.Column(db.Text, nullable=False)
-    type = db.Column(db.String(50), nullable=False)
+    type = db.Column(db.String(20), default="info")  # info, success, warning, error
     is_read = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     read_at = db.Column(db.DateTime, nullable=True)

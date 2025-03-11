@@ -446,33 +446,25 @@ class MonzoAPIService:
         
         return response.json()['transactions']
     
-    def create_feed_item(self, monzo_account: MonzoAccount, title: str, body: str, 
-                         image_url: str = None) -> bool:
+    def send_feed_item(self, account_id: str, title: str, body: str, access_token: str = None,
+                        image_url: str = None, background_color: str = "#FCF1EE") -> bool:
         """Create a feed item (notification) in the Monzo app."""
-        self._ensure_valid_token(monzo_account)
-        
-        if not monzo_account.account_id:
-            account_details = self.get_account_details(monzo_account)
-            if not account_details:
-                log.error("No account ID available for feed item")
-                return False
-            monzo_account.account_id = account_details['id']
-        
-        headers = {'Authorization': f'Bearer {monzo_account.access_token}'}
-        data = {
-            'account_id': monzo_account.account_id,
-            'type': 'basic',
-            'params[title]': title,
-            'params[body]': body
-        }
-        
-        if image_url:
-            data['params[image_url]'] = image_url
-        
-        response = requests.post(f"{self.api_base_url}/feed", headers=headers, data=data)
-        
-        if response.status_code != 200:
-            log.error(f"Error creating feed item: {response.text}")
+        try:
+            headers = {'Authorization': f'Bearer {access_token}'}
+            data = {
+                'account_id': account_id,
+                'type': 'basic',
+                'params[title]': title,
+                'params[body]': body,
+                'params[background_color]': background_color
+            }
+            
+            if image_url:
+                data['params[image_url]'] = image_url
+            
+            response = requests.post(f"{self.api_base_url}/feed", headers=headers, data=data)
+            
+            return response.status_code == 200
+        except Exception as e:
+            log.error(f"Error sending feed item: {str(e)}")
             return False
-        
-        return True
