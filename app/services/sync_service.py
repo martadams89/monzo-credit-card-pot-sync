@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Tuple, Any
 from app.models.monzo import MonzoAccount, MonzoPot, SyncRule, SyncHistory
 from app.models.monzo_repository import MonzoRepository
-from app.services.monzo_api import MonzoAPI, MonzoAPIError
+from app.services.monzo_api import MonzoAPI, MonzoAPIService  # added import
 from app.extensions import db
 from app.utils.notifications import send_notification
 
