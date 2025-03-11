@@ -3,7 +3,7 @@ import json
 import uuid
 from unittest.mock import patch, MagicMock
 from datetime import datetime, timedelta
-from app.models.monzo import MonzoAccount, ManzoPot
+from app.models.monzo import MonzoAccount, MonzoPot
 
 @pytest.fixture
 def mock_monzo_api():
@@ -64,7 +64,7 @@ def monzo_account(db, normal_user):
     db.session.add(account)
     
     # Add a pot for this account
-    pot = ManzoPot(
+    pot = MonzoPot(
         id=str(uuid.uuid4()),
         account_id=account.id,
         name='Test Pot',

@@ -34,6 +34,8 @@ instance/
 # Database
 *.db
 *.sqlite
+conf/
+backups/
 
 # Tailwind CSS output
 app/static/css/dist/

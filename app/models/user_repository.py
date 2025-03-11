@@ -10,7 +10,8 @@ log = logging.getLogger(__name__)
 
 from sqlalchemy.exc import NoResultFound, SQLAlchemyError
 from flask_sqlalchemy import SQLAlchemy
-from app.models.user import User, WebAuthnCredential, Role
+from app.models.user import User, Role
+from app.models.webauthn import WebAuthnCredential
 from app.models.audit import AuditLog, UserSession, ApiKey
 from flask import request, current_app
 from sqlalchemy import or_, and_, desc, asc, func

@@ -6,6 +6,7 @@ class ApiKey(db.Model):
     """Model for API keys."""
     
     __tablename__ = "api_keys"
+    __table_args__ = {'extend_existing': True}
     
     id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     user_id = db.Column(db.String(36), db.ForeignKey('user.id'), nullable=False)

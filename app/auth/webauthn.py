@@ -9,18 +9,20 @@ from webauthn import (
     generate_authentication_options,
     verify_authentication_response,
     options_to_json,
-    base64url_to_bytes,
-    AuthenticationCredential,
-    RegistrationCredential,
+)
+from webauthn.helpers import base64url_to_bytes
+from webauthn.helpers.structs import (
     PublicKeyCredentialRpEntity,
     PublicKeyCredentialUserEntity,
     AuthenticatorSelectionCriteria,
     ResidentKeyRequirement,
-    UserVerificationRequirement
+    UserVerificationRequirement,
+    RegistrationCredential,  # moved here from webauthn.registration
+    AuthenticationCredential  # moved here from webauthn.authentication
 )
 from app.models.user_repository import SqlAlchemyUserRepository
 from app.extensions import db
-from app.models.user import WebAuthnCredential
+from app.models.webauthn import WebAuthnCredential
 import os
 import uuid
 import logging

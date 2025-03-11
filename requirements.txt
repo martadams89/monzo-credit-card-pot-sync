@@ -51,3 +51,4 @@ flake8==6.1.0
 
 # Add this line to your requirements.txt
 flask-swagger-ui==4.11.1
+pydantic<2.0

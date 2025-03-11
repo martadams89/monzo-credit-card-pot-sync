@@ -6,7 +6,8 @@ services:
     container_name: monzo-sync
     restart: unless-stopped
     volumes:
-      - sqlite_data:/app/instance
+      - ./conf:/app/instance
+      - ./backups:/app/backups
     ports:
       - "8000:8000"
     environment:
@@ -23,6 +24,3 @@ services:
       - MAIL_USERNAME=user@example.com
       - MAIL_PASSWORD=mail-password
       - MAIL_DEFAULT_SENDER=noreply@example.com
-
-volumes:
-  sqlite_data:

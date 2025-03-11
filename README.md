@@ -172,7 +172,7 @@ The application is configured through environment variables in the `.env` file:
 | MAIL_DEFAULT_SENDER     | Default sender email                                | noreply@example.com           | No       |
 | ADMIN_EMAIL             | Administrator email                                 | admin@example.com             | No       |
 | LOG_LEVEL               | Logging level                                       | INFO                          | No       |
-| DATABASE_URL            | Database connection string                          | sqlite:///app.db              | No       |
+| DATABASE_URL            | Database connection string                          | sqlite:////app/instance/app.db              | No       |
 
 **Note:** The application automatically constructs redirect URIs for Monzo and TrueLayer using the BASE_URL. For example, if BASE_URL is set to `https://example.com`, the redirect URIs will be `https://example.com/auth/callback/monzo` and `https://example.com/auth/callback/truelayer`.
 

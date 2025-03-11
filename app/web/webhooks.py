@@ -6,7 +6,7 @@ from flask import Blueprint, request, jsonify, current_app
 from datetime import datetime
 
 from app.extensions import db
-from app.models.monzo import MonzoAccount, ManzoPot, SyncRule
+from app.models.monzo import MonzoAccount, MonzoPot, SyncRule
 from app.models.monzo_repository import MonzoRepository
 from app.services.sync_service import SyncService
 from app.services.monzo_api import MonzoAPIService

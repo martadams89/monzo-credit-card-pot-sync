@@ -8,8 +8,8 @@ services:
     container_name: monzo-sync-dev
     restart: unless-stopped
     volumes:
-      - .:/app
-      - sqlite_data:/app/instance
+      - ./conf:/app/instance
+      - ./backups:/app/backups
     ports:
       - "8000:8000"
     environment:
@@ -18,7 +18,7 @@ services:
       - FLASK_DEBUG=1
       - SECRET_KEY=dev-secret-key-please-change
       - BASE_URL=http://localhost:8000
-      - SQLALCHEMY_DATABASE_URI=sqlite:///app.db
+      - SQLALCHEMY_DATABASE_URI=sqlite:////app/instance/app.db
       - MONZO_CLIENT_ID=your-monzo-client-id
       - MONZO_CLIENT_SECRET=your-monzo-client-secret
       - TRUELAYER_CLIENT_ID=your-truelayer-client-id
@@ -43,5 +43,4 @@ services:
       - "8025:8025"
       - "1025:1025"
 
-volumes:
-  sqlite_data:
+

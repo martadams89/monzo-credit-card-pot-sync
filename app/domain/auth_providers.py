@@ -18,11 +18,8 @@ class AuthProviderType(Enum):
 class AuthProvider:
     """Base class for authentication providers."""
     
-    def __init__(self, name: str, client_id: str, client_secret: str, redirect_uri: str):
+    def __init__(self, name: str):
         self.name = name
-        self.client_id = client_id
-        self.client_secret = client_secret
-        self.redirect_uri = redirect_uri
     
     def get_auth_url(self, state: str) -> str:
         """Get the authorization URL."""
@@ -40,16 +37,25 @@ class MonzoAuthProvider(AuthProvider):
     """Authentication provider for Monzo."""
     
     def __init__(self):
-        from flask import current_app
-        
-        super().__init__(
-            name=AuthProviderType.MONZO.value,
-            client_id=current_app.config.get('MONZO_CLIENT_ID'),
-            client_secret=current_app.config.get('MONZO_CLIENT_SECRET'),
-            redirect_uri=current_app.config.get('MONZO_REDIRECT_URI')
-        )
+        # Removed immediate config usage to avoid application context errors.
+        super().__init__(name=AuthProviderType.MONZO.value)
         self.auth_url = "https://auth.monzo.com/"
         self.api_url = "https://api.monzo.com/"
+    
+    @property
+    def client_id(self):
+        from flask import current_app
+        return current_app.config.get('MONZO_CLIENT_ID')
+    
+    @property
+    def client_secret(self):
+        from flask import current_app
+        return current_app.config.get('MONZO_CLIENT_SECRET')
+    
+    @property
+    def redirect_uri(self):
+        from flask import current_app
+        return current_app.config.get('MONZO_REDIRECT_URI')
     
     def get_auth_url(self, state: str) -> str:
         """Get the Monzo authorization URL."""
@@ -101,17 +107,26 @@ class TrueLayerAuthProvider(AuthProvider):
     """Authentication provider for TrueLayer."""
     
     def __init__(self, provider_type: AuthProviderType):
-        from flask import current_app
-        
         self.provider_type = provider_type
-        super().__init__(
-            name=provider_type.value,
-            client_id=current_app.config.get('TRUELAYER_CLIENT_ID'),
-            client_secret=current_app.config.get('TRUELAYER_CLIENT_SECRET'),
-            redirect_uri=current_app.config.get('TRUELAYER_REDIRECT_URI')
-        )
+        # Removed immediate config usage to avoid application context errors.
+        super().__init__(name=provider_type.value)
         self.auth_url = "https://auth.truelayer.com/"
         self.api_url = "https://api.truelayer.com/"
+    
+    @property
+    def client_id(self):
+        from flask import current_app
+        return current_app.config.get('TRUELAYER_CLIENT_ID')
+    
+    @property
+    def client_secret(self):
+        from flask import current_app
+        return current_app.config.get('TRUELAYER_CLIENT_SECRET')
+    
+    @property
+    def redirect_uri(self):
+        from flask import current_app
+        return current_app.config.get('TRUELAYER_REDIRECT_URI')
     
     def get_auth_url(self, state: str) -> str:
         """Get the TrueLayer authorization URL."""

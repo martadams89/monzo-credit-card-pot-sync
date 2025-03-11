@@ -7,6 +7,11 @@ mkdir -p app/static/css/dist
 mkdir -p app/static/images
 mkdir -p app/static/js
 
+if [ ! -d "/app/migrations" ]; then
+    echo "Migrations folder not found, initializing migrations..."
+    flask db init
+fi
+
 echo "Running database migrations..."
 # Apply database migrations
 flask db upgrade

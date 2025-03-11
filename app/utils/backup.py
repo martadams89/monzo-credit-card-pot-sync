@@ -303,7 +303,7 @@ def export_data(user_id):
     """
     try:
         from app.models.user import User
-        from app.models.monzo import MonzoAccount, ManzoPot, SyncRule, SyncHistory
+        from app.models.monzo import MonzoAccount, MonzoPot, SyncRule, SyncHistory
         
         user = User.query.get(user_id)
         if not user:
@@ -344,7 +344,7 @@ def export_data(user_id):
             }
             
             # Add pots for this account
-            pots = ManzoPot.query.filter_by(account_id=account.id).all()
+            pots = MonzoPot.query.filter_by(account_id=account.id).all()
             for pot in pots:
                 account_data['pots'].append({
                     'id': pot.id,
