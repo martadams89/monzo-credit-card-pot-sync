@@ -231,25 +231,12 @@ class MonzoAPIService:
     """Service for interacting with the Monzo API."""
     
     def __init__(self):
-        # Removed immediate retrieval of configuration to avoid application context errors.
+        """Initialize with API constants."""
         self.api_base_url = "https://api.monzo.com"
         self.auth_url = "https://auth.monzo.com"
-        # ...other initialization...
-    
-    @property
-    def client_id(self):
-        from flask import current_app
-        return current_app.config.get('MONZO_CLIENT_ID')
-    
-    @property
-    def client_secret(self):
-        from flask import current_app
-        return current_app.config.get('MONZO_CLIENT_SECRET')
-    
-    @property
-    def redirect_uri(self):
-        from flask import current_app
-        return current_app.config.get('MONZO_REDIRECT_URI')
+        self.client_id = current_app.config.get('MONZO_CLIENT_ID')
+        self.client_secret = current_app.config.get('MONZO_CLIENT_SECRET')
+        self.redirect_uri = current_app.config.get('MONZO_REDIRECT_URI')
     
     def get_auth_url(self, state: str) -> str:
         """Get the authorization URL for the OAuth flow."""

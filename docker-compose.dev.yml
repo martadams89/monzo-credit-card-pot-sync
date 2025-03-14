@@ -7,9 +7,9 @@ services:
       dockerfile: Dockerfile
     container_name: monzo-sync-dev
     restart: unless-stopped
-    volumes:
-      - ./conf:/app/instance
-      - ./backups:/app/backups
+    # volumes:
+    #   - ./conf:/app/instance
+    #   - ./backups:/app/backups
     ports:
       - "8000:8000"
     environment:
@@ -24,7 +24,6 @@ services:
       - TRUELAYER_CLIENT_ID=your-truelayer-client-id
       - TRUELAYER_CLIENT_SECRET=your-truelayer-client-secret
       - NOTIFICATION_EMAILS_ENABLED=true
-      - ADMIN_EMAIL=admin@example.com
       - MAIL_SERVER=smtp.example.com
       - MAIL_PORT=587
       - MAIL_USE_TLS=true
@@ -35,6 +34,11 @@ services:
       - LOG_LEVEL=DEBUG
       - BACKUP_DIRECTORY=backups
       - BACKUP_COUNT=5
+      # Admin user credentials
+      - ADMIN_USERNAME=admin
+      - ADMIN_EMAIL=admin@example.com
+      - ADMIN_PASSWORD=password123
+      - ADMIN_CREATE_IF_NOT_EXISTS=true
     command: flask run --host=0.0.0.0 --port=8000
   
   mailhog:

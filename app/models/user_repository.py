@@ -1,74 +1,78 @@
 import logging
 from typing import List, Optional, Tuple, Any
-from datetime import datetime
-from sqlalchemy import desc
-from app.extensions import db
-from app.models.user import User
-from app.models.audit import AuditLog
-
-log = logging.getLogger(__name__)
-
-from sqlalchemy.exc import NoResultFound, SQLAlchemyError
-from flask_sqlalchemy import SQLAlchemy
-from app.models.user import User, Role
-from app.models.webauthn import WebAuthnCredential
-from app.models.audit import AuditLog, UserSession, ApiKey
-from flask import request, current_app
-from sqlalchemy import or_, and_, desc, asc, func
-from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime, timedelta
 import secrets
 import uuid
 import json
+from sqlalchemy import desc, or_, and_, asc, func
+from flask import request, current_app
+from werkzeug.security import generate_password_hash, check_password_hash
+
+from app.extensions import db
+from app.models.user import User, Role
+from app.models.audit import AuditLog, UserSession
+from app.models.api_key import ApiKey  # Fixed import
+from app.models.webauthn import WebAuthnCredential
+
+log = logging.getLogger(__name__)
 
 class SqlAlchemyUserRepository:
     """Repository for User model database operations."""
     
-    def __init__(self, db: SQLAlchemy) -> None:
+    def __init__(self, db) -> None:
         self._session = db.session
-    
+
+    # User CRUD operations
     def get_by_id(self, user_id: str) -> User:
         """Get user by ID."""
-        user = self._session.query(User).filter_by(id=user_id).one_or_none()
-        return user
+        return self._session.query(User).filter_by(id=user_id).one_or_none()
     
     def get_by_username(self, username: str) -> User:
         """Get user by username."""
-        user = self._session.query(User).filter_by(username=username).one_or_none()
-        return user
+        return self._session.query(User).filter_by(username=username).one_or_none()
         
     def get_by_email(self, email: str) -> User:
         """Get user by email."""
-        user = self._session.query(User).filter_by(email=email).one_or_none()
-        return user
+        return self._session.query(User).filter_by(email=email).one_or_none()
     
     def get_by_verification_token(self, token: str) -> User:
         """Get user by email verification token."""
-        user = self._session.query(User).filter_by(email_verification_token=token).one_or_none()
-        return user
+        return self._session.query(User).filter_by(email_verification_token=token).one_or_none()
         
     def get_by_reset_token(self, token: str) -> User:
         """Get user by password reset token."""
-        user = self._session.query(User).filter_by(password_reset_token=token).one_or_none()
-        return user
+        return self._session.query(User).filter_by(password_reset_token=token).one_or_none()
     
-    def create(self, user: User) -> User:
-        """Create a new user."""
-        self._session.add(user)
-        self._session.commit()
-        return user
+    def save(self, user: User) -> User:
+        """Save or update a user."""
+        try:
+            self._session.add(user)
+            self._session.commit()
+            return user
+        except Exception as e:
+            self._session.rollback()
+            log.error(f"Error saving user: {str(e)}")
+            raise
     
-    def update(self, user: User) -> User:
-        """Update an existing user."""
-        self._session.add(user)
-        self._session.commit()
-        return user
+    # Alias for consistency
+    create = save
+    update = save
+            
+    def delete(self, user_id: str) -> bool:
+        """Delete a user by ID."""
+        try:
+            user = self.get_by_id(user_id)
+            if user:
+                self._session.delete(user)
+                self._session.commit()
+                return True
+            return False
+        except Exception as e:
+            self._session.rollback()
+            log.error(f"Error deleting user: {str(e)}")
+            raise
     
-    def delete(self, user: User) -> None:
-        """Delete a user."""
-        self._session.delete(user)
-        self._session.commit()
-        
+    # User querying methods
     def get_all(self) -> list[User]:
         """Get all users."""
         return self._session.query(User).all()
@@ -76,7 +80,7 @@ class SqlAlchemyUserRepository:
     def get_admins(self) -> list[User]:
         """Get all admin users."""
         return self._session.query(User).filter_by(role=Role.ADMIN.value).all()
-    
+            
     # Enhanced user search and filtering methods
     def search_users(self, search_term="", sort_by="username", order="asc", page=1, per_page=10, is_active=None):
         """Search and filter users with pagination."""
@@ -124,6 +128,7 @@ class SqlAlchemyUserRepository:
             
         return query.scalar()
     
+    # Analytics methods
     def count_users_with_2fa(self):
         """Count users with 2FA enabled."""
         return self._session.query(func.count(User.id)).filter(User.is_totp_enabled == True).scalar()
@@ -189,8 +194,9 @@ class SqlAlchemyUserRepository:
         self._session.commit()
         
     # Audit log methods
-    def log_audit(self, user_id, action, details=None, target_user_id=None, ip_address=None, user_agent=None):
-        """Create an audit log entry."""
+    def add_audit_log(self, user_id=None, target_user_id=None, action=None, 
+                     details=None, ip_address=None, user_agent=None) -> AuditLog:
+        """Add an audit log entry."""
         if ip_address is None and request:
             ip_address = request.remote_addr
             
@@ -209,6 +215,9 @@ class SqlAlchemyUserRepository:
         self._session.add(audit_log)
         self._session.commit()
         return audit_log
+        
+    # Alias for consistency
+    log_audit = add_audit_log
         
     def get_audit_logs(self, user_id=None, action=None, start_date=None, end_date=None, page=1, per_page=50):
         """Get audit logs with filtering and pagination."""
@@ -330,6 +339,9 @@ class SqlAlchemyUserRepository:
         self._session.add(session)
         self._session.commit()
         return session
+    
+    # Alias for consistency
+    record_login = record_session
         
     def get_session_by_id(self, session_id):
         """Get a session by its ID."""
@@ -457,115 +469,3 @@ class SqlAlchemyUserRepository:
             api_key.is_active = False
             self._session.commit()
         return api_key
-
-    def save(self, user: User) -> User:
-        """Save or update a user."""
-        try:
-            self._session.add(user)
-            self._session.commit()
-            return user
-        except SQLAlchemyError as e:
-            self._session.rollback()
-            log.error(f"Error saving user: {str(e)}")
-            raise
-    
-    def delete(self, user_id: str) -> bool:
-        """Delete a user by ID."""
-        try:
-            user = self.get_by_id(user_id)
-            if user:
-                self._session.delete(user)
-                self._session.commit()
-                return True
-            return False
-        except SQLAlchemyError as e:
-            self._session.rollback()
-            log.error(f"Error deleting user: {str(e)}")
-            raise
-    
-    def add_audit_log(self, user_id=None, target_user_id=None, action=None, 
-                      details=None, ip_address=None, user_agent=None) -> AuditLog:
-        """Add an audit log entry."""
-        try:
-            audit = AuditLog(
-                user_id=user_id,
-                target_user_id=target_user_id,
-                action=action,
-                details=details,
-                ip_address=ip_address,
-                user_agent=user_agent,
-                created_at=datetime.utcnow()
-            )
-            self._session.add(audit)
-            self._session.commit()
-            return audit
-        except SQLAlchemyError as e:
-            self._session.rollback()
-            log.error(f"Error adding audit log: {str(e)}")
-            raise
-    
-    def get_audit_logs_for_user(self, user_id: str, page: int = 1, 
-                               per_page: int = 20, with_total: bool = False) -> List[AuditLog] or Tuple[List[AuditLog], int]:
-        """Get audit logs for a user."""
-        query = self._session.query(AuditLog).filter(
-            (AuditLog.user_id == user_id) | (AuditLog.target_user_id == user_id)
-        ).order_by(AuditLog.created_at.desc())
-        
-        if with_total:
-            total = query.count()
-        
-        logs = query.offset((page - 1) * per_page).limit(per_page).all()
-        
-        if with_total:
-            return logs, total
-        
-        return logs
-    
-    def record_login(self, user_id: str, session_id: str, ip_address: str, user_agent: str, 
-                    device_info: str = None, location: str = None) -> UserSession:
-        """Record a user login session."""
-        try:
-            # Set expiry to 30 days from now
-            expires_at = datetime.utcnow() + timedelta(days=30)
-            
-            session = UserSession(
-                user_id=user_id,
-                session_id=session_id,
-                ip_address=ip_address,
-                user_agent=user_agent,
-                device_info=device_info,
-                location=location,
-                is_active=True,
-                created_at=datetime.utcnow(),
-                last_activity_at=datetime.utcnow(),
-                expires_at=expires_at
-            )
-            
-            self._session.add(session)
-            self._session.commit()
-            
-            return session
-        except SQLAlchemyError as e:
-            self._session.rollback()
-            log.error(f"Error recording login: {str(e)}")
-            raise
-    
-    def get_login_history(self, user_id: str, limit: int = 10) -> List[UserSession]:
-        """Get login history for a user."""
-        return self._session.query(UserSession).filter_by(user_id=user_id).order_by(
-            UserSession.created_at.desc()
-        ).limit(limit).all()
-    
-    def update_session_activity(self, session_id: str) -> bool:
-        """Update last activity time for a session."""
-        try:
-            session = self._session.query(UserSession).filter_by(session_id=session_id).first()
-            if session:
-                session.last_activity_at = datetime.utcnow()
-                self._session.commit()
-                return True
-            return False
-        except SQLAlchemyError as e:
-            self._session.rollback()
-            log.error(f"Error updating session activity: {str(e)}")
-            return False

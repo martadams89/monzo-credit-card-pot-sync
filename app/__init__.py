@@ -41,7 +41,7 @@ def create_app(test_config=None):
     # Register error handlers
     register_error_handlers(app)
     
-    # Register blueprints
+    # Register all blueprints at once using the helper function
     register_blueprints(app)
     
     # Add template filters
@@ -81,53 +81,44 @@ def create_app(test_config=None):
     
     return app
 
-def register_error_handlers(app):
-    """Register error handlers for the app."""
-    
-    @app.errorhandler(404)
-    def page_not_found(error):
-        return render_template('errors/404.html'), 404
-    
-    @app.errorhandler(403)
-    def forbidden(error):
-        return render_template('errors/403.html'), 403
-    
-    @app.errorhandler(500)
-    def internal_server_error(error):
-        return render_template('errors/500.html'), 500
+# Note: Removed duplicate register_error_handlers function since it's already imported
+
+# Add better exception handling for blueprint registration
 
 def register_blueprints(app):
     """Register all blueprints with the application."""
     # Import blueprints
     from app.web.home import home_bp
     from app.web.auth import auth_bp
-    from app.web.monzo import monzo_bp
-    from app.web.profile import profile_bp
-    from app.web.admin import admin_bp
-    from app.web.api import api_bp
-    from app.web.webhooks import webhooks_bp
-    from app.web.health import health_bp
-    from app.web.backup import backup_bp
-    from app.web.pots import pots_bp
-    from app.web.settings import settings_bp
-    from app.web.accounts import accounts_bp
-    from app.web.errors import errors_bp  # Add this line
-
-    # Register blueprints
+    
+    # Register core blueprints
     app.register_blueprint(home_bp)
     app.register_blueprint(auth_bp, url_prefix='/auth')
-    app.register_blueprint(monzo_bp, url_prefix='/monzo')
-    app.register_blueprint(profile_bp, url_prefix='/profile')
-    app.register_blueprint(admin_bp, url_prefix='/admin')
-    app.register_blueprint(api_bp, url_prefix='/api')
-    app.register_blueprint(webhooks_bp, url_prefix='/webhooks')
-    app.register_blueprint(health_bp, url_prefix='/health')
-    app.register_blueprint(backup_bp, url_prefix='/backup')
-    app.register_blueprint(pots_bp, url_prefix='/pots')
-    app.register_blueprint(settings_bp, url_prefix='/settings')
-    app.register_blueprint(accounts_bp, url_prefix='/accounts')
-    app.register_blueprint(errors_bp)  # Add this line
-
-    # API routes
-    from app.api.v1 import api_v1_bp
-    app.register_blueprint(api_v1_bp, url_prefix='/api/v1')
+    
+    # Dynamically register additional blueprints
+    blueprint_configs = [
+        ('app.web.monzo', 'monzo_bp', '/monzo'),
+        ('app.web.profile', 'profile_bp', '/profile'),
+        ('app.web.admin', 'admin_bp', '/admin'),
+        ('app.web.api', 'api_bp', '/api'),
+        ('app.web.webhooks', 'webhooks_bp', '/webhooks'),
+        ('app.web.health', 'health_bp', '/health'),
+        ('app.web.backup', 'backup_bp', '/backup'),
+        ('app.web.pots', 'pots_bp', '/pots'),
+        ('app.web.settings', 'settings_bp', '/settings'),
+        ('app.web.accounts', 'accounts_bp', '/accounts'),
+        ('app.web.errors', 'errors_bp', None),
+        ('app.api.v1', 'api_v1_bp', '/api/v1')
+    ]
+    
+    for module_name, blueprint_name, url_prefix in blueprint_configs:
+        try:
+            module = __import__(module_name, fromlist=[blueprint_name])
+            blueprint = getattr(module, blueprint_name)
+            if url_prefix:
+                app.register_blueprint(blueprint, url_prefix=url_prefix)
+            else:
+                app.register_blueprint(blueprint)
+            app.logger.info(f"Registered blueprint: {blueprint_name}")
+        except (ImportError, AttributeError) as e:
+            app.logger.debug(f"Optional blueprint {blueprint_name} not available: {str(e)}")

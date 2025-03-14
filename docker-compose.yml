@@ -24,3 +24,8 @@ services:
       - MAIL_USERNAME=user@example.com
       - MAIL_PASSWORD=mail-password
       - MAIL_DEFAULT_SENDER=noreply@example.com
+      # Admin user credentials (remember to change these in production!)
+      - ADMIN_USERNAME=admin
+      - ADMIN_EMAIL=admin@example.com
+      - ADMIN_PASSWORD=change-this-in-production
+      - ADMIN_CREATE_IF_NOT_EXISTS=true

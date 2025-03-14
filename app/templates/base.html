@@ -1,15 +1,16 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="h-full">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Monzo Credit Card Pot Sync{% endblock %}</title>
-    <link href="{{ url_for('static', filename='css/dist/output.css') }}" rel="stylesheet">
+    <!-- Make sure this path is correct -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/dist/output.css') }}">
     <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.12.0/dist/cdn.min.js" defer></script>
     <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}">
     {% block head %}{% endblock %}
 </head>
-<body class="bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-white min-h-screen flex flex-col">
+<body class="flex flex-col h-full bg-gray-50 dark:bg-gray-900">
     <!-- Navigation -->
     {% include 'nav.html' %}
     
@@ -50,9 +51,8 @@
         </div>
     </footer>
     
-    <!-- Flowbite JS -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/flowbite/2.5.2/flowbite.min.js"></script>
-    
+    <!-- JavaScript -->
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
     {% block scripts %}{% endblock %}
 </body>
 </html>

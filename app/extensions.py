@@ -47,7 +47,19 @@ scheduler = APScheduler()
 
 def init_extensions(app):
     """Initialize all Flask extensions."""
+    # Configure SQLAlchemy
     db.init_app(app)
+    
+    # Add event listener to verify database connections
+    @app.before_request
+    def ensure_db_connection():
+        try:
+            # Test database connection
+            db.engine.execute('SELECT 1')
+        except Exception as e:
+            app.logger.error(f"Database connection error: {e}")
+            db.session.rollback()
+            
     migrate.init_app(app, db)
     login_manager.init_app(app)
     mail.init_app(app)

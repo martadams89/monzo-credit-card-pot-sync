@@ -8,7 +8,7 @@ class SyncHistory(db.Model):
     __tablename__ = "sync_history"
     
     id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
-    user_id = db.Column(db.String(36), db.ForeignKey('user.id'), nullable=False)
+    user_id = db.Column(db.String(36), db.ForeignKey('user_account.id')), nullable=False)
     rule_id = db.Column(db.String(36), db.ForeignKey('sync_rules.id'), nullable=True)
     amount = db.Column(db.Integer, default=0)  # Amount in pence
     status = db.Column(db.String(20), nullable=False)  # 'success', 'error', 'skipped'

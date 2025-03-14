@@ -9,7 +9,7 @@ class ApiKey(db.Model):
     __table_args__ = {'extend_existing': True}
     
     id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
-    user_id = db.Column(db.String(36), db.ForeignKey('user.id'), nullable=False)
+    user_id = db.Column(db.String(36), db.ForeignKey('user_account.id'), nullable=False)
     name = db.Column(db.String(100), nullable=False)
     key_hash = db.Column(db.String(255), nullable=False, unique=True)
     is_active = db.Column(db.Boolean, default=True)
@@ -17,8 +17,8 @@ class ApiKey(db.Model):
     last_used_at = db.Column(db.DateTime, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
-    # Relationships
-    user = db.relationship('User', backref=db.backref('api_keys', lazy=True))
+    # Explicitly define the relationship without a backref to avoid conflicts
+    user = db.relationship('User', foreign_keys=[user_id])
     
     def __repr__(self):
         return f'<ApiKey {self.id}: {self.name}>'

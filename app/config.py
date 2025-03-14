@@ -11,9 +11,14 @@ class Config:
     DEBUG = False
     TESTING = False
     
-    # Database settings
+    # Database settings with connection pooling
     SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL') or 'sqlite:////app/instance/app.db'
     SQLALCHEMY_TRACK_MODIFICATIONS = False
+    SQLALCHEMY_ENGINE_OPTIONS = {
+        'pool_pre_ping': True,  # Verify connections before use
+        'pool_recycle': 3600,   # Recycle connections after 1 hour
+        'pool_timeout': 30,     # Connection timeout after 30 seconds
+    }
     
     # Session settings
     PERMANENT_SESSION_LIFETIME = timedelta(days=30)

@@ -11,21 +11,33 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     npm \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy package files for CSS building
-COPY package.json package-lock.json* ./
+# Copy package files and tailwind config first
+COPY package.json package-lock.json* tailwind.config.js ./
 
 # Install npm packages
 RUN npm install
 
-# Copy CSS source files
-COPY app/static/css/src ./app/static/css/src
-COPY tailwind.config.js ./
+# Create directory structure
+RUN mkdir -p app/static/css/dist
 
-# Build CSS
-RUN mkdir -p app/static/css/dist && \
-    npx tailwindcss -i ./app/static/css/src/input.css -o ./app/static/css/dist/output.css --minify
+# Copy CSS source files and templates for Tailwind processing
+COPY app/templates ./app/templates
+COPY app/static ./app/static
 
-# Clean up npm packages after CSS is built
+# Build CSS with verification
+RUN echo "Building CSS with tailwind..." && \
+    npx tailwindcss -i ./app/static/css/src/input.css -o ./app/static/css/dist/output.css --minify && \
+    echo "CSS build completed" && \
+    ls -la ./app/static/css/dist && \
+    echo "CSS file size:" && \
+    stat -c %s ./app/static/css/dist/output.css && \
+    echo "First few lines:" && \
+    head -5 ./app/static/css/dist/output.css
+
+# Back up the built CSS before we copy all other files
+RUN cp -a ./app/static/css/dist/output.css /tmp/output.css
+
+# Clean up Node.js dependencies
 RUN apt-get purge -y nodejs npm && \
     apt-get autoremove -y && \
     rm -rf node_modules
@@ -34,8 +46,14 @@ RUN apt-get purge -y nodejs npm && \
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy app code (after CSS is built)
+# Copy the rest of the application
 COPY . .
+
+# Restore our built CSS file that might have been overwritten
+RUN cp -a /tmp/output.css ./app/static/css/dist/output.css && \
+    rm /tmp/output.css && \
+    echo "Verified CSS exists:" && \
+    ls -la ./app/static/css/dist/
 
 # Set environment variables
 ENV PYTHONDONTWRITEBYTECODE=1 \
@@ -51,7 +69,6 @@ EXPOSE 8000
 # Run the entry point script
 COPY docker-entrypoint.sh /docker-entrypoint.sh
 RUN chmod +x /docker-entrypoint.sh
-ENTRYPOINT ["/docker-entrypoint.sh"]
 
-# Default command
+ENTRYPOINT ["/docker-entrypoint.sh"]
 CMD ["gunicorn", "--bind", "0.0.0.0:8000", "--workers", "4", "app.wsgi:app"]

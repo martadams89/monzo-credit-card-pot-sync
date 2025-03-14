@@ -19,7 +19,7 @@ from app.domain.auth_providers import (
     MonzoAuthProvider,
     provider_mapping,
 )
-from app.extensions import db
+from app.extensions import db, limiter
 from app.models.user_repository import SqlAlchemyUserRepository
 from app.models.account_repository import SqlAlchemyAccountRepository
 from app.models.webauthn import WebAuthnCredential
@@ -30,11 +30,113 @@ from app.auth.webauthn import (
     generate_authentication_options,
     verify_authentication_response
 )
+from app.models.user import User
 
 auth_bp = Blueprint("auth", __name__)
 log = logging.getLogger(__name__)
 account_repository = SqlAlchemyAccountRepository(db)
 user_repository = SqlAlchemyUserRepository(db)
+
+@auth_bp.route("/login", methods=["GET", "POST"])
+@limiter.limit("10 per minute")
+def login():
+    """User login page."""
+    if current_user.is_authenticated:
+        return redirect(url_for("home.index"))
+    
+    if request.method == "POST":
+        email = request.form.get("email")
+        password = request.form.get("password")
+        remember = 'remember_me' in request.form
+        
+        user = User.query.filter_by(email=email.lower()).first()
+        
+        if user and user.check_password(password):
+            login_user(user, remember=remember)
+            user.last_login_at = datetime.utcnow()
+            db.session.commit()
+            
+            flash('Login successful!', 'success')
+            next_page = request.args.get('next')
+            if not next_page or not next_page.startswith('/'):
+                next_page = url_for('home.index')
+            return redirect(next_page)
+        else:
+            flash('Invalid email or password', 'error')
+    
+    return render_template("auth/login.html")
+
+@auth_bp.route("/register", methods=["GET", "POST"])
+@limiter.limit("5 per minute")
+def register():
+    """User registration page."""
+    if current_user.is_authenticated:
+        return redirect(url_for("home.index"))
+    
+    if request.method == "POST":
+        username = request.form.get("username")
+        email = request.form.get("email")
+        password = request.form.get("password")
+        confirm_password = request.form.get("confirm_password")
+        
+        # Validation
+        error = None
+        if User.query.filter_by(username=username).first():
+            flash('Username already exists.', 'error')
+            error = True
+        elif User.query.filter_by(email=email.lower()).first():
+            flash('Email already registered.', 'error')
+            error = True
+        elif password != confirm_password:
+            flash('Passwords do not match.', 'error')
+            error = True
+        
+        if not error:
+            # Create user
+            user = User(
+                id=str(uuid.uuid4()),
+                username=username,
+                email=email.lower(),
+                created_at=datetime.utcnow()
+            )
+            user.set_password(password)
+            
+            # Save user
+            db.session.add(user)
+            db.session.commit()
+            
+            flash('Registration successful! You can now log in.', 'success')
+            return redirect(url_for('auth.login'))
+    
+    # Simply render the template without a form object
+    return render_template("auth/register.html")
+
+@auth_bp.route("/logout")
+def logout():
+    """Log out the current user."""
+    logout_user()
+    flash('You have been logged out', 'info')
+    return redirect(url_for('home.index'))
+
+@auth_bp.route("/reset-password-request", methods=["GET", "POST"])
+@limiter.limit("5 per minute")
+def reset_password_request():
+    """Request password reset."""
+    if current_user.is_authenticated:
+        return redirect(url_for("home.index"))
+    
+    if request.method == "POST":
+        email = request.form.get("email")
+        user = User.query.filter_by(email=email.lower()).first()
+        
+        if user:
+            # Generate reset token (in a real app, send email)
+            flash('If your email exists in our system, a password reset link has been sent.', 'info')
+            
+        # Don't reveal if user exists    
+        return redirect(url_for('auth.login'))
+    
+    return render_template('auth/reset_password_request.html')
 
 # Monzo OAuth callback
 @auth_bp.route("/callback/monzo", methods=["GET"])
