@@ -364,8 +364,8 @@ class TrueLayerAccount(Account):
                 # it looks like pending charges might take into account credits
                 pending_balance = pending_charges # + pending_payments
 
-                 # lets ensure our balance is rounded up if needed
-                 balance = math.ceil(balance * 100) / 100
+                # lets ensure our balance is rounded up if needed
+                balance = math.ceil(balance * 100) / 100
 
                 adjusted_balance = balance + pending_balance
 
