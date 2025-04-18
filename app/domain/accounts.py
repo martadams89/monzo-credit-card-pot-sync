@@ -364,6 +364,9 @@ class TrueLayerAccount(Account):
                 # it looks like pending charges might take into account credits
                 pending_balance = pending_charges # + pending_payments
 
+                 # lets ensure our balance is rounded up if needed
+                 balance = math.ceil(balance * 100) / 100
+
                 adjusted_balance = balance + pending_balance
 
                 log.info(f"Current Balance (Excluding Pending Transactions): £{balance:.2f}")
@@ -394,7 +397,9 @@ class TrueLayerAccount(Account):
                 log.info(f"True Pending Balance: £{net_pending:.2f}")
                 log.info(f"Total Balance: £{adjusted_balance:.2f}")
 
-                balance = balance
+                # balance = balance
+                # lets ensure balances are rounded up
+                balance = math.ceil(balance * 100) / 100
 
             total_balance += balance
 
