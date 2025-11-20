@@ -362,8 +362,15 @@ class TrueLayerAccount(Account):
 
         for card in cards:
             card_id = card["account_id"]
-            balance = self.get_card_balance(card_id)
             provider = card.get("provider", {}).get("display_name")
+
+            # Fetch balance data once for all providers
+            balance_response = r.get(f"{self.auth_provider.api_url}/data/v1/cards/{card_id}/balance", headers=self.get_auth_header())
+            balance_response.raise_for_status()
+            balance_data = balance_response.json()["results"][0]
+            
+            # For most providers, use the 'current' field
+            balance = math.ceil(balance_data.get("current", 0) * 100) / 100
 
             if provider in ["AMEX"]:
                 pending_transactions = self.get_pending_transactions(card_id)
@@ -375,21 +382,17 @@ class TrueLayerAccount(Account):
                 # it looks like pending charges might take into account credits
                 pending_balance = pending_charges # + pending_payments
 
-                # lets ensure our balance is rounded up if needed
-                balance = math.ceil(balance * 100) / 100
-
                 adjusted_balance = balance + pending_balance
 
-                log.info(f"Current Balance (Excluding Pending Transactions): £{balance:.2f}")
-                log.info(f"Pending Charges: £{pending_charges:.2f}")
-                log.info(f"Pending Payments: £{pending_payments:.2f}")
-                log.info(f"Pending Balance: £{pending_balance:.2f}")
-                log.info(f"Total Balance: £{adjusted_balance:.2f}")
-
+                log.info(f"Amex Card - Current Balance (Excluding Pending Transactions): £{balance:.2f}")
+                log.info(f"Amex Card - Pending Charges: £{pending_charges:.2f}")
+                log.info(f"Amex Card - Pending Payments: £{pending_payments:.2f}")
+                log.info(f"Amex Card - Pending Balance: £{pending_balance:.2f}")
+                log.info(f"Amex Card - Total Balance: £{adjusted_balance:.2f}")
                 balance = adjusted_balance
 
             if provider in ["BARCLAYCARD"]:
-                pending_transactions = self.get_pending_transactions(card_id)
+                pending_transactions = self.get_card_balance(card_id)
 
                 # Separate charges and payments/refunds
                 pending_charges = math.ceil(sum(txn for txn in pending_transactions if txn > 0) * 100) / 100
@@ -401,16 +404,31 @@ class TrueLayerAccount(Account):
                 net_pending = math.ceil(sum(pending_transactions) * 100) / 100
                 adjusted_balance = balance + net_pending
 
-                log.info(f"Current Balance (Excluding Pending Transactions): £{balance:.2f}")
-                log.info(f"Pending Charges: £{pending_charges:.2f}")
-                log.info(f"Pending Payments: £{pending_payments:.2f}")
-                log.info(f"Pending Balance: £{pending_balance:.2f}")
-                log.info(f"True Pending Balance: £{net_pending:.2f}")
-                log.info(f"Total Balance: £{adjusted_balance:.2f}")
+                log.info(f"Barclaycard Card - Current Balance (Excluding Pending Transactions): £{balance:.2f}")
+                log.info(f"Barclaycard Card - Pending Charges: £{pending_charges:.2f}")
+                log.info(f"Barclaycard Card - Pending Payments: £{pending_payments:.2f}")
+                log.info(f"Barclaycard Card - Pending Balance: £{pending_balance:.2f}")
+                log.info(f"Barclaycard Card - True Pending Balance: £{net_pending:.2f}")
+                log.info(f"Barclaycard Card - Total Balance: £{adjusted_balance:.2f}")
 
                 # balance = balance
                 # lets ensure balances are rounded up
                 balance = math.ceil(balance * 100) / 100
+
+            if provider in ["HALIFAX"]:
+                # Halifax doesn't provide separate pending transactions
+                # The 'available' field already accounts for pending charges
+                # Balance owed = credit_limit - available
+                credit_limit = balance_data.get("credit_limit", 0)
+                available = balance_data.get("available", 0)
+                balance_owed = credit_limit - available
+                
+                log.info(f"Halifax Card - Credit Limit: £{credit_limit:.2f}")
+                log.info(f"Halifax Card - Available Credit: £{available:.2f}")
+                log.info(f"Halifax Card - Balance Owed: £{balance_owed:.2f}")
+                
+                # Ensure balance is rounded up and set
+                balance = math.ceil(balance_owed * 100) / 100
 
             total_balance += balance
 
