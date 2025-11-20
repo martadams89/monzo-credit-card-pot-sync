@@ -119,7 +119,10 @@ class MonzoAccount(Account):
             f"{self.auth_provider.api_url}/accounts", headers=self.get_auth_header()
         )
         response.raise_for_status()
-        return response.json()["accounts"]
+        accounts = response.json()["accounts"]
+        # Filter out closed accounts
+        open_accounts = [account for account in accounts if not account.get("closed", False)]
+        return open_accounts
 
     def get_authorized_accounts(self) -> list:
         """Return a list of authorized accounts (both personal and joint) with details."""
