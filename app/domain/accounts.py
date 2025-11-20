@@ -126,10 +126,18 @@ class MonzoAccount(Account):
         return self._fetch_accounts()
 
     def get_account_id(self, account_selection="personal") -> str:
-        # Treat any account selection not 'joint' as 'personal'
-        if account_selection != "joint":
+        # Normalize account selection to one of: personal, joint, business
+        if account_selection not in ("personal", "joint", "business"):
             account_selection = "personal"
-        desired_type = "uk_retail_joint" if account_selection == "joint" else "uk_retail"
+        
+        # Map account selection to Monzo API account type
+        type_mapping = {
+            "personal": "uk_retail",
+            "joint": "uk_retail_joint",
+            "business": "uk_business"
+        }
+        desired_type = type_mapping[account_selection]
+        
         accounts = self._fetch_accounts()
         for account in accounts:
             if account["type"] == desired_type:
@@ -148,7 +156,7 @@ class MonzoAccount(Account):
     def get_balance(self, account_selection="personal") -> int:
         """
         Retrieve the balance for the specified account type.
-        :param account_selection: 'personal' for personal account, 'joint' for joint account.
+        :param account_selection: 'personal' for personal account, 'joint' for joint account, 'business' for business account.
         :return: Balance in minor units (e.g., pence for GBP).
         """
         account_id = self.get_account_id(account_selection=account_selection)
@@ -163,7 +171,7 @@ class MonzoAccount(Account):
     def get_pots(self, account_selection="personal") -> list:
         """
         Get pots based on the selected account type.
-        By default, uses the personal account; for joint, pass account_selection="joint".
+        By default, uses the personal account; for joint, pass account_selection="joint"; for business, pass account_selection="business".
         """
         current_account_id = self.get_account_id(account_selection)
         query = parse.urlencode({"current_account_id": current_account_id})
@@ -175,19 +183,19 @@ class MonzoAccount(Account):
         return [p for p in pots if not p["deleted"]]
 
     def get_pot_balance(self, pot_id: str) -> int:
-        # Try personal account first, then fallback to joint account if needed.
-        for account_selection in ("personal", "joint"):
+        # Try personal account first, then joint, then business account if needed.
+        for account_selection in ("personal", "joint", "business"):
             pots = self.get_pots(account_selection)
             pot = next((p for p in pots if p["id"] == pot_id), None)
             if pot is not None:
                 return pot["balance"]
-        raise Exception(f"Pot with id {pot_id} not found in personal or joint pots.")
+        raise Exception(f"Pot with id {pot_id} not found in personal, joint, or business pots.")
 
     def get_account_type(self, pot_id: str) -> str:
         """
-        Retrieve the account type (personal or joint) for the given pot ID.
+        Retrieve the account type (personal, joint, or business) for the given pot ID.
         """
-        for account_selection in ("personal", "joint"):
+        for account_selection in ("personal", "joint", "business"):
             pots = self.get_pots(account_selection)
             # If using the default value, fall back to the first returned pot's id.
             if pot_id == "default_pot" and pots:
@@ -195,11 +203,11 @@ class MonzoAccount(Account):
             for pot in pots:
                 if any(p["id"] == pot_id for p in pots):
                     return account_selection
-        raise Exception(f"Pot with id {pot_id} not found in personal or joint pots.")
+        raise Exception(f"Pot with id {pot_id} not found in personal, joint, or business pots.")
 
     def add_to_pot(self, pot_id: str, amount: int, account_selection="personal") -> None:
         # Normalize account_selection immediately
-        if account_selection not in ("personal", "joint"):
+        if account_selection not in ("personal", "joint", "business"):
             account_selection = "personal"
         
         # Retrieve pot details using normalized account_selection
@@ -230,7 +238,7 @@ class MonzoAccount(Account):
 
     def withdraw_from_pot(self, pot_id: str, amount: int, account_selection="personal") -> None:
         # Normalize account_selection immediately
-        if account_selection not in ("personal", "joint"):
+        if account_selection not in ("personal", "joint", "business"):
             account_selection = "personal"
         
         # Retrieve pot details using normalized account_selection

@@ -29,6 +29,7 @@
                     <select id="account_switcher_{{ account.type|replace(' ', '') }}" class="border rounded p-2 bg-transparent">
                         <option value="personal" {% if account_type == 'personal' or account_type is not defined %}selected{% endif %}>Personal Account</option>
                         <option value="joint" {% if account_type == 'joint' %}selected{% endif %}>Joint Account</option>
+                        <option value="business" {% if account_type == 'business' %}selected{% endif %}>Business Account</option>
                     </select>
                 </div>
 
@@ -85,6 +86,7 @@
             // If no account type is in the URL, redirect to the saved one
             currentUrl.searchParams.set("account", savedAccountType);
             window.location.replace(currentUrl.href); // Use replace to avoid back button issues
+            return; // Stop execution after redirect
         }
 
         // Ensure dropdown selections reflect the saved choice
@@ -99,11 +101,31 @@
             });
         });
 
-        // Restore the active tab
+        // Restore the active tab BEFORE the page is fully visible (reduces flicker)
         if (savedTab) {
             const activeTabButton = document.querySelector(`#${savedTab}-tab`);
-            if (activeTabButton) {
-                activeTabButton.click();
+            const activeTabPanel = document.querySelector(`#${savedTab}`);
+            
+            if (activeTabButton && activeTabPanel) {
+                // Remove hidden class from the target panel and add it to others
+                document.querySelectorAll('[role="tabpanel"]').forEach(function(panel) {
+                    panel.classList.add('hidden');
+                });
+                activeTabPanel.classList.remove('hidden');
+                
+                // Update tab button states
+                document.querySelectorAll('[role="tab"]').forEach(function(button) {
+                    button.setAttribute('aria-selected', 'false');
+                    button.classList.remove('border-blue-600', 'text-blue-600', 'dark:text-blue-500', 'dark:border-blue-500');
+                });
+                activeTabButton.setAttribute('aria-selected', 'true');
+                activeTabButton.classList.add('border-blue-600', 'text-blue-600', 'dark:text-blue-500', 'dark:border-blue-500');
+            }
+        } else {
+            // If no saved tab, activate the first tab
+            const firstButton = document.querySelector('[role="tab"]');
+            if (firstButton) {
+                firstButton.click();
             }
         }
 
@@ -111,7 +133,20 @@
         const tabButtons = document.querySelectorAll("[data-tabs-target]");
         tabButtons.forEach(function(button) {
             button.addEventListener("click", function() {
-                localStorage.setItem(tabStorageKey, this.getAttribute("data-tabs-target").substring(1));
+                const targetId = this.getAttribute("data-tabs-target").substring(1);
+                localStorage.setItem(tabStorageKey, targetId);
+            });
+        });
+
+        // Save the active tab when a form is submitted (when setting a pot)
+        const forms = document.querySelectorAll('form[action*="set_designated_pot"]');
+        forms.forEach(function(form) {
+            form.addEventListener("submit", function() {
+                // Find the currently active tab
+                const activeTab = document.querySelector('[role="tabpanel"]:not(.hidden)');
+                if (activeTab) {
+                    localStorage.setItem(tabStorageKey, activeTab.id);
+                }
             });
         });
     });

@@ -4,14 +4,14 @@
 ![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/mattgogerly/monzo-credit-card-pot-sync/build.yml?branch=main)
 ![Coveralls](https://img.shields.io/coverallsCoverage/github/mattgogerly/monzo-credit-card-pot-sync?branch=main)
 
-This project provides a robust system to keep your Monzo pot in sync with your credit card spending. It allows you to spend on your credit cards day-to-day while ensuring there are always enough funds in your Monzo pot to pay off bills. The system supports multiple credit card providers and seamlessly manages both personal and joint Monzo accounts.
+This project provides a robust system to keep your Monzo pot in sync with your credit card spending. It allows you to spend on your credit cards day-to-day while ensuring there are always enough funds in your Monzo pot to pay off bills. The system supports multiple credit card providers and seamlessly manages personal, joint, and business Monzo accounts.
 
 ## Features
 
 - **Automatic Fund Management:** Automatically deposits to or withdraws from your selected Monzo pot to match your credit card spending.
 - **Flexible Pot Selection:** Easily choose and switch the designated Monzo pot that stays in sync.
 - **Multiple Provider Support:** Connect various credit cards. Providers such as American Express and Barclaycard now include pending transaction calculations.
-- **Joint Account Support:** Sync funds across both personal and joint Monzo accounts.
+- **Multi-Account Support:** Sync funds across personal, joint, and business Monzo accounts.
 - **Cooldown & Override Logic:**  
   - **Normal Operations:**  
     - When you spend on a card, the pot is increased to match the new card balance.

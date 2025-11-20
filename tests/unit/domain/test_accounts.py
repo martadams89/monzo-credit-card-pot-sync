@@ -74,6 +74,27 @@ def test_monzo_account_get_pots_joint_account(requests_mock):
     assert pots == [{"id": "1", "deleted": False}]
 
 
+def test_monzo_account_get_business_account_id(requests_mock):
+    response = {"accounts": [{"id": "business_acc_123", "type": "uk_business", "currency": "GBP"}]}
+    requests_mock.get("https://api.monzo.com/accounts", status_code=200, json=response)
+    account = MonzoAccount("access_token", "refresh_token", int(time()) + 1000)
+    assert account.get_account_id("business") == "business_acc_123"
+
+
+def test_monzo_account_get_pots_business_account(requests_mock):
+    # Test for business accounts with uk_business type
+    account_response = {"accounts": [{"id": "business_456", "type": "uk_business", "currency": "GBP"}]}
+    requests_mock.get("https://api.monzo.com/accounts", status_code=200, json=account_response)
+
+    pot_response = {"pots": [{"id": "biz_pot_1", "deleted": False}]}
+    req_url = f"https://api.monzo.com/pots?{parse.urlencode({'current_account_id': 'business_456'})}"
+    requests_mock.get(req_url, status_code=200, json=pot_response)
+
+    account = MonzoAccount("access_token", "refresh_token", int(time()) + 1000, "pot", account_id="business_456")
+    pots = account.get_pots("business")
+    assert pots == [{"id": "biz_pot_1", "deleted": False}]
+
+
 def test_monzo_account_get_pots(requests_mock):
     account_response = {"accounts": [{"id": "id", "type": "uk_retail", "currency": "GBP"}]}
     requests_mock.get("https://api.monzo.com/accounts", status_code=200, json=account_response)
