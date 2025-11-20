@@ -1,6 +1,12 @@
 {% extends 'base.html' %}
 
 {% block content %}
+<style>
+    /* Prevent flash of wrong tab on page load */
+    #tab-content[data-loading="true"] [role="tabpanel"] {
+        display: none !important;
+    }
+</style>
 <section class="flex-col w-full text-center">
     {% if accounts|length == 0 %}
         <p>Add a credit card to choose which pot to sync with</p>
@@ -16,7 +22,7 @@
         {% endfor %}
     </ul>
 
-    <div id="tab-content">
+    <div id="tab-content" data-loading="true">
         {% for account in accounts %}
             <div class="hidden" id="{{ account.type|replace(' ', '') }}" role="tabpanel" aria-labelledby="{{ account.type|replace(' ', '') }}-tab">
                 {% if account.description %}
@@ -71,12 +77,31 @@
 </section>
 
 <script>
+    // Run this IMMEDIATELY, before DOMContentLoaded, to prevent any flicker
+    (function() {
+        const tabStorageKey = "activeTab";
+        const savedTab = localStorage.getItem(tabStorageKey);
+        
+        if (savedTab) {
+            // Add inline style to head to hide all tabs initially
+            const style = document.createElement('style');
+            style.textContent = '#tab-content [role="tabpanel"] { display: none !important; } #tab-content [role="tabpanel"]#' + savedTab + ' { display: block !important; }';
+            document.head.appendChild(style);
+            
+            // Remove the style after a brief moment to allow normal JS to take over
+            setTimeout(function() {
+                style.remove();
+            }, 100);
+        }
+    })();
+
     document.addEventListener("DOMContentLoaded", function() {
         const defaultAccount = "personal";  // Default to "personal" if nothing is saved
         const storageKey = "selectedAccount_global"; // Use a consistent key for global selection
         const tabStorageKey = "activeTab"; // Key for storing the active tab
         let savedAccountType = localStorage.getItem(storageKey) || defaultAccount;
         let savedTab = localStorage.getItem(tabStorageKey);
+        const tabContent = document.getElementById('tab-content');
 
         // Check if the URL already has the account parameter
         let currentUrl = new URL(window.location.href);
@@ -101,7 +126,7 @@
             });
         });
 
-        // Restore the active tab BEFORE the page is fully visible (reduces flicker)
+        // Restore the active tab
         if (savedTab) {
             const activeTabButton = document.querySelector(`#${savedTab}-tab`);
             const activeTabPanel = document.querySelector(`#${savedTab}`);
@@ -127,6 +152,11 @@
             if (firstButton) {
                 firstButton.click();
             }
+        }
+
+        // Remove the loading state to allow normal rendering
+        if (tabContent) {
+            tabContent.removeAttribute('data-loading');
         }
 
         // Save the active tab when a tab is clicked
