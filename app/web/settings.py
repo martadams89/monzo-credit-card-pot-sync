@@ -47,7 +47,7 @@ def save():
                     scheduler.modify_job(id="sync_balance", trigger="interval", seconds=int(val))
 
         flash("Settings saved")
-    except Exception as e:  # noqa: BLE001 - route handler must not surface raw errors to the user
+    except Exception as e:
         log.error("Failed to save settings", exc_info=e)
         flash("Error saving settings", "error")
 
