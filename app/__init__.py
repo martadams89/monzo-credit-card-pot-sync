@@ -1,6 +1,9 @@
 import logging
+
 from flask import Flask
+
 from app.config import Config
+
 
 def create_app(test_config=None):
     logging.basicConfig(level=logging.INFO)
@@ -13,7 +16,9 @@ def create_app(test_config=None):
 
     from .core import sync_balance
     from .extensions import db, scheduler
-    from .models.setting_repository import SqlAlchemySettingRepository  # Removed unused imports
+    from .models.setting_repository import (
+        SqlAlchemySettingRepository,  # Removed unused imports
+    )
 
     db.init_app(app)
     # Create tables (if migrations are not yet set up)

@@ -1,5 +1,6 @@
 import logging
 import time
+
 from flask import Blueprint, flash, redirect, render_template, request, url_for
 from sqlalchemy.exc import NoResultFound
 

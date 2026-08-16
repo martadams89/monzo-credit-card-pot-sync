@@ -197,5 +197,6 @@ provider_mapping: dict[AuthProviderType, AuthProvider] = {
     AuthProviderType.AMEX: AmericanExpressAuthProvider(),
     AuthProviderType.BARCLAYCARD: BarclaycardAuthProvider(),
     AuthProviderType.HALIFAX: HalifaxAuthProvider(),
+    AuthProviderType.LLOYDS: LloydsAuthProvider(),
     AuthProviderType.NATWEST: NatWestAuthProvider(),
 }

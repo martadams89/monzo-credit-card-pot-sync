@@ -1,5 +1,7 @@
-from app.extensions import db
 from sqlalchemy import Column, Integer, String
+
+from app.extensions import db
+
 
 class AccountModel(db.Model):
     id = Column(Integer, primary_key=True)

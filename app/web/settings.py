@@ -1,9 +1,11 @@
 import logging
+
 from flask import Blueprint, flash, redirect, render_template, request, url_for
+
 from app.domain.settings import Setting
 from app.extensions import db, scheduler
-from app.models.setting_repository import SqlAlchemySettingRepository
 from app.models.account_repository import SqlAlchemyAccountRepository
+from app.models.setting_repository import SqlAlchemySettingRepository
 
 settings_bp = Blueprint("settings", __name__)
 
@@ -45,7 +47,7 @@ def save():
                     scheduler.modify_job(id="sync_balance", trigger="interval", seconds=int(val))
 
         flash("Settings saved")
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - route handler must not surface raw errors to the user
         log.error("Failed to save settings", exc_info=e)
         flash("Error saving settings", "error")
 

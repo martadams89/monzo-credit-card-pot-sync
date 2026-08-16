@@ -1,5 +1,7 @@
-from flask import url_for
 from urllib.parse import urlparse
+
+from flask import url_for
+
 
 def test_settings_get(test_client, seed_data):
     response = test_client.get("/settings/")
@@ -78,7 +80,7 @@ def test_settings_save_error(test_client, monkeypatch):
     def side_effect():
         if not hasattr(side_effect, "called"):
             side_effect.called = True
-            raise Exception("Forced error")
+            raise RuntimeError("Forced error")
         else:
             # Return dummy settings for subsequent calls (e.g. in the index view)
             return [

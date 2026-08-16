@@ -49,14 +49,14 @@ def test_client():
     }
     flask_app = create_app(test_config)
 
-    with flask_app.test_client() as testing_client:
-        with flask_app.app_context():
-            yield testing_client
+    with flask_app.test_client() as testing_client, flask_app.app_context():
+        yield testing_client
 
 
 @pytest.fixture(scope="function")
 def seed_data():
     from time import time
+
     from app.domain.accounts import MonzoAccount
     # Update seed data with pot_id provided
     monzo_account = MonzoAccount("access_token", "refresh_token", int(time()) + 1000, pot_id="default_pot")

@@ -26,13 +26,11 @@ def index():
 @accounts_bp.route("/add", methods=["GET"])
 def add_account():
     monzo_provider = provider_mapping[AuthProviderType.MONZO]
-    credit_providers = dict(
-        [
-            (i, provider_mapping[i])
-            for i in provider_mapping
-            if i is not AuthProviderType.MONZO
-        ]
-    )
+    credit_providers = {
+        i: provider_mapping[i]
+        for i in provider_mapping
+        if i is not AuthProviderType.MONZO
+    }
     return render_template(
         "accounts/add.html",
         monzo_provider=monzo_provider,

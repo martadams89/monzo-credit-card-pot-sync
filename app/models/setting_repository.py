@@ -1,6 +1,8 @@
 from flask_sqlalchemy import SQLAlchemy
+
 from app.domain.settings import Setting
 from app.models.setting import SettingModel
+
 
 class SqlAlchemySettingRepository:
     def __init__(self, db: SQLAlchemy) -> None:

@@ -1,5 +1,6 @@
 from app.domain.settings import Setting
 
+
 def test_new_setting():
     setting = Setting("key", "value")
     assert setting.key == "key"

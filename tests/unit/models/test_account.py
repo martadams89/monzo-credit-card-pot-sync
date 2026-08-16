@@ -1,5 +1,6 @@
 from app.models.account import AccountModel
 
+
 def test_account_model_creation():
     account = AccountModel(
         type="test_type",

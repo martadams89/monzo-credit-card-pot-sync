@@ -1,5 +1,7 @@
-import pytest
 from urllib.parse import urlparse
+
+import pytest
+
 
 def test_monzo_oauth_callback(test_client, requests_mock):
     requests_mock.post(

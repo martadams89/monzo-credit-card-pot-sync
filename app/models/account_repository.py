@@ -117,7 +117,7 @@ class SqlAlchemyAccountRepository:
         self._session.commit()
 
     def update_credit_account_fields(self, account_type: str, pot_id: str, 
-                                     new_balance: int, cooldown_until: int = None) -> Account:
+                                     new_balance: int, cooldown_until: int | None = None) -> Account:
         record: AccountModel = self._session.query(AccountModel).filter_by(type=account_type).one()
         record.prev_balance = new_balance
         record.cooldown_until = cooldown_until

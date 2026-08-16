@@ -1,11 +1,12 @@
+import datetime  # Needed for human-readable time conversions
 import logging
 import math
-import datetime  # Needed for human-readable time conversions
 from time import time
 from urllib import parse
 
 import requests as r
-from app.errors import AuthException
+
+from app.errors import AuthException, PotNotFoundError, PotTransferError
 
 log = logging.getLogger("account")
 
@@ -58,16 +59,18 @@ class Account:
             self.access_token = tokens["access_token"]
             self.refresh_token = tokens["refresh_token"]
             self.token_expiry = int(time()) + tokens["expires_in"]
-            token_expiry_hr = datetime.datetime.fromtimestamp(self.token_expiry).strftime("%Y-%m-%d %H:%M:%S")
+            token_expiry_hr = datetime.datetime.fromtimestamp(
+                self.token_expiry, tz=datetime.timezone.utc
+            ).strftime("%Y-%m-%d %H:%M:%S")
             log.info(f"Successfully refreshed {self.type} access token, new expiry time is {token_expiry_hr}")
     
         except KeyError as e:
-            log.error(f"KeyError while refreshing {self.type} token: {str(e)} - Response: {sanitized_tokens}")
+            log.error(f"KeyError while refreshing {self.type} token: {e!s} - Response: {sanitized_tokens}")
             raise AuthException("Unexpected token response format") from e
     
-        except AuthException as e:
+        except AuthException:
             log.error(f"Failed to refresh access token for {self.type}")
-            raise e
+            raise
 
     def get_auth_header(self):
         return {"Authorization": f"Bearer {self.access_token}"}
@@ -91,7 +94,7 @@ class Account:
         # Retrieve the persisted previous balance; fallback to 0 if not stored.
         try:
             return int(self.prev_balance) if self.prev_balance is not None else 0
-        except Exception:
+        except (TypeError, ValueError):
             return 0
 
 class MonzoAccount(Account):
@@ -192,7 +195,7 @@ class MonzoAccount(Account):
             pot = next((p for p in pots if p["id"] == pot_id), None)
             if pot is not None:
                 return pot["balance"]
-        raise Exception(f"Pot with id {pot_id} not found in personal, joint, or business pots.")
+        raise PotNotFoundError(f"Pot with id {pot_id} not found in personal, joint, or business pots.")
 
     def get_account_type(self, pot_id: str) -> str:
         """
@@ -206,7 +209,7 @@ class MonzoAccount(Account):
             for pot in pots:
                 if any(p["id"] == pot_id for p in pots):
                     return account_selection
-        raise Exception(f"Pot with id {pot_id} not found in personal, joint, or business pots.")
+        raise PotNotFoundError(f"Pot with id {pot_id} not found in personal, joint, or business pots.")
 
     def add_to_pot(self, pot_id: str, amount: int, account_selection="personal") -> None:
         # Normalize account_selection immediately
@@ -217,13 +220,13 @@ class MonzoAccount(Account):
         pots = self.get_pots(account_selection)
         pot = next((p for p in pots if p["id"] == pot_id), None)
         if not pot:
-            raise Exception(f"Pot with id {pot_id} not found in {account_selection} pots")
+            raise PotNotFoundError(f"Pot with id {pot_id} not found in {account_selection} pots")
             
         # Re-fetch pot list for extra safety
         pots = self.get_pots(account_selection=account_selection)
         pot = next((p for p in pots if p["id"] == pot_id), None)
         if pot is None:
-            raise Exception(f"Pot with id {pot_id} not found in {account_selection} pots")
+            raise PotNotFoundError(f"Pot with id {pot_id} not found in {account_selection} pots")
     
         data = {
             "source_account_id": self.get_account_id(account_selection=account_selection),
@@ -237,7 +240,7 @@ class MonzoAccount(Account):
         )
         if response.status_code != 200:
             log.error(f"Failed to deposit to pot: {response.json()}")
-            raise Exception(f"Deposit failed: {response.json()}")
+            raise PotTransferError(f"Deposit failed: {response.json()}")
 
     def withdraw_from_pot(self, pot_id: str, amount: int, account_selection="personal") -> None:
         # Normalize account_selection immediately
@@ -248,13 +251,13 @@ class MonzoAccount(Account):
         pots = self.get_pots(account_selection)
         pot = next((p for p in pots if p["id"] == pot_id), None)
         if not pot:
-            raise Exception(f"Pot with id {pot_id} not found in {account_selection} pots")
+            raise PotNotFoundError(f"Pot with id {pot_id} not found in {account_selection} pots")
         
         # Re-fetch pot list for extra safety
         pots = self.get_pots(account_selection=account_selection)
         pot = next((p for p in pots if p["id"] == pot_id), None)
         if pot is None:
-            raise Exception(f"Pot with id {pot_id} not found in {account_selection} pots")
+            raise PotNotFoundError(f"Pot with id {pot_id} not found in {account_selection} pots")
     
         data = {
             "destination_account_id": self.get_account_id(account_selection=account_selection),
@@ -268,7 +271,7 @@ class MonzoAccount(Account):
         )
         if response.status_code != 200:
             log.error(f"Failed to withdraw from pot: {response.json()}")
-            raise Exception(f"Withdrawal failed: {response.json()}")
+            raise PotTransferError(f"Withdrawal failed: {response.json()}")
 
     def send_notification(self, title: str, message: str, account_selection="personal") -> None:
         body = {

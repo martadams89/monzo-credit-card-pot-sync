@@ -34,17 +34,18 @@ SECTION 7: UPDATE BASELINE PERSISTENCE
       update the persisted baseline with the current card balance.
 """
 
-import logging
-from sqlalchemy.exc import NoResultFound
-from time import time
 import datetime  # Needed for human-readable time conversions
+import logging
+from time import time
+
+from sqlalchemy.exc import NoResultFound, SQLAlchemyError
 
 from app.domain.accounts import MonzoAccount, TrueLayerAccount
+from app.domain.settings import Setting
 from app.errors import AuthException
 from app.extensions import db, scheduler
 from app.models.account_repository import SqlAlchemyAccountRepository
 from app.models.setting_repository import SqlAlchemySettingRepository
-from app.domain.settings import Setting
 
 log = logging.getLogger("core")
 account_repository = SqlAlchemyAccountRepository(db)
@@ -305,7 +306,9 @@ def sync_balance():
                 f"Stable Pot Balance = £{stable_pot / 100:.2f}."
             )
             if credit_account.cooldown_until:
-                hr_cooldown = datetime.datetime.fromtimestamp(credit_account.cooldown_until).strftime("%Y-%m-%d %H:%M:%S")
+                hr_cooldown = datetime.datetime.fromtimestamp(
+                    credit_account.cooldown_until, tz=datetime.timezone.utc
+                ).strftime("%Y-%m-%d %H:%M:%S")
                 if int(time()) < credit_account.cooldown_until:
                     log.info(f"Cooldown active until {hr_cooldown} (epoch: {credit_account.cooldown_until}).")
                 else:
@@ -315,7 +318,9 @@ def sync_balance():
 
             # Log debug information before the cooldown check
             if credit_account.cooldown_until is not None:
-                hr_cooldown = datetime.datetime.fromtimestamp(credit_account.cooldown_until).strftime("%Y-%m-%d %H:%M:%S")
+                hr_cooldown = datetime.datetime.fromtimestamp(
+                    credit_account.cooldown_until, tz=datetime.timezone.utc
+                ).strftime("%Y-%m-%d %H:%M:%S")
                 log.debug(
                     f"Before adjustment: credit_account.prev_balance={credit_account.prev_balance}, "
                     f"live_card_balance={live_card_balance}, current_pot={current_pot}, "
@@ -436,11 +441,13 @@ def sync_balance():
                             log.info("Situation: Pot dropped below card balance without confirmed spending.")
                             try:
                                 cooldown_hours = int(settings_repository.get("deposit_cooldown_hours"))
-                            except Exception:
+                            except (NoResultFound, TypeError, ValueError):
                                 cooldown_hours = 3
                             new_cooldown = int(time()) + cooldown_hours * 3600
                             credit_account.cooldown_until = new_cooldown
-                            hr_cooldown = datetime.datetime.fromtimestamp(new_cooldown).strftime("%Y-%m-%d %H:%M:%S")
+                            hr_cooldown = datetime.datetime.fromtimestamp(
+                                new_cooldown, tz=datetime.timezone.utc
+                            ).strftime("%Y-%m-%d %H:%M:%S")
                             log.info(
                                 f"[Standard] {credit_account.type}: Initiating cooldown because pot (£{current_pot / 100:.2f}) is less than card (£{live_card_balance / 100:.2f}). "
                                 f"Cooldown set until {hr_cooldown} (epoch: {new_cooldown})."
@@ -453,7 +460,7 @@ def sync_balance():
                                     log.error(f"[Standard] {credit_account.type}: Cooldown persistence error: expected {new_cooldown}, got {refreshed.cooldown_until}.")
                                 else:
                                     log.info(f"[Standard] {credit_account.type}: Cooldown persisted successfully.")
-                            except Exception as e:
+                            except SQLAlchemyError as e:
                                 db.session.rollback()
                                 log.error(f"[Standard] {credit_account.type}: Error committing cooldown to database: {e}")
 

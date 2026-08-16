@@ -1,9 +1,11 @@
-import pytest
 from time import time
 from urllib import parse
+
+import pytest
 from flask import Flask
-from app.extensions import db
+
 from app.domain.accounts import MonzoAccount, TrueLayerAccount
+from app.extensions import db
 
 app = Flask(__name__)
 # Adjust test configuration so that URL building and SQLAlchemy work properly.
