@@ -320,6 +320,8 @@ class TrueLayerAccount(Account):
             icon = "barclaycard.svg"
         elif account_type.lower() == "halifax":
             icon = "halifax.svg"
+        elif account_type.lower() == "lloyds":
+            icon = "lloyds.svg"
         elif account_type.lower() == "natwest":
             icon = "natwest.svg"
         else:
@@ -429,6 +431,30 @@ class TrueLayerAccount(Account):
                 
                 # Ensure balance is rounded up and set
                 balance = math.ceil(balance_owed * 100) / 100
+
+            if provider in ["LLOYDS"]:
+                pending_transactions = self.get_pending_transactions(card_id)
+
+                # Separate charges and payments/refunds
+                pending_charges = math.ceil(sum(txn for txn in pending_transactions if txn > 0) * 100) / 100
+                pending_payments = math.ceil(sum(txn for txn in pending_transactions if txn < 0) * 100) / 100
+
+                # it looks like pending charges might take into account credits
+                pending_balance = pending_charges # + pending_payments
+
+                net_pending = math.ceil(sum(pending_transactions) * 100) / 100
+                adjusted_balance = balance + net_pending
+
+                log.info(f"Lloyds Card - Current Balance (Excluding Pending Transactions): £{balance:.2f}")
+                log.info(f"Lloyds Card - Pending Charges: £{pending_charges:.2f}")
+                log.info(f"Lloyds Card - Pending Payments: £{pending_payments:.2f}")
+                log.info(f"Lloyds Card - Pending Balance: £{pending_balance:.2f}")
+                log.info(f"Lloyds Card - True Pending Balance: £{net_pending:.2f}")
+                log.info(f"Lloyds Card - Total Balance: £{adjusted_balance:.2f}")
+
+                # balance = balance
+                # lets ensure balances are rounded up
+                balance = math.ceil(balance * 100) / 100
 
             total_balance += balance
 
