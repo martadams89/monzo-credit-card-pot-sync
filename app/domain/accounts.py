@@ -445,19 +445,14 @@ class TrueLayerAccount(Account):
                 # it looks like pending charges might take into account credits
                 pending_balance = pending_charges # + pending_payments
 
-                net_pending = math.ceil(sum(pending_transactions) * 100) / 100
-                adjusted_balance = balance + net_pending
+                adjusted_balance = balance + pending_balance
 
                 log.info(f"Lloyds Card - Current Balance (Excluding Pending Transactions): £{balance:.2f}")
                 log.info(f"Lloyds Card - Pending Charges: £{pending_charges:.2f}")
                 log.info(f"Lloyds Card - Pending Payments: £{pending_payments:.2f}")
                 log.info(f"Lloyds Card - Pending Balance: £{pending_balance:.2f}")
-                log.info(f"Lloyds Card - True Pending Balance: £{net_pending:.2f}")
                 log.info(f"Lloyds Card - Total Balance: £{adjusted_balance:.2f}")
-
-                # balance = balance
-                # lets ensure balances are rounded up
-                balance = math.ceil(balance * 100) / 100
+                balance = adjusted_balance
 
             total_balance += balance
 
