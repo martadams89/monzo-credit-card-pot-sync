@@ -4,6 +4,7 @@ from app.models.account import AccountModel
 def test_account_model_creation():
     account = AccountModel(
         type="test_type",
+        provider="test_provider",
         access_token="test_access_token",
         refresh_token="test_refresh_token",
         token_expiry=1234567890,
@@ -12,6 +13,7 @@ def test_account_model_creation():
     # Without a joint account ID, the default should be None
     assert account.account_id is None
     assert account.type == "test_type"
+    assert account.provider == "test_provider"
     assert account.access_token == "test_access_token"
     assert account.refresh_token == "test_refresh_token"
     assert account.token_expiry == 1234567890

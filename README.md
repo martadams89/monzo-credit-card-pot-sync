@@ -11,6 +11,7 @@ This project provides a robust system to keep your Monzo pot in sync with your c
 - **Automatic Fund Management:** Automatically deposits to or withdraws from your selected Monzo pot to match your credit card spending.
 - **Flexible Pot Selection:** Easily choose and switch the designated Monzo pot that stays in sync.
 - **Multiple Provider Support:** Connect various credit cards. Providers such as American Express and Barclaycard now include pending transaction calculations.
+- **Multiple Connections per Provider:** Connect two or more independently authorised cards from the same provider, with a separate Monzo pot mapping for each connection.
 - **Multi-Account Support:** Sync funds across personal, joint, and business Monzo accounts.
 - **Cooldown & Override Logic:**  
   - **Normal Operations:**  
@@ -30,7 +31,7 @@ For cards like American Express and Barclaycard, pending transactions are now ta
 
 ## Upgrade Notice
 
-**Important:** If you are upgrading from a previous version, you will need to recreate your database, relink your accounts, and remap your pots again due to new fields being added.
+Existing databases are upgraded automatically. Connected accounts, tokens, pot mappings, cooldowns, and balance history are retained.
 
 ## Installation
 

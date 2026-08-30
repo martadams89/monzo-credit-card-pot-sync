@@ -24,9 +24,11 @@ class Account:
         prev_balance=0,
         cooldown_ref_card_balance=None,
         cooldown_ref_pot_balance=None,
-        stable_pot_balance=None
+        stable_pot_balance=None,
+        provider_type=None,
     ):
         self.type = type
+        self.provider_type = provider_type or type
         self.access_token = access_token
         self.refresh_token = refresh_token
         self.token_expiry = token_expiry
@@ -301,7 +303,8 @@ class TrueLayerAccount(Account):
         stable_pot_balance=None,
         cooldown_ref_card_balance=None,
         cooldown_ref_pot_balance=None,
-        cooldown_until=None  # Add the cooldown_until parameter
+        cooldown_until=None,
+        provider_type=None,
     ):
         super().__init__(
             account_type,
@@ -314,18 +317,21 @@ class TrueLayerAccount(Account):
             prev_balance=prev_balance,
             stable_pot_balance=stable_pot_balance,
             cooldown_ref_card_balance=cooldown_ref_card_balance,
-            cooldown_ref_pot_balance=cooldown_ref_pot_balance
+            cooldown_ref_pot_balance=cooldown_ref_pot_balance,
+            provider_type=provider_type,
         )
         from app.domain.auth_providers import TrueLayerAuthProvider
-        if account_type.lower() == "american express":
+
+        provider_name = self.provider_type.lower()
+        if provider_name == "american express":
             icon = "amex.svg"
-        elif account_type.lower() == "barclaycard":
+        elif provider_name == "barclaycard":
             icon = "barclaycard.svg"
-        elif account_type.lower() == "halifax":
+        elif provider_name == "halifax":
             icon = "halifax.svg"
-        elif account_type.lower() == "lloyds":
+        elif provider_name == "lloyds":
             icon = "lloyds.svg"
-        elif account_type.lower() == "natwest":
+        elif provider_name == "natwest":
             icon = "natwest.svg"
         else:
             icon = "truelayer.svg"
