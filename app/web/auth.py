@@ -35,17 +35,19 @@ def monzo_callback():
 
 @auth_bp.route("/callback/truelayer", methods=["GET"])
 def truelayer_callback():
-    provider_type = request.args.get("state").split("-")[0]
+    provider_type = request.args.get("state", "").rsplit("-", 1)[0]
     provider = provider_mapping[AuthProviderType(provider_type)]
 
     code = request.args.get("code")
     tokens = provider.handle_oauth_code_callback(code)
+    account_name = account_repository.get_next_account_name(provider.name)
     account = TrueLayerAccount(
-        provider.name,
+        account_name,
         tokens["access_token"],
         tokens["refresh_token"],
         int(time()) + tokens["expires_in"],
-        pot_id="default_pot"  # Provide a default pot ID
+        pot_id="default_pot",
+        provider_type=provider.name,
     )
     account_repository.save(account)
 

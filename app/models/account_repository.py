@@ -1,5 +1,5 @@
 from flask_sqlalchemy import SQLAlchemy
-from sqlalchemy import not_
+from sqlalchemy import and_, or_
 from sqlalchemy.exc import NoResultFound
 
 from app.domain.accounts import Account, MonzoAccount, TrueLayerAccount
@@ -13,6 +13,7 @@ class SqlAlchemyAccountRepository:
     def _to_model(self, account: Account) -> AccountModel:
         return AccountModel(
             type=account.type,
+            provider=account.provider_type,
             access_token=account.access_token,
             refresh_token=account.refresh_token,
             token_expiry=account.token_expiry,
@@ -28,6 +29,7 @@ class SqlAlchemyAccountRepository:
     def _to_domain(self, model: AccountModel) -> Account:
         return Account(
             type=model.type,
+            provider_type=model.provider or model.type,
             access_token=model.access_token,
             refresh_token=model.refresh_token,
             token_expiry=model.token_expiry,
@@ -41,7 +43,9 @@ class SqlAlchemyAccountRepository:
         )
 
     def get_all(self) -> list[Account]:
-        results: list[AccountModel] = self._session.query(AccountModel).all()
+        results: list[AccountModel] = (
+            self._session.query(AccountModel).order_by(AccountModel.id).all()
+        )
         return list(map(self._to_domain, results))
 
     def get_monzo_account(self) -> MonzoAccount:
@@ -61,7 +65,8 @@ class SqlAlchemyAccountRepository:
     def get_credit_accounts(self) -> list[TrueLayerAccount]:
         results: list[AccountModel] = (
             self._session.query(AccountModel)
-            .filter(not_(AccountModel.type.contains("Monzo")))
+            .filter(AccountModel.type != "Monzo")
+            .order_by(AccountModel.id)
             .all()
         )
         accounts = list(map(self._to_domain, results))
@@ -72,11 +77,43 @@ class SqlAlchemyAccountRepository:
                 a.refresh_token,
                 a.token_expiry,
                 a.pot_id,
+                account_id=a.account_id,
                 prev_balance=a.prev_balance,
-                stable_pot_balance=a.stable_pot_balance
+                stable_pot_balance=a.stable_pot_balance,
+                cooldown_ref_card_balance=a.cooldown_ref_card_balance,
+                cooldown_ref_pot_balance=a.cooldown_ref_pot_balance,
+                cooldown_until=a.cooldown_until,
+                provider_type=a.provider_type,
             )
             for a in accounts
         ]
+
+    def get_next_account_name(self, provider_type: str) -> str:
+        """Return a stable, unique label for a new provider connection."""
+        results = (
+            self._session.query(AccountModel.type)
+            .filter(
+                or_(
+                    AccountModel.provider == provider_type,
+                    and_(
+                        AccountModel.provider.is_(None),
+                        AccountModel.type.startswith(provider_type),
+                    ),
+                )
+            )
+            .all()
+        )
+        names = {result[0] for result in results}
+        if provider_type not in names:
+            return provider_type
+
+        suffixes = [1]
+        prefix = f"{provider_type} "
+        for name in names:
+            if name.startswith(prefix) and name.removeprefix(prefix).isdigit():
+                suffixes.append(int(name.removeprefix(prefix)))
+
+        return f"{provider_type} {max(suffixes) + 1}"
 
     def get(self, type: str) -> Account:
         result: AccountModel = (
@@ -92,6 +129,7 @@ class SqlAlchemyAccountRepository:
         existing = self._session.query(AccountModel).filter_by(type=account.type).one_or_none()
         if existing:
             # Update existing record
+            existing.provider = account.provider_type
             existing.access_token = account.access_token
             existing.refresh_token = account.refresh_token
             existing.token_expiry = account.token_expiry

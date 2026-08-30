@@ -21,9 +21,10 @@ def create_app(test_config=None):
     )
 
     db.init_app(app)
-    # Create tables (if migrations are not yet set up)
     with app.app_context():
-        db.create_all()
+        from .models.migrations import migrate_database
+
+        migrate_database(db)
 
     from .web.accounts import accounts_bp
     from .web.auth import auth_bp

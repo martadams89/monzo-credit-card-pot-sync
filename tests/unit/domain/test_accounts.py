@@ -28,10 +28,26 @@ def test_new_monzo_account():
 def test_new_truelayer_account():
     account = TrueLayerAccount("American Express", "access_token", "refresh_token", 1000, "pot")
     assert account.type == "American Express"
+    assert account.provider_type == "American Express"
     assert account.access_token == "access_token"
     assert account.refresh_token == "refresh_token"
     assert account.token_expiry == 1000
     assert account.pot_id == "pot"
+
+
+def test_truelayer_account_uses_provider_icon_for_numbered_connection():
+    account = TrueLayerAccount(
+        "American Express 2",
+        "access_token",
+        "refresh_token",
+        1000,
+        "pot",
+        provider_type="American Express",
+    )
+
+    assert account.type == "American Express 2"
+    assert account.provider_type == "American Express"
+    assert account.auth_provider.icon_name == "amex.svg"
 
 def test_is_token_within_expiry_window_true():
     account = TrueLayerAccount("American Express", "access_token", "refresh_token", time() + 1)
