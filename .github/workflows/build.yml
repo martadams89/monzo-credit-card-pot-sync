@@ -45,7 +45,7 @@ jobs:
           run: python -m pytest . --cov=app
 
         - name: Coveralls GitHub Action
-          uses: coverallsapp/github-action@v2.3.4
+          uses: coverallsapp/github-action@v2.3.8
 
         - name: Log in to GHCR
           uses: docker/login-action@v3.3.0
