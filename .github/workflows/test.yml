@@ -45,7 +45,7 @@ jobs:
         run: python -m pytest . --cov=app
 
       - name: Upload Coverage Report
-        uses: coverallsapp/github-action@v2.3.4
+        uses: coverallsapp/github-action@v2.3.8
       
       - name: set lower case repo name
         run: |
