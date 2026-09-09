@@ -1,18 +1,1 @@
-{
-  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "extends": [
-    "config:recommended",
-    ":dependencyDashboard",
-    ":semanticCommits"
-  ],
-  "labels": ["dependencies"],
-  "prHourlyLimit": 3,
-  "lockFileMaintenance": {
-    "enabled": true,
-    "automerge": true
-  },
-  "vulnerabilityAlerts": {
-    "labels": ["security"],
-    "automerge": true
-  }
-}
+ewogICIkc2NoZW1hIjogImh0dHBzOi8vZG9jcy5yZW5vdmF0ZWJvdC5jb20vcmVub3ZhdGUtc2NoZW1hLmpzb24iLAogICJleHRlbmRzIjogWwogICAgImNvbmZpZzpyZWNvbW1lbmRlZCIsCiAgICAiOmRlcGVuZGVuY3lEYXNoYm9hcmQiLAogICAgIjpzZW1hbnRpY0NvbW1pdHMiCiAgXSwKICAibGFiZWxzIjogWyJkZXBlbmRlbmNpZXMiXSwKICAicHJIb3VybHlMaW1pdCI6IDMsCiAgInBhY2thZ2VSdWxlcyI6IFsKICAgIHsKICAgICAgImRlc2NyaXB0aW9uIjogIkNJIGlzIHRoZSBnYXRlLCBub3Qgc2VtdmVyIC0gYXV0b21lcmdlIGFsbCB1cGRhdGUgdHlwZXMgb25jZSByZXF1aXJlZCBjaGVja3MgcGFzcy4iLAogICAgICAibWF0Y2hVcGRhdGVUeXBlcyI6IFsibWFqb3IiLCAibWlub3IiLCAicGF0Y2giLCAicGluIiwgImRpZ2VzdCJdLAogICAgICAiYXV0b21lcmdlIjogdHJ1ZSwKICAgICAgInBsYXRmb3JtQXV0b21lcmdlIjogdHJ1ZQogICAgfQogIF0sCiAgImxvY2tGaWxlTWFpbnRlbmFuY2UiOiB7CiAgICAiZW5hYmxlZCI6IHRydWUsCiAgICAiYXV0b21lcmdlIjogdHJ1ZQogIH0sCiAgInZ1bG5lcmFiaWxpdHlBbGVydHMiOiB7CiAgICAibGFiZWxzIjogWyJzZWN1cml0eSJdLAogICAgImF1dG9tZXJnZSI6IHRydWUKICB9Cn0K
