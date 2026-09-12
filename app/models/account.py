@@ -17,6 +17,9 @@ class AccountModel(db.Model):
     account_id = Column(String(255))
     cooldown_until = Column(Integer, nullable=True)
     prev_balance = Column(Integer, default=0)
-    cooldown_ref_card_balance = Column(Integer, default=0)
+    # Recorded when a cooldown starts and cleared when it ends; ``None`` means no
+    # reference was captured. It must not default to 0, which would otherwise be
+    # read as a real card balance and end every cooldown immediately.
+    cooldown_ref_card_balance = Column(Integer, nullable=True)
     cooldown_ref_pot_balance = Column(Integer, default=0)
     stable_pot_balance = Column(Integer, nullable=True)

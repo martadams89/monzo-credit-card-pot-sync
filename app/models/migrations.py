@@ -36,3 +36,16 @@ def migrate_database(db) -> None:
                 "WHERE provider IS NULL OR provider = ''"
             )
         )
+
+    # ``cooldown_ref_card_balance`` used to default to 0 and was never written, so
+    # existing rows carry a 0 that the sync reads as "the card was empty when the
+    # cooldown started". That ends every cooldown on the next run and lets the pot be
+    # refilled while a card payment is still pending. A cooldown can only start while
+    # the card balance is above the pot, so a stored 0 is never a real reference.
+    with db.engine.begin() as connection:
+        connection.execute(
+            text(
+                "UPDATE account_model SET cooldown_ref_card_balance = NULL "
+                "WHERE cooldown_ref_card_balance = 0"
+            )
+        )
