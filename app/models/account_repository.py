@@ -139,9 +139,8 @@ class SqlAlchemyAccountRepository:
             # Only overwrite the cooldown fields if the domain object is explicitly setting them
             if account.cooldown_until is not None:
                 existing.cooldown_until = account.cooldown_until
-            # If needed, do the same for cooldown_ref_card_balance or others:
-            # if account.cooldown_ref_card_balance is not None:
-            #     existing.cooldown_ref_card_balance = account.cooldown_ref_card_balance
+            if account.cooldown_ref_card_balance is not None:
+                existing.cooldown_ref_card_balance = account.cooldown_ref_card_balance
             existing.cooldown_ref_pot_balance = account.cooldown_ref_pot_balance
             existing.stable_pot_balance = account.stable_pot_balance
         else:
@@ -154,10 +153,18 @@ class SqlAlchemyAccountRepository:
         self._session.query(AccountModel).filter_by(type=type).delete()
         self._session.commit()
 
-    def update_credit_account_fields(self, account_type: str, pot_id: str, 
-                                     new_balance: int, cooldown_until: int | None = None) -> Account:
+    def update_credit_account_fields(self, account_type: str, pot_id: str,
+                                     new_balance: int, cooldown_until: int | None = None,
+                                     cooldown_ref_card_balance: int | None = None) -> Account:
         record: AccountModel = self._session.query(AccountModel).filter_by(type=account_type).one()
         record.prev_balance = new_balance
         record.cooldown_until = cooldown_until
+        # The reference card balance is only meaningful while a cooldown is running, so
+        # it is written and cleared alongside it. A reference left behind by a cleared
+        # cooldown would be read as a real baseline by the next cooldown.
+        if cooldown_until is None:
+            record.cooldown_ref_card_balance = None
+        elif cooldown_ref_card_balance is not None:
+            record.cooldown_ref_card_balance = cooldown_ref_card_balance
         self._session.commit()
         return self._to_domain(record)

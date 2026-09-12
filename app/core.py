@@ -152,12 +152,14 @@ def sync_balance():
                     credit_account.type,
                     credit_account.pot_id,
                     credit_account.prev_balance,
-                    credit_account.cooldown_until  # explicitly set active cooldown
+                    credit_account.cooldown_until,  # explicitly set active cooldown
+                    credit_account.cooldown_ref_card_balance
                 )
                 db.session.commit()
                 refreshed = account_repository.get(credit_account.type)
             credit_accounts[i].cooldown_until = refreshed.cooldown_until
             credit_accounts[i].prev_balance = refreshed.prev_balance
+            credit_accounts[i].cooldown_ref_card_balance = refreshed.cooldown_ref_card_balance
         log.info("Refreshed credit account data including cooldown values.")
 
         # --------------------------------------------------------------------
@@ -172,41 +174,53 @@ def sync_balance():
             refreshed = account_repository.get(credit_account.type)
             credit_account.cooldown_until = refreshed.cooldown_until
             credit_account.prev_balance = refreshed.prev_balance
-        
+            credit_account.cooldown_ref_card_balance = refreshed.cooldown_ref_card_balance
+
             # Immediately clear cooldown if any termination conditions are met
             if credit_account.pot_id and credit_account.cooldown_until and now < credit_account.cooldown_until:
                 pre_deposit = credit_account.get_prev_balance(credit_account.pot_id)
                 current_pot = monzo_account.get_pot_balance(credit_account.pot_id)
                 live_card_balance = credit_account.get_total_balance(force_refresh=True)
                 
+                # The reference is the card balance captured when the cooldown started.
+                # Records written before it was persisted hold NULL, or the 0 the column
+                # used to default to. Neither is a real reference - a cooldown only starts
+                # while the card is above the pot - so fall back to the card baseline,
+                # which is frozen for the duration of the cooldown.
                 baseline = (
                     credit_account.cooldown_ref_card_balance
-                    if credit_account.cooldown_ref_card_balance is not None
+                    if credit_account.cooldown_ref_card_balance
                     else pre_deposit
                 )
                 drop = baseline - current_pot
-                
-                # Clear cooldown if any of these conditions are met
-                should_clear = (drop <= 0 or              # Original condition: pot matches baseline
-                               live_card_balance == 0 or  # Card has been paid off
-                               current_pot == live_card_balance)  # Pot and card are equal
-                
+
+                # End the cooldown early only once the shortfall is genuinely gone: the pot
+                # has been topped back up to where the card was, or the card has come down
+                # to meet the pot because the pending payment landed. While the pot is still
+                # short of the card the cooldown must hold, otherwise the pot is refilled
+                # out of the current account before the payment clears.
+                should_clear = (drop <= 0 or                      # Pot restored to the cooldown baseline
+                               current_pot >= live_card_balance)  # Pot already covers the card
+
                 if should_clear:
-                    reason = "conditions met for early cooldown termination"
                     if drop <= 0:
                         reason = "pot matches baseline"
                     elif live_card_balance == 0:
                         reason = "card has been paid off"
-                    elif current_pot == live_card_balance:
-                        reason = "pot and card balance are equal"
-                        
+                    else:
+                        reason = "pot now covers the card balance"
+
                     log.info(f"[Cooldown Expiration] {credit_account.type}: Clearing cooldown because {reason}.")
                     log.info(f"[Cooldown Expiration] {credit_account.type}: Card balance: £{live_card_balance/100:.2f}, Pot balance: £{current_pot/100:.2f}")
-                    
+
+                    # Only the cooldown state is cleared. The card baseline stays where the
+                    # cooldown froze it so the adjustment step below still sees any real
+                    # spending that happened in the meantime; overwriting it with the pot
+                    # balance made the next run read the untouched card as new spending.
                     credit_account.cooldown_until = None
                     credit_account.cooldown_ref_card_balance = None
                     account_repository.update_credit_account_fields(
-                        credit_account.type, credit_account.pot_id, current_pot, credit_account.cooldown_until
+                        credit_account.type, credit_account.pot_id, credit_account.prev_balance, None
                     )
                     db.session.commit()
                     continue
@@ -214,14 +228,12 @@ def sync_balance():
             # Process expired cooldowns
             if credit_account.pot_id and credit_account.cooldown_until and now >= credit_account.cooldown_until:
                 log.info(f"[Cooldown Expiration] {credit_account.type}: Expired cooldown detected.")
-                pre_deposit = credit_account.get_prev_balance(credit_account.pot_id)
                 current_pot = monzo_account.get_pot_balance(credit_account.pot_id)
-                baseline = (
-                    credit_account.cooldown_ref_card_balance
-                    if credit_account.cooldown_ref_card_balance is not None
-                    else pre_deposit
-                )
-                drop = baseline - current_pot
+                live_card_balance = credit_account.get_total_balance(force_refresh=True)
+                # The shortfall is measured against the live card balance rather than the
+                # balance the card had when the cooldown started: if the pending payment
+                # landed, the card has come down to meet the pot and nothing is owed.
+                drop = live_card_balance - current_pot
                 if (drop > 0):
                     log.info(f"[Cooldown Expiration] {credit_account.type}: Depositing shortfall of £{drop / 100:.2f} for pot {credit_account.pot_id}.")
                     selection = monzo_account.get_account_type(credit_account.pot_id)
@@ -240,13 +252,13 @@ def sync_balance():
                     monzo_account.add_to_pot(credit_account.pot_id, drop, account_selection=selection)
                     new_balance = monzo_account.get_pot_balance(credit_account.pot_id)
                     credit_account.stable_pot_balance = new_balance
-                    credit_account.prev_balance = new_balance
-                    # past_cooldown = int(time()) - 300
-                    # credit_account.cooldown_until = past_cooldown
+                    # The pot has been brought back up to the card, so the card balance is
+                    # the baseline that has now been accounted for.
+                    credit_account.prev_balance = live_card_balance
                     credit_account.cooldown_until = None
                     credit_account.cooldown_ref_card_balance = None
                     account_repository.update_credit_account_fields(
-                        credit_account.type, credit_account.pot_id, new_balance, credit_account.cooldown_until
+                        credit_account.type, credit_account.pot_id, live_card_balance, None
                     )
                     db.session.commit()
                     log.info(f"[Cooldown Expiration] {credit_account.type}: Updated pot balance is £{new_balance / 100:.2f}.")
@@ -254,17 +266,18 @@ def sync_balance():
                     log.info(f"[Cooldown Expiration] {credit_account.type}: No shortfall detected; validating before clearing cooldown.")
                     # Perform an extra fetch and re-calc to confirm
                     fresh_pot = monzo_account.get_pot_balance(credit_account.pot_id)
-                    recomputed_drop = baseline - fresh_pot
-                    log.info(f"[Cooldown Expiration] {credit_account.type}: fresh_pot={fresh_pot}, baseline={baseline}, recomputed_drop={recomputed_drop}")
+                    recomputed_drop = live_card_balance - fresh_pot
+                    log.info(f"[Cooldown Expiration] {credit_account.type}: fresh_pot={fresh_pot}, live_card_balance={live_card_balance}, recomputed_drop={recomputed_drop}")
                     if recomputed_drop <= 0:
                         log.info(f"[Cooldown Expiration] {credit_account.type}: Confirmed no shortfall; clearing cooldown.")
-                        # past_cooldown = int(time()) - 300
-                        # credit_account.cooldown_until = past_cooldown # set cooldown to past_cooldown
+                        # The baseline is left alone; the adjustment step below reconciles
+                        # the pot against the live card balance.
                         credit_account.cooldown_until = None
                         credit_account.cooldown_ref_card_balance = None
                         account_repository.update_credit_account_fields(
-                            credit_account.type, credit_account.pot_id, fresh_pot, credit_account.cooldown_until
+                            credit_account.type, credit_account.pot_id, credit_account.prev_balance, None
                         )
+                        db.session.commit()
                     else:
                         log.info(f"[Cooldown Expiration] {credit_account.type}: Recomputed drop > 0; retaining active cooldown.")
 
@@ -288,6 +301,7 @@ def sync_balance():
             refreshed = account_repository.get(credit_account.type)
             credit_account.cooldown_until = refreshed.cooldown_until
             credit_account.prev_balance = refreshed.prev_balance
+            credit_account.cooldown_ref_card_balance = refreshed.cooldown_ref_card_balance
             log.info("-------------------------------------------------------------")
             log.info(f"Step: Start processing account '{credit_account.type}'.")
 
@@ -424,7 +438,8 @@ def sync_balance():
                     if current_pot < live_card_balance:
                         if settings_repository.get("enable_sync") == "False":
                             log.info(f"[Standard] {credit_account.type}: Sync disabled; not initiating cooldown.")
-                        elif credit_account.cooldown_until is not None:
+                            continue
+                        if credit_account.cooldown_until is not None:
                             # Double-check persistence of the cooldown value
                             db.session.commit()
                             if hasattr(credit_account, "_sa_instance_state"):
@@ -434,35 +449,40 @@ def sync_balance():
                                 log.info(f"[Standard] {credit_account.type}: Cooldown already active; no new cooldown initiated.")
                                 # Skip initiating a new cooldown.
                                 continue
+                            # Fall through to cooldown initiation below.
+                            log.info("Persisted cooldown check not active; proceeding to initiate cooldown.")
+
+                        log.info("Situation: Pot dropped below card balance without confirmed spending.")
+                        try:
+                            cooldown_hours = int(settings_repository.get("deposit_cooldown_hours"))
+                        except (NoResultFound, TypeError, ValueError):
+                            cooldown_hours = 3
+                        new_cooldown = int(time()) + cooldown_hours * 3600
+                        credit_account.cooldown_until = new_cooldown
+                        # Record what the card owed when the cooldown started. The cooldown
+                        # only ends early once the pot is back up to this figure, so it has
+                        # to be persisted alongside the cooldown itself.
+                        credit_account.cooldown_ref_card_balance = live_card_balance
+                        hr_cooldown = datetime.datetime.fromtimestamp(
+                            new_cooldown, tz=datetime.timezone.utc
+                        ).strftime("%Y-%m-%d %H:%M:%S")
+                        log.info(
+                            f"[Standard] {credit_account.type}: Initiating cooldown because pot (£{current_pot / 100:.2f}) is less than card (£{live_card_balance / 100:.2f}). "
+                            f"Cooldown set until {hr_cooldown} (epoch: {new_cooldown})."
+                        )
+                        account_repository.save(credit_account)
+                        try:
+                            db.session.commit()
+                            refreshed = account_repository.get(credit_account.type)
+                            if refreshed.cooldown_until != new_cooldown:
+                                log.error(f"[Standard] {credit_account.type}: Cooldown persistence error: expected {new_cooldown}, got {refreshed.cooldown_until}.")
+                            elif refreshed.cooldown_ref_card_balance != live_card_balance:
+                                log.error(f"[Standard] {credit_account.type}: Cooldown reference persistence error: expected {live_card_balance}, got {refreshed.cooldown_ref_card_balance}.")
                             else:
-                                # Fall-through to cooldown initiation below.
-                                log.info("Persisted cooldown check not active; proceeding to initiate cooldown.")
-                        else:
-                            log.info("Situation: Pot dropped below card balance without confirmed spending.")
-                            try:
-                                cooldown_hours = int(settings_repository.get("deposit_cooldown_hours"))
-                            except (NoResultFound, TypeError, ValueError):
-                                cooldown_hours = 3
-                            new_cooldown = int(time()) + cooldown_hours * 3600
-                            credit_account.cooldown_until = new_cooldown
-                            hr_cooldown = datetime.datetime.fromtimestamp(
-                                new_cooldown, tz=datetime.timezone.utc
-                            ).strftime("%Y-%m-%d %H:%M:%S")
-                            log.info(
-                                f"[Standard] {credit_account.type}: Initiating cooldown because pot (£{current_pot / 100:.2f}) is less than card (£{live_card_balance / 100:.2f}). "
-                                f"Cooldown set until {hr_cooldown} (epoch: {new_cooldown})."
-                            )
-                            account_repository.save(credit_account)
-                            try:
-                                db.session.commit()
-                                refreshed = account_repository.get(credit_account.type)
-                                if refreshed.cooldown_until != new_cooldown:
-                                    log.error(f"[Standard] {credit_account.type}: Cooldown persistence error: expected {new_cooldown}, got {refreshed.cooldown_until}.")
-                                else:
-                                    log.info(f"[Standard] {credit_account.type}: Cooldown persisted successfully.")
-                            except SQLAlchemyError as e:
-                                db.session.rollback()
-                                log.error(f"[Standard] {credit_account.type}: Error committing cooldown to database: {e}")
+                                log.info(f"[Standard] {credit_account.type}: Cooldown persisted successfully.")
+                        except SQLAlchemyError as e:
+                            db.session.rollback()
+                            log.error(f"[Standard] {credit_account.type}: Error committing cooldown to database: {e}")
 
                 else:
                     log.info(f"[Standard] {credit_account.type}: Card and pot balance unchanged; no action taken.")
