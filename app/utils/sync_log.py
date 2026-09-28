@@ -34,7 +34,7 @@ class _RunCaptureHandler(logging.Handler):
                 message = f"{message}\n{logging.Formatter().formatException(record.exc_info)}"
             level = "ERROR" if record.levelno >= logging.ERROR else "WARNING" if record.levelno >= logging.WARNING else "INFO"
             self.lines.append([record.created, level, record.name, message])
-        except Exception:
+        except Exception:  # noqa: BLE001 - a logging handler must never raise into the sync
             self.handleError(record)
 
 
@@ -63,5 +63,6 @@ def record_sync_run(repository: SqlAlchemySyncRunRepository | None = None):
             lines.append([time(), "WARNING", "sync_log", f"{handler.truncated} further log line(s) not recorded"])
         try:
             repository.record(lines, started_at)
-        except Exception as e:
-            log.error(f"Failed to save sync log history: {e}")
+        except Exception:
+            # Saving the log must never fail the sync itself.
+            log.exception("Failed to save sync log history")

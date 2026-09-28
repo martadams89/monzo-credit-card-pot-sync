@@ -118,10 +118,9 @@ def test_record_sync_run_captures_only_this_threads_logs(repository, caplog):
 
 def test_record_sync_run_records_and_reraises_failures(repository, caplog):
     caplog.set_level(logging.INFO)
-    with pytest.raises(RuntimeError):
-        with record_sync_run(repository):
-            logging.getLogger("core").info("Starting")
-            raise RuntimeError("boom")
+    with pytest.raises(RuntimeError), record_sync_run(repository):
+        logging.getLogger("core").info("Starting")
+        raise RuntimeError("boom")
 
     run = repository.list_since(0)[0]
     assert run["level"] == "ERROR"

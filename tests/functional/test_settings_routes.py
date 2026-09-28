@@ -125,7 +125,7 @@ def test_clear_cooldown_for_selected_account(test_client, seed_data, requests_mo
 
     response = test_client.post("/settings/clear_cooldown", data={"account_type": "American Express"}, follow_redirects=True)
     assert response.status_code == 200
-    assert "Cooldown cleared".encode() in response.data
+    assert b"Cooldown cleared" in response.data
 
     amex = repository.get("American Express")
     assert amex.cooldown_until is None
