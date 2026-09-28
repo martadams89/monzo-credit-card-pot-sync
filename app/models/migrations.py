@@ -2,6 +2,10 @@ import logging
 
 from sqlalchemy import inspect, text
 
+from app.models import (
+    sync_run,  # noqa: F401 - registers the sync_run table for create_all
+)
+
 log = logging.getLogger("migrations")
 
 
@@ -25,6 +29,13 @@ def migrate_database(db) -> None:
         with db.engine.begin() as connection:
             connection.execute(
                 text("ALTER TABLE account_model ADD COLUMN provider VARCHAR(50)")
+            )
+
+    if "include_pending_credits" not in columns:
+        log.info("Adding the per-connection pending refunds and payments option")
+        with db.engine.begin() as connection:
+            connection.execute(
+                text("ALTER TABLE account_model ADD COLUMN include_pending_credits BOOLEAN")
             )
 
     # Also repairs a partially-completed migration without changing any

@@ -5,6 +5,7 @@ from sqlalchemy import inspect
 from app import create_app
 from app.extensions import db
 from app.models.account import AccountModel
+from app.models.account_repository import SqlAlchemyAccountRepository
 from app.models.migrations import migrate_database
 
 
@@ -67,6 +68,10 @@ def test_existing_database_is_migrated_without_losing_account_data(tmp_path):
         account = db.session.get(AccountModel, 7)
 
         assert "provider" in column_names
+        assert "include_pending_credits" in column_names
+        # Existing connections keep counting pending refunds and payments.
+        assert account.include_pending_credits is None
+        assert SqlAlchemyAccountRepository(db).get("American Express").include_pending_credits is True
         assert account.type == "American Express"
         assert account.provider == "American Express"
         assert account.access_token == "existing_access"

@@ -1,6 +1,5 @@
 import datetime  # Needed for human-readable time conversions
 import logging
-import math
 from time import time
 from urllib import parse
 
@@ -26,6 +25,7 @@ class Account:
         cooldown_ref_pot_balance=None,
         stable_pot_balance=None,
         provider_type=None,
+        include_pending_credits=True,
     ):
         self.type = type
         self.provider_type = provider_type or type
@@ -39,6 +39,7 @@ class Account:
         self.cooldown_ref_card_balance = cooldown_ref_card_balance
         self.cooldown_ref_pot_balance = cooldown_ref_pot_balance
         self.stable_pot_balance = stable_pot_balance
+        self.include_pending_credits = include_pending_credits
 
 
     def is_token_within_expiry_window(self):
@@ -208,9 +209,8 @@ class MonzoAccount(Account):
             # If using the default value, fall back to the first returned pot's id.
             if pot_id == "default_pot" and pots:
                 pot_id = pots[0]["id"]
-            for pot in pots:
-                if any(p["id"] == pot_id for p in pots):
-                    return account_selection
+            if any(p["id"] == pot_id for p in pots):
+                return account_selection
         raise PotNotFoundError(f"Pot with id {pot_id} not found in personal, joint, or business pots.")
 
     def add_to_pot(self, pot_id: str, amount: int, account_selection="personal") -> None:
@@ -291,6 +291,12 @@ class MonzoAccount(Account):
 
 
 class TrueLayerAccount(Account):
+    # Providers whose pending refunds and payments are added to the balance; each
+    # connection can switch this off (``include_pending_credits``) if the provider
+    # turns out to take a pending payment off the current balance as well, which
+    # would count it twice.
+    PENDING_CREDIT_PROVIDERS = ("American Express", "Lloyds")
+
     def __init__(
         self,
         account_type,
@@ -305,6 +311,7 @@ class TrueLayerAccount(Account):
         cooldown_ref_pot_balance=None,
         cooldown_until=None,
         provider_type=None,
+        include_pending_credits=True,
     ):
         super().__init__(
             account_type,
@@ -319,6 +326,7 @@ class TrueLayerAccount(Account):
             cooldown_ref_card_balance=cooldown_ref_card_balance,
             cooldown_ref_pot_balance=cooldown_ref_pot_balance,
             provider_type=provider_type,
+            include_pending_credits=include_pending_credits,
         )
         from app.domain.auth_providers import TrueLayerAuthProvider
 
@@ -353,23 +361,77 @@ class TrueLayerAccount(Account):
         response = r.get(f"{self.auth_provider.api_url}/data/v1/cards/{card_id}/balance", headers=self.get_auth_header())
         response.raise_for_status()
         data = response.json()["results"][0]
-        # Multiply by 100, round up, then divide by 100 to get two decimal places
-        return math.ceil(data["current"] * 100) / 100
+        # Round to whole pence; ceil() would turn float noise (2.2 * 100 == 220.00000000000003) into an extra penny
+        return round(data["current"] * 100) / 100
 
     def get_pending_transactions(self, card_id: str) -> list:
         response = r.get(f"{self.auth_provider.api_url}/data/v1/cards/{card_id}/transactions/pending", headers=self.get_auth_header())
         response.raise_for_status()
         transactions = response.json()["results"]
-        # Multiply by 100, round up, then divide by 100 to get two decimal places
-        return [math.ceil(txn["amount"] * 100) / 100 for txn in transactions] if transactions else []
+        return [self._signed_pending_amount(txn) for txn in transactions] if transactions else []
+
+    @staticmethod
+    def _signed_pending_amount(txn: dict) -> float:
+        """Return a pending amount as charge-positive, credit-negative, in whole pence.
+
+        Charges add to what is owed and must be positive; refunds and payments
+        reduce it and must be negative. The sign normally comes from the amount
+        itself, but where the provider labels the transaction DEBIT or CREDIT
+        that label wins, so a credit reported with a positive amount is not
+        counted as a charge (and vice versa).
+        """
+        # round() rather than ceil(): ceil turns float noise such as 1.1 * 100 ==
+        # 110.00000000000001 into an extra penny, and rounds charges and credits
+        # in opposite directions.
+        pence = round(float(txn["amount"]) * 100)
+        transaction_type = str(txn.get("transaction_type") or "").upper()
+        if transaction_type == "CREDIT":
+            pence = -abs(pence)
+        elif transaction_type == "DEBIT":
+            pence = abs(pence)
+        return pence / 100
+
+    @property
+    def supports_pending_credits(self) -> bool:
+        """Whether this connection's provider adds pending refunds and payments."""
+        return self.provider_type in self.PENDING_CREDIT_PROVIDERS
+
+    def _balance_with_pending(self, label: str, balance: float, pending_transactions: list) -> float:
+        """Add pending charges and pending credits (refunds, payments) to a card balance.
+
+        Providers such as Amex and Lloyds report pending charges and pending credits
+        as separate transactions rather than netting them off, so both are counted;
+        otherwise a pending refund leaves the pot over-funded until it posts. Works
+        in whole pence so charges and credits of either sign add up exactly.
+        """
+        balance_pence = round(balance * 100)
+        pending_pence = [round(txn * 100) for txn in pending_transactions]
+
+        # Separate charges (positive) and payments/refunds (negative)
+        pending_charges_pence = sum(p for p in pending_pence if p > 0)
+        pending_payments_pence = sum(p for p in pending_pence if p < 0)
+        if self.include_pending_credits:
+            pending_balance_pence = pending_charges_pence + pending_payments_pence
+        else:
+            pending_balance_pence = pending_charges_pence
+            log.info(f"{label} - Pending payments/refunds not counted (switched off for {self.type})")
+        adjusted_balance_pence = balance_pence + pending_balance_pence
+
+        log.info(f"{label} - Current Balance (Excluding Pending Transactions): £{balance_pence / 100:.2f}")
+        log.info(f"{label} - Pending Charges: £{pending_charges_pence / 100:.2f}")
+        log.info(f"{label} - Pending Payments/Refunds: £{pending_payments_pence / 100:.2f}")
+        log.info(f"{label} - Pending Balance: £{pending_balance_pence / 100:.2f}")
+        log.info(f"{label} - Total Balance: £{adjusted_balance_pence / 100:.2f}")
+        return adjusted_balance_pence / 100
 
     def get_total_balance(self, force_refresh=False) -> int:
-        total_balance = 0.0
-        cards = self.get_cards()
-
-        # If we have a cached balance and not forcing a refresh, return it:
+        # If we have a cached balance and not forcing a refresh, return it without
+        # calling the API.
         if not force_refresh and hasattr(self, "_cached_balance"):
             return self._cached_balance
+
+        total_balance = 0.0
+        cards = self.get_cards()
 
         for card in cards:
             card_id = card["account_id"]
@@ -381,38 +443,115 @@ class TrueLayerAccount(Account):
             balance_data = balance_response.json()["results"][0]
             
             # For most providers, use the 'current' field
-            balance = math.ceil(balance_data.get("current", 0) * 100) / 100
+            balance = round(balance_data.get("current", 0) * 100) / 100
 
             if provider in ["AMEX"]:
-                pending_transactions = self.get_pending_transactions(card_id)
-
-                # Separate charges and payments/refunds
-                pending_charges = math.ceil(sum(txn for txn in pending_transactions if txn > 0) * 100) / 100
-                pending_payments = math.ceil(sum(txn for txn in pending_transactions if txn < 0) * 100) / 100
-
-                # it looks like pending charges might take into account credits
-                pending_balance = pending_charges # + pending_payments
-
-                adjusted_balance = balance + pending_balance
-
-                log.info(f"Amex Card - Current Balance (Excluding Pending Transactions): £{balance:.2f}")
-                log.info(f"Amex Card - Pending Charges: £{pending_charges:.2f}")
-                log.info(f"Amex Card - Pending Payments: £{pending_payments:.2f}")
-                log.info(f"Amex Card - Pending Balance: £{pending_balance:.2f}")
-                log.info(f"Amex Card - Total Balance: £{adjusted_balance:.2f}")
-                balance = adjusted_balance
+                balance = self._balance_with_pending("Amex Card", balance, self.get_pending_transactions(card_id))
 
             if provider in ["BARCLAYCARD"]:
                 pending_transactions = self.get_pending_transactions(card_id)
 
                 # Separate charges and payments/refunds
-                pending_charges = math.ceil(sum(txn for txn in pending_transactions if txn > 0) * 100) / 100
-                pending_payments = math.ceil(sum(txn for txn in pending_transactions if txn < 0) * 100) / 100
+                pending_charges = round(sum(txn for txn in pending_transactions if txn > 0) * 100) / 100
+                pending_payments = round(sum(txn for txn in pending_transactions if txn < 0) * 100) / 100
+                net_pending = round(sum(pending_transactions) * 100) / 100
+
+                log.info(f"Barclaycard Card - Current Balance: £{balance:.2f}")
+                log.info(f"Barclaycard Card - Pending Charges: £{pending_charges:.2f}")
+                log.info(f"Barclaycard Card - Pending Payments: £{pending_payments:.2f}")
+                log.info(f"Barclaycard Card - Net Pending: £{net_pending:.2f}")
+
+                # Barclaycard adds pending charges to the current balance fairly quickly,
+                # so pending transactions are logged only and the balance is used as is.
+
+            if provider in ["HALIFAX"]:
+                # Halifax doesn't provide separate pending transactions
+                # The 'available' field already accounts for pending charges
+                # Balance owed = credit_limit - available
+                credit_limit = balance_data.get("credit_limit", 0)
+                available = balance_data.get("available", 0)
+                balance_owed = credit_limit - available
+                
+                log.info(f"Halifax Card - Credit Limit: £{credit_limit:.2f}")
+                log.info(f"Halifax Card - Available Credit: £{available:.2f}")
+                log.info(f"Halifax Card - Balance Owed: £{balance_owed:.2f}")
+                
+                balance = round(balance_owed * 100) / 100
+
+            if provider in ["LLOYDS"]:
+                balance = self._balance_with_pending("Lloyds Card", balance, self.get_pending_transactions(card_id))
+
+            # A card in credit (overpaid, or pending credits exceeding what is owed)
+            # owes nothing. A negative figure would otherwise eat into the amounts owed
+            # on the other cards in this total.
+            if balance < 0:
+                log.info(f"Card is in credit (£{balance:.2f}); treating as £0.00 owed.")
+                balance = 0.0
+
+            total_balance += balance
+
+        log.info(f"Total balance calculated: £{total_balance:.2f}")
+        # round() rather than int(): int() truncates float noise such as 0.29 * 100
+        # == 28.999999999999996 down a penny.
+        self._cached_balance = round(total_balance * 100)  # Convert balance to pence
+        return self._cached_balance
+
+        for card in cards:
+            card_id = card["account_id"]
+            provider = card.get("provider", {}).get("display_name")
+
+            # Fetch balance data once for all providers
+            balance_response = r.get(f"{self.auth_provider.api_url}/data/v1/cards/{card_id}/balance", headers=self.get_auth_header())
+            balance_response.raise_for_status()
+            balance_data = balance_response.json()["results"][0]
+            
+            # For most providers, use the 'current' field
+            balance = round(balance_data.get("current", 0) * 100) / 100
+
+            if provider in ["AMEX"]:
+                pending_transactions = self.get_pending_transactions(card_id)
+
+                # Work in whole pence so charges and credits of either sign add up exactly.
+                balance_pence = round(balance * 100)
+                pending_pence = [round(txn * 100) for txn in pending_transactions]
+
+                # Separate charges (positive) and payments/refunds (negative)
+                pending_charges_pence = sum(p for p in pending_pence if p > 0)
+                pending_payments_pence = sum(p for p in pending_pence if p < 0)
+
+                # Amex reports pending charges and pending credits as separate
+                # transactions (they are not netted off), so both must be counted,
+                # otherwise a pending refund leaves the pot over-funded until it posts.
+                pending_balance_pence = pending_charges_pence + pending_payments_pence
+
+                adjusted_balance_pence = balance_pence + pending_balance_pence
+                # Pending credits can exceed what is owed (e.g. a refund on a card that
+                # is already paid off). The card then owes nothing; a negative figure
+                # would eat into the amounts owed on other cards in the total below.
+                if adjusted_balance_pence < 0:
+                    log.info(
+                        f"Amex Card - Pending credits exceed balance (£{adjusted_balance_pence / 100:.2f}); treating as £0.00 owed."
+                    )
+                    adjusted_balance_pence = 0
+
+                log.info(f"Amex Card - Current Balance (Excluding Pending Transactions): £{balance_pence / 100:.2f}")
+                log.info(f"Amex Card - Pending Charges: £{pending_charges_pence / 100:.2f}")
+                log.info(f"Amex Card - Pending Payments/Refunds: £{pending_payments_pence / 100:.2f}")
+                log.info(f"Amex Card - Pending Balance: £{pending_balance_pence / 100:.2f}")
+                log.info(f"Amex Card - Total Balance: £{adjusted_balance_pence / 100:.2f}")
+                balance = adjusted_balance_pence / 100
+
+            if provider in ["BARCLAYCARD"]:
+                pending_transactions = self.get_pending_transactions(card_id)
+
+                # Separate charges and payments/refunds
+                pending_charges = round(sum(txn for txn in pending_transactions if txn > 0) * 100) / 100
+                pending_payments = round(sum(txn for txn in pending_transactions if txn < 0) * 100) / 100
 
                 # it looks like pending charges might take into account credits
                 pending_balance = pending_charges # + pending_payments
 
-                net_pending = math.ceil(sum(pending_transactions) * 100) / 100
+                net_pending = round(sum(pending_transactions) * 100) / 100
                 adjusted_balance = balance + net_pending
 
                 log.info(f"Barclaycard Card - Current Balance (Excluding Pending Transactions): £{balance:.2f}")
@@ -423,8 +562,8 @@ class TrueLayerAccount(Account):
                 log.info(f"Barclaycard Card - Total Balance: £{adjusted_balance:.2f}")
 
                 # balance = balance
-                # lets ensure balances are rounded up
-                balance = math.ceil(balance * 100) / 100
+                # lets ensure balances are rounded to whole pence
+                balance = round(balance * 100) / 100
 
             if provider in ["HALIFAX"]:
                 # Halifax doesn't provide separate pending transactions
@@ -439,14 +578,14 @@ class TrueLayerAccount(Account):
                 log.info(f"Halifax Card - Balance Owed: £{balance_owed:.2f}")
                 
                 # Ensure balance is rounded up and set
-                balance = math.ceil(balance_owed * 100) / 100
+                balance = round(balance_owed * 100) / 100
 
             if provider in ["LLOYDS"]:
                 pending_transactions = self.get_pending_transactions(card_id)
 
                 # Separate charges and payments/refunds
-                pending_charges = math.ceil(sum(txn for txn in pending_transactions if txn > 0) * 100) / 100
-                pending_payments = math.ceil(sum(txn for txn in pending_transactions if txn < 0) * 100) / 100
+                pending_charges = round(sum(txn for txn in pending_transactions if txn > 0) * 100) / 100
+                pending_payments = round(sum(txn for txn in pending_transactions if txn < 0) * 100) / 100
 
                 # it looks like pending charges might take into account credits
                 pending_balance = pending_charges # + pending_payments
@@ -463,5 +602,7 @@ class TrueLayerAccount(Account):
             total_balance += balance
 
         log.info(f"Total balance calculated: £{total_balance:.2f}")
-        self._cached_balance = int(total_balance * 100)  # Convert balance to pence
+        # round() rather than int(): int() truncates float noise such as 0.29 * 100
+        # == 28.999999999999996 down a penny.
+        self._cached_balance = round(total_balance * 100)  # Convert balance to pence
         return self._cached_balance

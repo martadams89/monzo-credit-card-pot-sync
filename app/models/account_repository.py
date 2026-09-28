@@ -23,7 +23,8 @@ class SqlAlchemyAccountRepository:
             prev_balance=account.prev_balance if isinstance(account.prev_balance, int) else 0,
             cooldown_ref_card_balance=account.cooldown_ref_card_balance,
             cooldown_ref_pot_balance=account.cooldown_ref_pot_balance,
-            stable_pot_balance=account.stable_pot_balance
+            stable_pot_balance=account.stable_pot_balance,
+            include_pending_credits=account.include_pending_credits,
         )
 
     def _to_domain(self, model: AccountModel) -> Account:
@@ -39,7 +40,8 @@ class SqlAlchemyAccountRepository:
             prev_balance=model.prev_balance,
             cooldown_ref_card_balance=model.cooldown_ref_card_balance,
             cooldown_ref_pot_balance=model.cooldown_ref_pot_balance,
-            stable_pot_balance=model.stable_pot_balance
+            stable_pot_balance=model.stable_pot_balance,
+            include_pending_credits=model.include_pending_credits is not False,
         )
 
     def get_all(self) -> list[Account]:
@@ -84,6 +86,7 @@ class SqlAlchemyAccountRepository:
                 cooldown_ref_pot_balance=a.cooldown_ref_pot_balance,
                 cooldown_until=a.cooldown_until,
                 provider_type=a.provider_type,
+                include_pending_credits=a.include_pending_credits,
             )
             for a in accounts
         ]
@@ -147,6 +150,16 @@ class SqlAlchemyAccountRepository:
             # No record exists, add new.
             model = self._to_model(account)
             self._session.merge(model)
+        self._session.commit()
+
+    def set_include_pending_credits(self, account_type: str, include: bool) -> None:
+        """Set whether pending refunds and payments count towards a connection's balance.
+
+        Deliberately not part of ``save()``: the sync saves the copies it loaded at
+        the start of a run, which must not undo a change made while it runs.
+        """
+        record: AccountModel = self._session.query(AccountModel).filter_by(type=account_type).one()
+        record.include_pending_credits = include
         self._session.commit()
 
     def delete(self, type: str) -> None:

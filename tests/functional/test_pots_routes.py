@@ -108,3 +108,23 @@ def test_post_pots_updates_selected_provider_connection(test_client, seed_data):
     assert response.status_code == 302
     assert repository.get("American Express").pot_id == "pot_id"
     assert repository.get("American Express 2").pot_id == "second_new_pot"
+
+
+def test_get_pots_shows_active_cooldown(test_client, requests_mock, seed_data):
+    from time import time
+
+    repository = SqlAlchemyAccountRepository(db)
+    amex = repository.get("American Express")
+    repository.update_credit_account_fields(amex.type, amex.pot_id, 1000, int(time()) + 3600)
+    requests_mock.get(
+        "https://api.monzo.com/accounts",
+        json={"accounts": [{"id": "acc_123", "type": "uk_retail", "currency": "GBP"}]},
+    )
+    requests_mock.get(
+        "https://api.monzo.com/pots?current_account_id=acc_123",
+        json={"pots": [{"id": "pot_id", "name": "Pot 1", "balance": 100, "deleted": False}]},
+    )
+
+    response = test_client.get("/pots/")
+    assert response.status_code == 200
+    assert b"Countdown Timer Active Until" in response.data

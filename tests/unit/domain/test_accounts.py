@@ -249,6 +249,88 @@ def test_truelayer_account_get_total_balance(requests_mock):
     # Assert that the total balance is calculated correctly
     assert account.get_total_balance() == 140000  # Total in pence (multiplied by 100)
 
+def test_truelayer_account_get_pending_transactions_signs_and_rounding(requests_mock):
+    response = {"results": [
+        {"amount": 1.1},                                    # float noise must not add a penny
+        {"amount": -490.00},                                # negative credit kept negative
+        {"amount": 25.00, "transaction_type": "CREDIT"},    # credit reported as positive
+        {"amount": -12.50, "transaction_type": "DEBIT"},    # charge reported as negative
+        {"amount": -3.00, "transaction_type": "CREDIT"},    # already consistent
+    ]}
+    requests_mock.get("https://api.truelayer.com/data/v1/cards/1/transactions/pending", status_code=200, json=response)
+
+    account = TrueLayerAccount("American Express", "access_token", "refresh_token", time() + 1000)
+    assert account.get_pending_transactions("1") == [1.1, -490.0, -25.0, 12.5, -3.0]
+
+
+def _mock_amex(requests_mock, current, pending):
+    requests_mock.get(
+        "https://api.truelayer.com/data/v1/cards",
+        status_code=200,
+        json={"results": [{"account_id": "1", "provider": {"display_name": "AMEX"}}]},
+    )
+    requests_mock.get(
+        "https://api.truelayer.com/data/v1/cards/1/balance",
+        status_code=200,
+        json={"results": [{"account_id": "1", "current": current}]},
+    )
+    requests_mock.get(
+        "https://api.truelayer.com/data/v1/cards/1/transactions/pending",
+        status_code=200,
+        json={"results": [{"amount": a} for a in pending]},
+    )
+    return TrueLayerAccount("American Express", "access_token", "refresh_token", time() + 1000)
+
+
+def test_amex_total_balance_counts_pending_refunds(requests_mock):
+    # Reported case: a pending £490 refund was dropped, over-funding the pot by £490.
+    account = _mock_amex(requests_mock, 1675.83, [372.95, -490.00])
+    # 1675.83 + 372.95 - 490.00 = 1558.78
+    assert account.get_total_balance() == 155878
+
+
+def test_amex_total_balance_counts_pending_payments(requests_mock):
+    account = _mock_amex(requests_mock, 1000.00, [0.29, -600.00, 12.34])
+    # 1000.00 + 0.29 + 12.34 - 600.00 = 412.63, exact to the penny
+    assert account.get_total_balance() == 41263
+
+
+def test_amex_total_balance_only_credits_pending(requests_mock):
+    account = _mock_amex(requests_mock, 250.00, [-50.00, -25.50])
+    assert account.get_total_balance() == 17450
+
+
+def test_amex_total_balance_never_negative_when_credits_exceed_balance(requests_mock):
+    account = _mock_amex(requests_mock, 100.00, [-490.00])
+    assert account.get_total_balance() == 0
+
+
+def test_amex_total_balance_card_in_credit_with_pending_charge(requests_mock):
+    # Card already in credit (negative current) with a charge that pushes it back into debt.
+    account = _mock_amex(requests_mock, -20.00, [50.00])
+    assert account.get_total_balance() == 3000
+
+
+def test_amex_credit_does_not_reduce_other_cards(requests_mock):
+    requests_mock.get(
+        "https://api.truelayer.com/data/v1/cards",
+        status_code=200,
+        json={"results": [
+            {"account_id": "1", "provider": {"display_name": "AMEX"}},
+            {"account_id": "2", "provider": {"display_name": "VISA"}},
+        ]},
+    )
+    requests_mock.get("https://api.truelayer.com/data/v1/cards/1/balance", status_code=200,
+                      json={"results": [{"account_id": "1", "current": 10.00}]})
+    requests_mock.get("https://api.truelayer.com/data/v1/cards/2/balance", status_code=200,
+                      json={"results": [{"account_id": "2", "current": 300.00}]})
+    requests_mock.get("https://api.truelayer.com/data/v1/cards/1/transactions/pending", status_code=200,
+                      json={"results": [{"amount": -200.00}]})
+
+    account = TrueLayerAccount("American Express", "access_token", "refresh_token", time() + 1000)
+    assert account.get_total_balance() == 30000
+
+
 def test_monzo_account_refresh_access_token_success(monkeypatch, requests_mock):
     """
     Simulate successful token refresh with the MonzoAuthProvider.
@@ -297,3 +379,107 @@ def test_monzo_account_refresh_access_token_authexception(monkeypatch, requests_
         with pytest.raises(AuthException):
             account.refresh_access_token()
         db.drop_all()
+
+
+def _mock_card(requests_mock, provider, balance, pending=None):
+    requests_mock.get(
+        "https://api.truelayer.com/data/v1/cards",
+        status_code=200,
+        json={"results": [{"account_id": "1", "provider": {"display_name": provider}}]},
+    )
+    requests_mock.get(
+        "https://api.truelayer.com/data/v1/cards/1/balance",
+        status_code=200,
+        json={"results": [{"account_id": "1", **balance}]},
+    )
+    requests_mock.get(
+        "https://api.truelayer.com/data/v1/cards/1/transactions/pending",
+        status_code=200,
+        json={"results": [{"amount": a} for a in (pending or [])]},
+    )
+    return TrueLayerAccount("Card", "access_token", "refresh_token", time() + 1000)
+
+
+@pytest.mark.parametrize("provider", ["VISA", "AMEX", "BARCLAYCARD", "LLOYDS"])
+def test_card_balance_is_not_rounded_up_a_penny(requests_mock, provider):
+    # 2.2 * 100 == 220.00000000000003 in floating point; rounding up made this 221p.
+    account = _mock_card(requests_mock, provider, {"current": 2.20})
+    assert account.get_total_balance() == 220
+
+
+def test_get_card_balance_is_not_rounded_up_a_penny(requests_mock):
+    requests_mock.get("https://api.truelayer.com/data/v1/cards/1/balance", status_code=200,
+                      json={"results": [{"current": 2.20}]})
+    account = TrueLayerAccount("Card", "access_token", "refresh_token", time() + 1000)
+    assert account.get_card_balance("1") == 2.20
+
+
+def test_lloyds_pending_charge_is_not_rounded_up_a_penny(requests_mock):
+    account = _mock_card(requests_mock, "LLOYDS", {"current": 100.00}, [1.10])
+    assert account.get_total_balance() == 10110
+
+
+def test_halifax_balance_owed_is_not_rounded_up_a_penny(requests_mock):
+    account = _mock_card(requests_mock, "HALIFAX", {"current": 0, "credit_limit": 1000, "available": 999.90})
+    assert account.get_total_balance() == 10
+
+
+def test_lloyds_counts_pending_refunds_and_payments(requests_mock):
+    # £100 owed, a £30 pending charge and a £50 pending refund: £80 owed, not £130.
+    account = _mock_card(requests_mock, "LLOYDS", {"current": 100.00}, [30.00, -50.00])
+    assert account.get_total_balance() == 8000
+
+
+def test_lloyds_pending_credits_exceeding_balance_owe_nothing(requests_mock):
+    account = _mock_card(requests_mock, "LLOYDS", {"current": 20.00}, [-50.00])
+    assert account.get_total_balance() == 0
+
+
+def test_halifax_card_in_credit_owes_nothing(requests_mock):
+    # £1050 available on a £1000 limit: the card is £50 in credit.
+    account = _mock_card(requests_mock, "HALIFAX", {"current": 0, "credit_limit": 1000, "available": 1050})
+    assert account.get_total_balance() == 0
+
+
+@pytest.mark.parametrize("provider", ["VISA", "BARCLAYCARD"])
+def test_card_in_credit_owes_nothing(requests_mock, provider):
+    account = _mock_card(requests_mock, provider, {"current": -25.00})
+    assert account.get_total_balance() == 0
+
+
+def test_halifax_credit_does_not_reduce_other_cards(requests_mock):
+    requests_mock.get(
+        "https://api.truelayer.com/data/v1/cards",
+        status_code=200,
+        json={"results": [
+            {"account_id": "1", "provider": {"display_name": "HALIFAX"}},
+            {"account_id": "2", "provider": {"display_name": "BARCLAYCARD"}},
+        ]},
+    )
+    requests_mock.get("https://api.truelayer.com/data/v1/cards/1/balance", status_code=200,
+                      json={"results": [{"current": 0, "credit_limit": 1000, "available": 1050}]})
+    requests_mock.get("https://api.truelayer.com/data/v1/cards/2/balance", status_code=200,
+                      json={"results": [{"current": 300.00}]})
+    requests_mock.get("https://api.truelayer.com/data/v1/cards/2/transactions/pending", status_code=200,
+                      json={"results": []})
+
+    account = TrueLayerAccount("Card", "access_token", "refresh_token", time() + 1000)
+    assert account.get_total_balance() == 30000
+
+
+def test_cached_total_balance_makes_no_api_calls(requests_mock):
+    account = _mock_card(requests_mock, "VISA", {"current": 12.34})
+    assert account.get_total_balance() == 1234
+    calls = requests_mock.call_count
+
+    assert account.get_total_balance() == 1234
+    assert requests_mock.call_count == calls
+
+
+@pytest.mark.parametrize("provider", ["AMEX", "LLOYDS"])
+def test_pending_credits_can_be_switched_off(requests_mock, provider):
+    # With "Count pending refunds & payments" off for the connection only pending
+    # charges are added, as before: 1675.83 + 372.95 = 2048.78 (the -490.00 is left out).
+    account = _mock_card(requests_mock, provider, {"current": 1675.83}, [372.95, -490.00])
+    account.include_pending_credits = False
+    assert account.get_total_balance() == 204878

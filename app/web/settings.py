@@ -11,6 +11,9 @@ settings_bp = Blueprint("settings", __name__)
 
 log = logging.getLogger("settings")
 repository = SqlAlchemySettingRepository(db)
+
+# On/off settings shown as checkboxes; an unchecked box is missing from the form.
+CHECKBOX_SETTINGS = ["enable_sync", "override_cooldown_spending"]
 account_repository = SqlAlchemyAccountRepository(db)
 
 @settings_bp.route("/", methods=["GET"])
@@ -25,19 +28,11 @@ def save():
         current_settings = {s.key: s.value for s in repository.get_all()}
 
         # Checkbox: POST request omits unchecked boxes, so set value accordingly
-        if request.form.get("enable_sync") is not None:
-            repository.save(Setting("enable_sync", "True"))
-        else:
-            repository.save(Setting("enable_sync", "False"))
-
-        # Checkbox: POST request omits unchecked boxes, so set value accordingly
-        if request.form.get("override_cooldown_spending") is not None:
-            repository.save(Setting("override_cooldown_spending", "True"))
-        else:
-            repository.save(Setting("override_cooldown_spending", "False"))
+        for key in CHECKBOX_SETTINGS:
+            repository.save(Setting(key, "True" if request.form.get(key) is not None else "False"))
 
         for key, val in request.form.items():
-            if key in ["enable_sync", "override_cooldown_spending"]:
+            if key in CHECKBOX_SETTINGS:
                 continue
 
             if current_settings.get(key) != val:

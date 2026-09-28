@@ -24,10 +24,13 @@ This project provides a robust system to keep your Monzo pot in sync with your c
     - If override spending is enabled while a cooldown is active and the card balance increases, the additional difference is deposited immediately.
     - The original shortfall remains under cooldown and will be addressed upon expiration.
 - **Detailed Logging:** Every step—from token refreshes to pot adjustments and cooldown checks—is logged for visibility and troubleshooting.
+- **Log History in the Web UI:** The **Logs** page shows each sync run's output with search, level filtering and a period picker. Back-to-back runs with identical output are grouped into one entry (e.g. "×720 identical runs"), lines that changed since the previous group are highlighted, and **Only what changed** turns the history into a timeline of changes. History is kept for 7 days by default (**Log History (days)** in Settings).
 
 ## Extended Logic for Credit Card Providers
 
-For cards like American Express and Barclaycard, pending transactions are now taken into account to calculate the true balance. This ensures the Monzo pot will adjust accurately to reflect your spending even when transactions are still pending.
+For American Express and Lloyds, pending transactions are taken into account to calculate the true balance: pending charges are added, and pending refunds and payments are taken off, so the pot is neither short while a charge is pending nor over-funded while a refund is pending. Each Amex or Lloyds connection has a **Count pending refunds & payments** toggle on the Accounts page (on by default): switch it off for a connection if its provider takes a payment off the balance while it is still pending, which would otherwise count it twice. Barclaycard adds pending charges to its balance quickly, so its reported balance is used as is. Halifax balances are worked out as credit limit minus available credit.
+
+A card that is in credit (overpaid, or with pending refunds larger than what is owed) counts as £0 owed, so it never reduces the amount set aside for your other cards.
 
 ## Upgrade Notice
 
