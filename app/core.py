@@ -371,7 +371,7 @@ def _sync_balance():
                     account_repository.save(credit_account)
                     db.session.commit()
                 if live_card_balance < current_pot:
-                    log.info("[Override] {credit_account.type}: Withdrawal due to pot exceeding card balance.")
+                    log.info(f"[Override] {credit_account.type}: Withdrawal due to pot exceeding card balance.")
                     diff = current_pot - live_card_balance
                     selection = monzo_account.get_account_type(credit_account.pot_id)
                     monzo_account.withdraw_from_pot(credit_account.pot_id, diff, account_selection=selection)
