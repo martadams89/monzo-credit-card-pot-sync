@@ -360,8 +360,28 @@ class TrueLayerAccount(Account):
         response = r.get(f"{self.auth_provider.api_url}/data/v1/cards/{card_id}/transactions/pending", headers=self.get_auth_header())
         response.raise_for_status()
         transactions = response.json()["results"]
-        # Multiply by 100, round up, then divide by 100 to get two decimal places
-        return [math.ceil(txn["amount"] * 100) / 100 for txn in transactions] if transactions else []
+        return [self._signed_pending_amount(txn) for txn in transactions] if transactions else []
+
+    @staticmethod
+    def _signed_pending_amount(txn: dict) -> float:
+        """Return a pending amount as charge-positive, credit-negative, in whole pence.
+
+        Charges add to what is owed and must be positive; refunds and payments
+        reduce it and must be negative. The sign normally comes from the amount
+        itself, but where the provider labels the transaction DEBIT or CREDIT
+        that label wins, so a credit reported with a positive amount is not
+        counted as a charge (and vice versa).
+        """
+        # round() rather than ceil(): ceil turns float noise such as 1.1 * 100 ==
+        # 110.00000000000001 into an extra penny, and rounds charges and credits
+        # in opposite directions.
+        pence = round(float(txn["amount"]) * 100)
+        transaction_type = str(txn.get("transaction_type") or "").upper()
+        if transaction_type == "CREDIT":
+            pence = -abs(pence)
+        elif transaction_type == "DEBIT":
+            pence = abs(pence)
+        return pence / 100
 
     def get_total_balance(self, force_refresh=False) -> int:
         total_balance = 0.0
@@ -386,21 +406,35 @@ class TrueLayerAccount(Account):
             if provider in ["AMEX"]:
                 pending_transactions = self.get_pending_transactions(card_id)
 
-                # Separate charges and payments/refunds
-                pending_charges = math.ceil(sum(txn for txn in pending_transactions if txn > 0) * 100) / 100
-                pending_payments = math.ceil(sum(txn for txn in pending_transactions if txn < 0) * 100) / 100
+                # Work in whole pence so charges and credits of either sign add up exactly.
+                balance_pence = round(balance * 100)
+                pending_pence = [round(txn * 100) for txn in pending_transactions]
 
-                # it looks like pending charges might take into account credits
-                pending_balance = pending_charges # + pending_payments
+                # Separate charges (positive) and payments/refunds (negative)
+                pending_charges_pence = sum(p for p in pending_pence if p > 0)
+                pending_payments_pence = sum(p for p in pending_pence if p < 0)
 
-                adjusted_balance = balance + pending_balance
+                # Amex reports pending charges and pending credits as separate
+                # transactions (they are not netted off), so both must be counted,
+                # otherwise a pending refund leaves the pot over-funded until it posts.
+                pending_balance_pence = pending_charges_pence + pending_payments_pence
 
-                log.info(f"Amex Card - Current Balance (Excluding Pending Transactions): £{balance:.2f}")
-                log.info(f"Amex Card - Pending Charges: £{pending_charges:.2f}")
-                log.info(f"Amex Card - Pending Payments: £{pending_payments:.2f}")
-                log.info(f"Amex Card - Pending Balance: £{pending_balance:.2f}")
-                log.info(f"Amex Card - Total Balance: £{adjusted_balance:.2f}")
-                balance = adjusted_balance
+                adjusted_balance_pence = balance_pence + pending_balance_pence
+                # Pending credits can exceed what is owed (e.g. a refund on a card that
+                # is already paid off). The card then owes nothing; a negative figure
+                # would eat into the amounts owed on other cards in the total below.
+                if adjusted_balance_pence < 0:
+                    log.info(
+                        f"Amex Card - Pending credits exceed balance (£{adjusted_balance_pence / 100:.2f}); treating as £0.00 owed."
+                    )
+                    adjusted_balance_pence = 0
+
+                log.info(f"Amex Card - Current Balance (Excluding Pending Transactions): £{balance_pence / 100:.2f}")
+                log.info(f"Amex Card - Pending Charges: £{pending_charges_pence / 100:.2f}")
+                log.info(f"Amex Card - Pending Payments/Refunds: £{pending_payments_pence / 100:.2f}")
+                log.info(f"Amex Card - Pending Balance: £{pending_balance_pence / 100:.2f}")
+                log.info(f"Amex Card - Total Balance: £{adjusted_balance_pence / 100:.2f}")
+                balance = adjusted_balance_pence / 100
 
             if provider in ["BARCLAYCARD"]:
                 pending_transactions = self.get_pending_transactions(card_id)
@@ -463,5 +497,7 @@ class TrueLayerAccount(Account):
             total_balance += balance
 
         log.info(f"Total balance calculated: £{total_balance:.2f}")
-        self._cached_balance = int(total_balance * 100)  # Convert balance to pence
+        # round() rather than int(): int() truncates float noise such as 0.29 * 100
+        # == 28.999999999999996 down a penny.
+        self._cached_balance = round(total_balance * 100)  # Convert balance to pence
         return self._cached_balance
