@@ -3,10 +3,10 @@
 {% block content %}
 <section class="flex flex-row flex-wrap gap-3 justify-center w-full">
     {% for account in accounts %}
-    <div class="basis-96 p-4 bg-white border border-gray-200 rounded-lg shadow sm:p-6 dark:bg-gray-800 dark:border-gray-700">
+    <div class="w-full sm:w-auto sm:basis-96 p-4 bg-white border border-gray-200 rounded-lg shadow sm:p-6 dark:bg-gray-800 dark:border-gray-700">
         <h5 class="flex items-center font-bold mb-3">
-            <img class="h-6" src="{{ url_for('static', filename='img/') }}{{ account.auth_provider.icon_name }}" />
-            <span class="flex-1 ms-3 whitespace-nowrap">{{ account.type }}</span>
+            <img class="h-6 shrink-0" src="{{ url_for('static', filename='img/') }}{{ account.auth_provider.icon_name }}" />
+            <span class="flex-1 min-w-0 ms-3 break-words">{{ account.type }}</span>
         </h5>
         {% if account.supports_pending_credits %}
         <form action="{{ url_for('accounts.set_pending_credits') }}" method="post" class="mb-2">
@@ -36,7 +36,7 @@
     </div>
     {% endfor %}
 
-    <div class="basis-96 p-4 bg-white border border-gray-200 rounded-lg shadow sm:p-6 dark:bg-gray-800 dark:border-gray-700">
+    <div class="w-full sm:w-auto sm:basis-96 p-4 bg-white border border-gray-200 rounded-lg shadow sm:p-6 dark:bg-gray-800 dark:border-gray-700">
         <h5 class="flex items-center font-bold mb-3">
             Connect an account to sync its balance with your Monzo pot
         </h5>
