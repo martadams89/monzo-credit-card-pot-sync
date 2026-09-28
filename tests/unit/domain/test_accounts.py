@@ -379,3 +379,46 @@ def test_monzo_account_refresh_access_token_authexception(monkeypatch, requests_
         with pytest.raises(AuthException):
             account.refresh_access_token()
         db.drop_all()
+
+
+def _mock_card(requests_mock, provider, balance, pending=None):
+    requests_mock.get(
+        "https://api.truelayer.com/data/v1/cards",
+        status_code=200,
+        json={"results": [{"account_id": "1", "provider": {"display_name": provider}}]},
+    )
+    requests_mock.get(
+        "https://api.truelayer.com/data/v1/cards/1/balance",
+        status_code=200,
+        json={"results": [{"account_id": "1", **balance}]},
+    )
+    requests_mock.get(
+        "https://api.truelayer.com/data/v1/cards/1/transactions/pending",
+        status_code=200,
+        json={"results": [{"amount": a} for a in (pending or [])]},
+    )
+    return TrueLayerAccount("Card", "access_token", "refresh_token", time() + 1000)
+
+
+@pytest.mark.parametrize("provider", ["VISA", "AMEX", "BARCLAYCARD", "LLOYDS"])
+def test_card_balance_is_not_rounded_up_a_penny(requests_mock, provider):
+    # 2.2 * 100 == 220.00000000000003 in floating point; rounding up made this 221p.
+    account = _mock_card(requests_mock, provider, {"current": 2.20})
+    assert account.get_total_balance() == 220
+
+
+def test_get_card_balance_is_not_rounded_up_a_penny(requests_mock):
+    requests_mock.get("https://api.truelayer.com/data/v1/cards/1/balance", status_code=200,
+                      json={"results": [{"current": 2.20}]})
+    account = TrueLayerAccount("Card", "access_token", "refresh_token", time() + 1000)
+    assert account.get_card_balance("1") == 2.20
+
+
+def test_lloyds_pending_charge_is_not_rounded_up_a_penny(requests_mock):
+    account = _mock_card(requests_mock, "LLOYDS", {"current": 100.00}, [1.10])
+    assert account.get_total_balance() == 10110
+
+
+def test_halifax_balance_owed_is_not_rounded_up_a_penny(requests_mock):
+    account = _mock_card(requests_mock, "HALIFAX", {"current": 0, "credit_limit": 1000, "available": 999.90})
+    assert account.get_total_balance() == 10

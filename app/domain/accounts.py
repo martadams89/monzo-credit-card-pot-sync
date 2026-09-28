@@ -1,6 +1,5 @@
 import datetime  # Needed for human-readable time conversions
 import logging
-import math
 from time import time
 from urllib import parse
 
@@ -353,8 +352,8 @@ class TrueLayerAccount(Account):
         response = r.get(f"{self.auth_provider.api_url}/data/v1/cards/{card_id}/balance", headers=self.get_auth_header())
         response.raise_for_status()
         data = response.json()["results"][0]
-        # Multiply by 100, round up, then divide by 100 to get two decimal places
-        return math.ceil(data["current"] * 100) / 100
+        # Round to whole pence; ceil() would turn float noise (2.2 * 100 == 220.00000000000003) into an extra penny
+        return round(data["current"] * 100) / 100
 
     def get_pending_transactions(self, card_id: str) -> list:
         response = r.get(f"{self.auth_provider.api_url}/data/v1/cards/{card_id}/transactions/pending", headers=self.get_auth_header())
@@ -401,7 +400,7 @@ class TrueLayerAccount(Account):
             balance_data = balance_response.json()["results"][0]
             
             # For most providers, use the 'current' field
-            balance = math.ceil(balance_data.get("current", 0) * 100) / 100
+            balance = round(balance_data.get("current", 0) * 100) / 100
 
             if provider in ["AMEX"]:
                 pending_transactions = self.get_pending_transactions(card_id)
@@ -440,13 +439,13 @@ class TrueLayerAccount(Account):
                 pending_transactions = self.get_pending_transactions(card_id)
 
                 # Separate charges and payments/refunds
-                pending_charges = math.ceil(sum(txn for txn in pending_transactions if txn > 0) * 100) / 100
-                pending_payments = math.ceil(sum(txn for txn in pending_transactions if txn < 0) * 100) / 100
+                pending_charges = round(sum(txn for txn in pending_transactions if txn > 0) * 100) / 100
+                pending_payments = round(sum(txn for txn in pending_transactions if txn < 0) * 100) / 100
 
                 # it looks like pending charges might take into account credits
                 pending_balance = pending_charges # + pending_payments
 
-                net_pending = math.ceil(sum(pending_transactions) * 100) / 100
+                net_pending = round(sum(pending_transactions) * 100) / 100
                 adjusted_balance = balance + net_pending
 
                 log.info(f"Barclaycard Card - Current Balance (Excluding Pending Transactions): £{balance:.2f}")
@@ -457,8 +456,8 @@ class TrueLayerAccount(Account):
                 log.info(f"Barclaycard Card - Total Balance: £{adjusted_balance:.2f}")
 
                 # balance = balance
-                # lets ensure balances are rounded up
-                balance = math.ceil(balance * 100) / 100
+                # lets ensure balances are rounded to whole pence
+                balance = round(balance * 100) / 100
 
             if provider in ["HALIFAX"]:
                 # Halifax doesn't provide separate pending transactions
@@ -473,14 +472,14 @@ class TrueLayerAccount(Account):
                 log.info(f"Halifax Card - Balance Owed: £{balance_owed:.2f}")
                 
                 # Ensure balance is rounded up and set
-                balance = math.ceil(balance_owed * 100) / 100
+                balance = round(balance_owed * 100) / 100
 
             if provider in ["LLOYDS"]:
                 pending_transactions = self.get_pending_transactions(card_id)
 
                 # Separate charges and payments/refunds
-                pending_charges = math.ceil(sum(txn for txn in pending_transactions if txn > 0) * 100) / 100
-                pending_payments = math.ceil(sum(txn for txn in pending_transactions if txn < 0) * 100) / 100
+                pending_charges = round(sum(txn for txn in pending_transactions if txn > 0) * 100) / 100
+                pending_payments = round(sum(txn for txn in pending_transactions if txn < 0) * 100) / 100
 
                 # it looks like pending charges might take into account credits
                 pending_balance = pending_charges # + pending_payments
