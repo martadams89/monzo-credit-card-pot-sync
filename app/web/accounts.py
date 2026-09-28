@@ -1,4 +1,5 @@
 from time import time
+from urllib.parse import parse_qs, urlparse
 
 from flask import Blueprint, flash, redirect, render_template, request, session, url_for
 from sqlalchemy.exc import NoResultFound
@@ -100,12 +101,18 @@ def reconnect(account_type):
     """Re-authorise an existing card connection, keeping its pot and settings."""
     try:
         account = account_repository.get(account_type)
+        if account.type == "Monzo":
+            raise KeyError(account.type)
         provider = provider_mapping[AuthProviderType(account.provider_type)]
     except (NoResultFound, ValueError, KeyError):
         flash("Account not found", "error")
         return redirect(url_for("accounts.index"))
-    session["reconnect_account"] = account.type
-    return redirect(provider.create_oauth_request_url())
+    oauth_url = provider.create_oauth_request_url()
+    # Tie the reconnect to this sign-in attempt's OAuth state, so an abandoned
+    # reconnect can never be picked up by a later "Add account".
+    state = parse_qs(urlparse(oauth_url).query).get("state", [""])[0]
+    session["reconnect"] = {"account": account.type, "state": state}
+    return redirect(oauth_url)
 
 
 @accounts_bp.route("/", methods=["POST"])

@@ -51,8 +51,8 @@
         return window.isSecureContext && !!window.PublicKeyCredential;
     }
 
-    async function register(optionsUrl, saveUrl, name) {
-        const options = await postJSON(optionsUrl);
+    async function register(optionsUrl, saveUrl, name, currentPassword) {
+        const options = await postJSON(optionsUrl, { current_password: currentPassword || "" });
         options.challenge = toBuffer(options.challenge);
         options.user.id = toBuffer(options.user.id);
         (options.excludeCredentials || []).forEach(c => { c.id = toBuffer(c.id); });

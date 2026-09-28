@@ -45,7 +45,8 @@ def truelayer_callback():
 
     # Reconnecting an existing card (Accounts > Reconnect) keeps the connection,
     # its pot and its settings, and only swaps in the new tokens.
-    reconnect_type = session.pop("reconnect_account", None)
+    reconnect = session.pop("reconnect", None) or {}
+    reconnect_type = reconnect.get("account") if reconnect.get("state") == request.args.get("state") else None
     if reconnect_type:
         try:
             existing = account_repository.get(reconnect_type)

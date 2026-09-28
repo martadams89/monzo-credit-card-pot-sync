@@ -33,14 +33,24 @@ def _passkeys() -> list[PasskeyModel]:
     return db.session.query(PasskeyModel).order_by(PasskeyModel.id).all()
 
 
-def _current_password_ok() -> bool:
+def _password_confirmation_needed() -> bool:
+    return security.get_setting("auth_password_hash") is not None and not security.auth_disabled_by_env()
+
+
+def _current_password_ok(password: str | None = None, flash_error: bool = True) -> bool:
     """Sensitive changes need the current password, unless none is set yet or the
-    app was started with POT_SYNC_DISABLE_AUTH to recover from a lock-out."""
-    if security.get_setting("auth_password_hash") is None or security.auth_disabled_by_env():
+    app was started with POT_SYNC_DISABLE_AUTH to recover from a lock-out. This
+    stops someone with a stolen session from locking the owner out or adding a
+    passkey of their own that would survive a password change."""
+    if not _password_confirmation_needed():
         return True
-    if security.check_password(request.form.get("current_password", "")):
+    if password is None:
+        password = request.form.get("current_password", "")
+    if security.check_password(password):
         return True
-    flash("Current password is incorrect", "error")
+    security.record_failed_attempt()
+    if flash_error:
+        flash("Current password is incorrect", "error")
     return False
 
 
@@ -55,6 +65,7 @@ def index():
         disabled_by_env=security.auth_disabled_by_env(),
         rp_id=security.webauthn_rp_id(),
         min_length=security.MIN_PASSWORD_LENGTH,
+        passkey_password_needed=_password_confirmation_needed(),
     )
 
 
@@ -138,6 +149,12 @@ def totp_disable():
 
 @security_bp.route("/passkeys/options", methods=["POST"])
 def passkey_register_options():
+    payload = request.get_json(silent=True)
+    password = payload.get("current_password", "") if isinstance(payload, dict) else ""
+    if security.seconds_until_unlocked():
+        return jsonify({"error": "Too many failed attempts. Try again later."}), 429
+    if not _current_password_ok(password, flash_error=False):
+        return jsonify({"error": "Current password is incorrect"}), 403
     user_id = security.get_setting("auth_user_handle")
     if user_id is None:
         user_id = bytes_to_base64url(webauthn.helpers.generate_user_handle())
@@ -163,7 +180,9 @@ def passkey_register_options():
 @security_bp.route("/passkeys", methods=["POST"])
 def passkey_register():
     challenge = session.pop("passkey_registration_challenge", None)
-    payload = request.get_json(silent=True) or {}
+    payload = request.get_json(silent=True)
+    if not isinstance(payload, dict):
+        payload = {}
     if not challenge:
         return jsonify({"error": "Start adding the passkey again"}), 400
     try:
@@ -193,6 +212,8 @@ def passkey_register():
 
 @security_bp.route("/passkeys/<int:passkey_id>/delete", methods=["POST"])
 def passkey_delete(passkey_id: int):
+    if not _current_password_ok():
+        return redirect(url_for("security.index"))
     passkey = db.session.get(PasskeyModel, passkey_id)
     if passkey is not None:
         db.session.delete(passkey)

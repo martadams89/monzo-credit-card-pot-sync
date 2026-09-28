@@ -46,7 +46,7 @@ To turn it on, open **Settings > Security**, set a password, then press **Turn o
 - **Two-factor authentication:** scan the QR code with an authenticator app and confirm a code. Signing in with the password then also asks for a code.
 - **Passkeys:** add one or more passkeys. A passkey signs in on its own (it already checks your face, fingerprint or device PIN). Passkeys are tied to the host in `POT_SYNC_LOCAL_URL` and need https (or `localhost`), so set that variable to the address you open Pot Sync on.
 
-Five wrong passwords or codes pause sign in from that address for 15 minutes. Changing the password or turning sign in off signs out every other session.
+Five wrong passwords or codes pause sign in from that address for 15 minutes (behind a reverse proxy, set `POT_SYNC_TRUSTED_PROXIES` so this applies per visitor rather than to the proxy). Adding or removing a passkey, changing the password, turning off 2FA or turning off sign in all ask for the current password. Changing the password or turning sign in off signs out every other session.
 
 **Locked out?** Restart Pot Sync with the environment variable `POT_SYNC_DISABLE_AUTH=true`. Sign in is skipped and **Settings > Security** lets you reset the password, 2FA and passkeys without the old password. Remove the variable and restart afterwards.
 
@@ -127,6 +127,7 @@ When setting up Monzo or TrueLayer redirect URLs, use the URL that was set in th
 | `DATABASE_URI` | SQLAlchemy database URL. Defaults to a SQLite file in the app folder. |
 | `SECRET_KEY` | Signs session cookies. Optional; generated and stored if unset. |
 | `POT_SYNC_DISABLE_AUTH` | Set to `true` to skip sign in temporarily if you're locked out. |
+| `POT_SYNC_TRUSTED_PROXIES` | Number of reverse proxies in front of Pot Sync (usually `1`). Trusts their `X-Forwarded-For`/`-Proto`/`-Host` headers so sign-in throttling applies per visitor and https is detected. Leave unset if Pot Sync is reached directly. |
 
 ## License
 

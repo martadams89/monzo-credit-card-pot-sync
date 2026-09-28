@@ -116,7 +116,9 @@ def passkey_verify():
     if locked:
         return jsonify({"error": locked}), 429
 
-    credential = request.get_json(silent=True) or {}
+    credential = request.get_json(silent=True)
+    if not isinstance(credential, dict):
+        credential = {}
     passkey = db.session.query(PasskeyModel).filter_by(credential_id=credential.get("id", "")).one_or_none()
     if passkey is None:
         security.record_failed_attempt()

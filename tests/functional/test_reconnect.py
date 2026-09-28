@@ -130,7 +130,8 @@ def test_reconnect_sends_the_user_to_the_card_provider(test_client, seed_data, c
     assert params["client_id"] == ["tl_client"]
     assert params["state"][0].startswith(f"{AMEX}-")
     with test_client.session_transaction() as session:
-        assert session["reconnect_account"] == AMEX
+        # Bound to this sign-in attempt's state, so only its callback can use it.
+        assert session["reconnect"] == {"account": AMEX, "state": params["state"][0]}
 
 
 def test_reconnect_a_second_connection_of_the_same_provider(test_client, seed_data, client_ids):
@@ -142,7 +143,7 @@ def test_reconnect_a_second_connection_of_the_same_provider(test_client, seed_da
 
     assert parse_qs(urlparse(response.location).query)["providers"] == ["uk-ob-amex"]
     with test_client.session_transaction() as session:
-        assert session["reconnect_account"] == f"{AMEX} 2"
+        assert session["reconnect"]["account"] == f"{AMEX} 2"
 
 
 def test_reconnect_unknown_account(test_client, seed_data):
@@ -151,7 +152,7 @@ def test_reconnect_unknown_account(test_client, seed_data):
     _redirects_to_accounts(response)
     assert _flashes(test_client) == [("error", "Account not found")]
     with test_client.session_transaction() as session:
-        assert "reconnect_account" not in session
+        assert "reconnect" not in session
 
 
 def test_reconnect_account_with_unknown_provider(test_client, seed_data):
@@ -164,7 +165,7 @@ def test_reconnect_account_with_unknown_provider(test_client, seed_data):
     _redirects_to_accounts(response)
     assert _flashes(test_client) == [("error", "Account not found")]
     with test_client.session_transaction() as session:
-        assert "reconnect_account" not in session
+        assert "reconnect" not in session
 
 
 # ---------------------------------------------------------------------------
@@ -179,9 +180,9 @@ def _token_response(requests_mock, access="new_access", refresh="new_refresh", e
     )
 
 
-def _start_reconnect(test_client, account_type):
+def _start_reconnect(test_client, account_type, state="American Express-123"):
     with test_client.session_transaction() as session:
-        session["reconnect_account"] = account_type
+        session["reconnect"] = {"account": account_type, "state": state}
 
 
 def test_reconnect_callback_updates_the_existing_connection(test_client, seed_data, requests_mock):
@@ -224,7 +225,7 @@ def test_reconnect_callback_updates_the_existing_connection(test_client, seed_da
     assert amex.consent_expires_at is None
     assert amex.consent_reminder_sent_at is None
     with test_client.session_transaction() as session:
-        assert "reconnect_account" not in session
+        assert "reconnect" not in session
     assert parse_qs(requests_mock.last_request.text)["code"] == ["abc"]
 
 
@@ -257,7 +258,7 @@ def test_reconnect_with_a_different_provider_adds_a_new_connection(test_client, 
     assert barclaycard.provider == "Barclaycard"
     assert barclaycard.pot_id == "default_pot"
     with test_client.session_transaction() as session:
-        assert "reconnect_account" not in session
+        assert "reconnect" not in session
 
 
 def test_reconnect_of_a_deleted_account_adds_a_new_connection(test_client, seed_data, requests_mock):
@@ -275,7 +276,7 @@ def test_reconnect_of_a_deleted_account_adds_a_new_connection(test_client, seed_
     assert amex.access_token == "new_access"
     assert amex.pot_id == "default_pot"
     with test_client.session_transaction() as session:
-        assert "reconnect_account" not in session
+        assert "reconnect" not in session
 
 
 def test_callback_without_reconnect_still_adds_a_numbered_connection(test_client, seed_data, requests_mock):
@@ -298,3 +299,28 @@ def test_full_reconnect_flow(test_client, seed_data, client_ids, requests_mock):
     assert _account(AMEX).access_token == "fresh"
     assert _account(AMEX).pot_id == "amex_pot"
     assert _account(f"{AMEX} 2") is None
+
+
+def test_abandoned_reconnect_does_not_hijack_a_later_add(test_client, seed_data, requests_mock):
+    # Reconnect was started for Amex and abandoned at the bank. Adding another Amex
+    # card later (a new sign-in attempt, so a different OAuth state) must create a
+    # new connection, not overwrite the first card's tokens.
+    _token_response(requests_mock)
+    _start_reconnect(test_client, AMEX, state="American Express-111")
+
+    response = test_client.get("/auth/callback/truelayer?code=abc&state=American%20Express-222")
+
+    _redirects_to_accounts(response)
+    assert _account(AMEX).access_token == "access_token"
+    assert _account(f"{AMEX} 2").access_token == "new_access"
+    with test_client.session_transaction() as session:
+        assert "reconnect" not in session
+
+
+def test_reconnect_is_not_offered_for_monzo(test_client, seed_data):
+    response = test_client.get("/accounts/reconnect/Monzo")
+
+    _redirects_to_accounts(response)
+    assert _flashes(test_client) == [("error", "Account not found")]
+    with test_client.session_transaction() as session:
+        assert "reconnect" not in session

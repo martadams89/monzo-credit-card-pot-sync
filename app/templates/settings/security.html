@@ -104,12 +104,20 @@
                     <p class="text-sm font-medium text-gray-900 break-words dark:text-white">{{ passkey.name }}</p>
                     <p class="text-xs text-gray-500 dark:text-gray-400">Added {{ passkey.created_at|relative_time }}{% if passkey.last_used_at %} &middot; last used {{ passkey.last_used_at|relative_time }}{% endif %}</p>
                 </div>
-                <form method="post" action="{{ url_for('security.passkey_delete', passkey_id=passkey.id) }}" onsubmit="return confirm('Remove this passkey?')">
+                <form method="post" action="{{ url_for('security.passkey_delete', passkey_id=passkey.id) }}" class="passkey-remove">
+                    <input type="hidden" name="current_password" />
                     <button type="submit" class="px-3 py-1.5 text-sm font-medium text-red-700 border border-red-700 rounded-lg hover:bg-red-50 dark:text-red-400 dark:border-red-400 dark:hover:bg-gray-700">Remove</button>
                 </form>
             </li>
             {% endfor %}
         </ul>
+        {% endif %}
+        {% if passkey_password_needed %}
+        <div class="mb-2">
+            <label for="passkey-password" class="block mb-1 text-sm font-medium text-gray-900 dark:text-white">Current password</label>
+            <input id="passkey-password" type="password" autocomplete="current-password" class="{{ input_class }}" />
+            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Needed to add or remove a passkey.</p>
+        </div>
         {% endif %}
         <div class="flex flex-col sm:flex-row gap-2">
             <label for="passkey-name" class="sr-only">Passkey name</label>
@@ -123,6 +131,13 @@
 <script src="{{ url_for('static', filename='js/passkeys.js', v=static_version) }}"></script>
 <script>
 (function () {
+    const passwordField = document.getElementById("passkey-password");
+    document.querySelectorAll("form.passkey-remove").forEach(function (form) {
+        form.addEventListener("submit", function (event) {
+            if (!confirm("Remove this passkey?")) { event.preventDefault(); return; }
+            form.querySelector("input[name=current_password]").value = passwordField ? passwordField.value : "";
+        });
+    });
     const button = document.getElementById("add-passkey");
     const error = document.getElementById("passkey-error");
     function show(message) { error.textContent = message; error.classList.remove("hidden"); }
@@ -138,7 +153,8 @@
             const result = await Passkeys.register(
                 "{{ url_for('security.passkey_register_options') }}",
                 "{{ url_for('security.passkey_register') }}",
-                document.getElementById("passkey-name").value
+                document.getElementById("passkey-name").value,
+                passwordField ? passwordField.value : ""
             );
             window.location.href = result.redirect;
         } catch (e) {
