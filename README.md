@@ -24,6 +24,7 @@ This project provides a robust system to keep your Monzo pot in sync with your c
     - If override spending is enabled while a cooldown is active and the card balance increases, the additional difference is deposited immediately.
     - The original shortfall remains under cooldown and will be addressed upon expiration.
 - **Detailed Logging:** Every step—from token refreshes to pot adjustments and cooldown checks—is logged for visibility and troubleshooting.
+- **Log History in the Web UI:** The **Logs** page shows each sync run's output with search, level filtering and a period picker. Back-to-back runs with identical output are grouped into one entry (e.g. "×720 identical runs"), lines that changed since the previous group are highlighted, and **Only what changed** turns the history into a timeline of changes. History is kept for 7 days by default (**Log History (days)** in Settings).
 
 ## Extended Logic for Credit Card Providers
 

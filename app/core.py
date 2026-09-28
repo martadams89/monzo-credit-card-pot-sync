@@ -46,12 +46,19 @@ from app.errors import AuthException
 from app.extensions import db, scheduler
 from app.models.account_repository import SqlAlchemyAccountRepository
 from app.models.setting_repository import SqlAlchemySettingRepository
+from app.utils.sync_log import record_sync_run
 
 log = logging.getLogger("core")
 account_repository = SqlAlchemyAccountRepository(db)
 settings_repository = SqlAlchemySettingRepository(db)
 
 def sync_balance():
+    # Record this run's log output in the sync log history shown in the web UI.
+    with scheduler.app.app_context(), record_sync_run():
+        _sync_balance()
+
+
+def _sync_balance():
     with scheduler.app.app_context():
         # --------------------------------------------------------------------
         # SECTION 1: INITIALIZATION AND CONNECTION VALIDATION

@@ -2,6 +2,8 @@ import logging
 
 from sqlalchemy import inspect, text
 
+from app.models import sync_run  # noqa: F401 - registers the sync_run table for create_all
+
 log = logging.getLogger("migrations")
 
 

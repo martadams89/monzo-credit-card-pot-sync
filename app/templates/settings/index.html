@@ -29,6 +29,11 @@
             <input type="number" name="deposit_cooldown_hours" id="deposit_cooldown_hours" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-600 dark:border-gray-500 dark:placeholder-gray-400 dark:text-white" value="{{ data['deposit_cooldown_hours'] }}" />
         </div>
 
+        <div>
+            <label for="log_retention_days" class="block mb-2 text-sm font-medium">Log History (days)</label>
+            <input type="number" min="1" name="log_retention_days" id="log_retention_days" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-600 dark:border-gray-500 dark:placeholder-gray-400 dark:text-white" value="{{ data.get('log_retention_days', 7) }}" />
+        </div>
+
         <label class="inline-flex items-center cursor-pointer">
             <input type="checkbox" name="enable_sync" class="sr-only peer" {% if data['enable_sync'] %} checked {% endif %} />
             <div class="relative w-14 h-7 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:start-[4px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>

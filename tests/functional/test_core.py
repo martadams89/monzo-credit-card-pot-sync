@@ -1,3 +1,4 @@
+import logging
 from time import time
 from urllib.parse import parse_qs
 
@@ -5,10 +6,12 @@ from app.core import sync_balance
 from app.domain.auth_providers import AuthProviderType
 from app.extensions import db
 from app.models.account import AccountModel
+from app.models.sync_run import SyncRunModel
 
 
-def test_core_flow_successful_no_change_required(mocker, test_client, requests_mock, seed_data):
+def test_core_flow_successful_no_change_required(mocker, test_client, requests_mock, seed_data, caplog):
     ### Given ###
+    caplog.set_level(logging.INFO)
     mocker.patch("app.core.scheduler")
 
     # Mock ping calls for seeded accounts
@@ -48,6 +51,14 @@ def test_core_flow_successful_no_change_required(mocker, test_client, requests_m
 
     ### When ###
     sync_balance()
+    sync_balance()
+    sync_balance()
+
+    # The first run sets the card baseline; the next two log the same thing, so the
+    # log history holds them as one group of two.
+    runs = db.session.query(SyncRunModel).order_by(SyncRunModel.id).all()
+    assert [run.repeat_count for run in runs] == [1, 2]
+    assert "All credit accounts processed." in runs[-1].lines
 
 
 def test_core_flow_successful_deposit(mocker, test_client, requests_mock, seed_data):

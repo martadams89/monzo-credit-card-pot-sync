@@ -29,6 +29,7 @@ def create_app(test_config=None):
     from .web.accounts import accounts_bp
     from .web.auth import auth_bp
     from .web.home import home_bp
+    from .web.logs import logs_bp
     from .web.pots import pots_bp
     from .web.settings import settings_bp
 
@@ -37,6 +38,7 @@ def create_app(test_config=None):
     app.register_blueprint(pots_bp, url_prefix="/pots")
     app.register_blueprint(auth_bp, url_prefix="/auth")
     app.register_blueprint(settings_bp, url_prefix="/settings")
+    app.register_blueprint(logs_bp, url_prefix="/logs")
 
     # Skip scheduler setup when testing
     if app.config["TESTING"]:

@@ -1,0 +1,153 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="w-full max-w-screen-lg px-4">
+    <div class="mb-4">
+        <h1 class="text-2xl font-semibold text-gray-900 dark:text-white">Sync Logs</h1>
+        <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+            {{ total_runs }} sync run{{ '' if total_runs == 1 else 's' }} in {{ runs|length }} group{{ '' if runs|length == 1 else 's' }}.
+            Back-to-back runs with identical output are grouped together, and
+            <span class="px-1 bg-yellow-100 dark:bg-yellow-900/40 rounded">highlighted</span> lines are new since the group before.
+        </p>
+    </div>
+
+    <form method="get" class="grid grid-cols-2 sm:grid-cols-6 gap-2 mb-2">
+        <input id="log-search" type="search" placeholder="Search logs…" autocomplete="off" aria-label="Search logs"
+               class="col-span-2 sm:col-span-3 bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white" />
+        <select id="log-level" aria-label="Log level"
+                class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+            <option value="0">All levels</option>
+            <option value="1">Warnings &amp; errors</option>
+            <option value="2">Errors only</option>
+        </select>
+        <select name="days" aria-label="Period" onchange="this.form.submit()"
+                class="sm:col-span-2 bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+            {% for value, label in periods.items() %}
+            <option value="{{ value }}" {% if value == period %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+        </select>
+        <noscript><button type="submit" class="text-sm underline">Apply</button></noscript>
+    </form>
+
+    <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+        <label class="inline-flex items-center cursor-pointer">
+            <input id="log-changed" type="checkbox" class="sr-only peer" />
+            <div class="relative w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
+            <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">Only what changed</span>
+        </label>
+        <span id="log-count" class="text-xs text-gray-500 dark:text-gray-400" aria-live="polite"></span>
+    </div>
+
+    {% if runs %}
+    <div id="log-window" class="max-h-[70vh] overflow-y-auto overscroll-contain border border-gray-200 rounded-lg divide-y divide-gray-200 dark:border-gray-700 dark:divide-gray-700">
+        {% for run in runs %}
+        <details class="log-run" {% if loop.first %}open{% endif %}>
+            <summary class="sticky top-0 z-[1] flex flex-wrap items-center gap-x-2 gap-y-1 px-3 py-2 cursor-pointer text-sm bg-gray-50 hover:bg-gray-100 dark:bg-gray-800 dark:hover:bg-gray-700">
+                <span class="font-medium text-gray-900 dark:text-white">
+                    <time data-ts="{{ run.started_at }}">{{ run.started_at|utc_datetime }}</time>
+                    {% if run.repeat_count > 1 %}
+                    &ndash; <time data-ts="{{ run.last_started_at }}">{{ run.last_started_at|utc_datetime }}</time>
+                    {% endif %}
+                </span>
+                {% if run.repeat_count > 1 %}
+                <span class="px-2 py-0.5 text-xs rounded bg-gray-200 text-gray-800 dark:bg-gray-600 dark:text-gray-100">&times;{{ run.repeat_count }} identical runs</span>
+                {% endif %}
+                {% if run.level == 'ERROR' %}
+                <span class="px-2 py-0.5 text-xs rounded bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200">Error</span>
+                {% elif run.level == 'WARNING' %}
+                <span class="px-2 py-0.5 text-xs rounded bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200">Warning</span>
+                {% endif %}
+                {% if run.is_first %}
+                <span class="px-2 py-0.5 text-xs rounded bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">Earliest recorded</span>
+                {% elif run.changed_count %}
+                <span class="px-2 py-0.5 text-xs rounded bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200">{{ run.changed_count }} changed line{{ '' if run.changed_count == 1 else 's' }}</span>
+                {% endif %}
+                {% if run.removed_count %}
+                <span class="px-2 py-0.5 text-xs rounded bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300">{{ run.removed_count }} line{{ '' if run.removed_count == 1 else 's' }} gone</span>
+                {% endif %}
+            </summary>
+            <ol class="py-1 font-mono text-xs leading-5 bg-white dark:bg-gray-900">
+                {% for line in run.lines %}
+                <li class="log-line px-3 border-l-4 whitespace-pre-wrap break-words {% if line.changed %}border-yellow-400 bg-yellow-50 dark:bg-yellow-900/30{% else %}border-transparent{% endif %} {% if line.level == 'ERROR' %}text-red-700 dark:text-red-400{% elif line.level == 'WARNING' %}text-orange-700 dark:text-orange-300{% else %}text-gray-800 dark:text-gray-200{% endif %}"
+                    data-level="{{ 2 if line.level == 'ERROR' else 1 if line.level == 'WARNING' else 0 }}"
+                    data-changed="{{ 1 if line.changed else 0 }}"><time class="text-gray-400 dark:text-gray-500" data-ts="{{ line.time }}" data-format="time">{{ line.time|utc_clock }}</time> <span class="text-gray-500 dark:text-gray-400">{{ line.logger }}</span> {{ line.message }}</li>
+                {% else %}
+                <li class="px-3 text-gray-500 dark:text-gray-400">No log output.</li>
+                {% endfor %}
+            </ol>
+        </details>
+        {% endfor %}
+    </div>
+    <p id="log-empty" class="hidden p-6 text-sm text-center text-gray-500 dark:text-gray-400">No log lines match.</p>
+    {% if runs|length >= max_runs %}
+    <p class="mt-2 text-xs text-gray-500 dark:text-gray-400">Showing the latest {{ max_runs }} groups; choose a shorter period to see everything in it.</p>
+    {% endif %}
+    {% else %}
+    <p class="p-6 text-sm text-center text-gray-500 border border-gray-200 rounded-lg dark:text-gray-400 dark:border-gray-700">
+        No sync runs recorded in this period yet. Logs appear here after the next sync.
+    </p>
+    {% endif %}
+</div>
+
+<script>
+(function () {
+    // Show times in the viewer's own timezone; the server renders UTC as a fallback.
+    document.querySelectorAll("time[data-ts]").forEach(function (el) {
+        var d = new Date(parseFloat(el.dataset.ts) * 1000);
+        el.textContent = el.dataset.format === "time"
+            ? d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })
+            : d.toLocaleString([], { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+        el.title = d.toString();
+    });
+
+    var search = document.getElementById("log-search");
+    var level = document.getElementById("log-level");
+    var changed = document.getElementById("log-changed");
+    var count = document.getElementById("log-count");
+    var empty = document.getElementById("log-empty");
+    var runs = Array.prototype.slice.call(document.querySelectorAll(".log-run"));
+    runs.forEach(function (run) {
+        run.dataset.initiallyOpen = run.open ? "1" : "0";
+        Array.prototype.forEach.call(run.querySelectorAll(".log-line"), function (line) {
+            line.dataset.text = line.textContent.toLowerCase();
+        });
+    });
+
+    function apply() {
+        var query = search.value.trim().toLowerCase();
+        var minLevel = parseInt(level.value, 10);
+        var changedOnly = changed.checked;
+        var filtering = query !== "" || minLevel > 0 || changedOnly;
+        var shownLines = 0, shownRuns = 0;
+
+        runs.forEach(function (run) {
+            var visible = 0;
+            Array.prototype.forEach.call(run.querySelectorAll(".log-line"), function (line) {
+                var show = parseInt(line.dataset.level, 10) >= minLevel
+                    && (!changedOnly || line.dataset.changed === "1")
+                    && (query === "" || line.dataset.text.indexOf(query) !== -1);
+                line.classList.toggle("hidden", !show);
+                if (show) visible++;
+            });
+            var showRun = !filtering || visible > 0;
+            run.classList.toggle("hidden", !showRun);
+            // Open matching groups while filtering; restore the default when cleared.
+            run.open = filtering ? visible > 0 : run.dataset.initiallyOpen === "1";
+            if (showRun) shownRuns++;
+            shownLines += visible;
+        });
+
+        if (count) count.textContent = filtering
+            ? shownLines + " line" + (shownLines === 1 ? "" : "s") + " in " + shownRuns + " group" + (shownRuns === 1 ? "" : "s")
+            : "";
+        if (empty) empty.classList.toggle("hidden", !(filtering && shownRuns === 0));
+    }
+
+    var timer;
+    search.addEventListener("input", function () { clearTimeout(timer); timer = setTimeout(apply, 150); });
+    level.addEventListener("change", apply);
+    changed.addEventListener("change", apply);
+    search.form.addEventListener("submit", function (e) { if (document.activeElement === search) e.preventDefault(); });
+})();
+</script>
+{% endblock %}
