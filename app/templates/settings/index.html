@@ -1,11 +1,30 @@
 {% extends 'base.html' %}
 
 {% block content %}
-<div class="w-full max-w-sm p-4 bg-white border border-gray-200 rounded-lg shadow sm:p-6 md:p-8 dark:bg-gray-800 dark:border-gray-700">
-    <a href="{{ url_for('security.index') }}" class="flex items-center justify-between gap-3 p-3 mb-4 text-sm font-medium text-gray-900 rounded-lg bg-gray-50 hover:bg-gray-100 dark:bg-gray-700 dark:text-white dark:hover:bg-gray-600">
-        <span>Security: sign in, 2FA &amp; passkeys</span>
-        <svg class="w-4 h-4 shrink-0" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m9 5 7 7-7 7"/></svg>
-    </a>
+<div class="w-full max-w-sm space-y-4">
+<section class="p-4 bg-white border border-gray-200 border-l-4 border-l-blue-600 rounded-lg shadow sm:p-6 dark:bg-gray-800 dark:border-gray-700 dark:border-l-blue-500" aria-labelledby="security-heading">
+    <div class="flex items-center gap-2 mb-2">
+        <svg class="w-6 h-6 shrink-0 text-blue-700 dark:text-blue-400" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3 5 6v5c0 4.4 3 8.3 7 9.5 4-1.2 7-5.1 7-9.5V6l-7-3Z"/><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m9 12 2 2 4-4"/></svg>
+        <h2 id="security-heading" class="text-lg font-semibold text-gray-900 dark:text-white">Security</h2>
+    </div>
+    <dl class="grid grid-cols-[1fr_auto] gap-y-2 mb-3 text-sm">
+        <dt class="text-gray-600 dark:text-gray-300">Sign in</dt>
+        <dd>{% if security_status.paused_by_env %}<span class="px-2 py-0.5 text-xs font-medium rounded bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200">Paused</span>{% elif security_status.sign_in_on %}<span class="px-2 py-0.5 text-xs font-medium rounded bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">On</span>{% else %}<span class="px-2 py-0.5 text-xs font-medium rounded bg-gray-200 text-gray-800 dark:bg-gray-600 dark:text-gray-100">Off</span>{% endif %}</dd>
+        <dt class="text-gray-600 dark:text-gray-300">Two-factor authentication</dt>
+        <dd>{% if security_status.totp %}<span class="px-2 py-0.5 text-xs font-medium rounded bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">On</span>{% else %}<span class="px-2 py-0.5 text-xs font-medium rounded bg-gray-200 text-gray-800 dark:bg-gray-600 dark:text-gray-100">Off</span>{% endif %}</dd>
+        <dt class="text-gray-600 dark:text-gray-300">Passkeys</dt>
+        <dd><span class="{{ 'px-2 py-0.5 text-xs font-medium rounded bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' if security_status.passkeys else 'px-2 py-0.5 text-xs font-medium rounded bg-gray-200 text-gray-800 dark:bg-gray-600 dark:text-gray-100' }}">{{ security_status.passkeys }}</span></dd>
+    </dl>
+    <p class="mb-3 text-xs text-gray-500 dark:text-gray-400">
+        {% if security_status.paused_by_env %}Sign in is paused by <code>POT_SYNC_DISABLE_AUTH</code>; remove it and restart once you're back in.
+        {% elif security_status.sign_in_on %}Pot Sync asks for a password{% if security_status.totp %} and code{% endif %} or a passkey.
+        {% else %}Anyone who can reach Pot Sync can use it. That's fine behind a reverse proxy that handles sign in; otherwise turn sign in on.{% endif %}
+    </p>
+    <a href="{{ url_for('security.index') }}" class="block w-full text-center text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800">Manage sign in, 2FA &amp; passkeys</a>
+</section>
+
+<div class="p-4 bg-white border border-gray-200 rounded-lg shadow sm:p-6 md:p-8 dark:bg-gray-800 dark:border-gray-700">
+    <h2 class="mb-3 text-lg font-semibold text-gray-900 dark:text-white">Sync &amp; connections</h2>
     <form class="space-y-3" action="" method="post">
         <div>
             <label for="monzo_client_id" class="block mb-2 text-sm font-medium">Monzo Client ID</label>
@@ -49,6 +68,20 @@
             <div class="relative w-14 h-7 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:start-[4px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
             <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">Override Cooldown Spending</span>
         </label>
+
+        <label class="inline-flex items-center cursor-pointer">
+            <input type="checkbox" name="hide_balances" class="sr-only peer" {% if data['hide_balances'] %} checked {% endif %} />
+            <div class="relative shrink-0 w-14 h-7 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:start-[4px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
+            <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">Hide Amounts on the Home Page</span>
+        </label>
+        <p class="-mt-2 text-xs text-gray-500 dark:text-gray-400">Show £••••• instead of balances; tap the eye on the home page to reveal them.</p>
+
+        <label class="inline-flex items-center cursor-pointer">
+            <input type="checkbox" name="log_history_enabled" class="sr-only peer" {% if data['log_history_enabled'] is none or data['log_history_enabled'] %} checked {% endif %} />
+            <div class="relative shrink-0 w-14 h-7 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:start-[4px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
+            <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">Keep Log History</span>
+        </label>
+        <p class="-mt-2 text-xs text-gray-500 dark:text-gray-400">Turning this off stops saving sync logs (which include balances) and deletes the history kept so far.</p>
   
         
         <button type="submit" class="w-full mt-10 text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800">Save</button>
@@ -68,5 +101,6 @@
             Clear Cooldown
         </button>
     </form>
+</div>
 </div>
 {% endblock %}

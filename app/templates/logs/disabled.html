@@ -1,0 +1,11 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="w-full max-w-md p-4 text-center bg-white border border-gray-200 rounded-lg shadow sm:p-6 dark:bg-gray-800 dark:border-gray-700">
+    <h1 class="mb-2 text-xl font-semibold text-gray-900 dark:text-white">Log history is off</h1>
+    <p class="mb-4 text-sm text-gray-500 dark:text-gray-400">
+        Sync logs aren't being kept. The home page still shows when the last sync ran and any problem it had.
+    </p>
+    <a href="{{ url_for('settings.index') }}" class="inline-block text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800">Turn it on in Settings</a>
+</div>
+{% endblock %}

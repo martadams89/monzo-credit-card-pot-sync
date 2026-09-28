@@ -3,6 +3,7 @@ import threading
 from contextlib import contextmanager
 from time import time
 
+from app import security, sync_status
 from app.extensions import db
 from app.models.sync_run_repository import SqlAlchemySyncRunRepository
 
@@ -61,8 +62,15 @@ def record_sync_run(repository: SqlAlchemySyncRunRepository | None = None):
         lines = handler.lines
         if handler.truncated:
             lines.append([time(), "WARNING", "sync_log", f"{handler.truncated} further log line(s) not recorded"])
+        finished_at = time()
+        sync_status.save_last_run(lines, started_at, finished_at)
         try:
-            repository.record(lines, started_at)
+            keep_history = security.log_history_enabled()
+        except Exception:  # noqa: BLE001 - if the setting can't be read, keep the log
+            keep_history = True
+        try:
+            if keep_history:
+                repository.record(lines, started_at, finished_at)
         except Exception:
             # Saving the log must never fail the sync itself.
             log.exception("Failed to save sync log history")

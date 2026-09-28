@@ -37,7 +37,11 @@ def _page(test_client):
     response = test_client.get("/")
     assert response.status_code == 200
     # Collapse whitespace so assertions don't depend on template indentation.
-    return re.sub(r"\s+", " ", html.unescape(response.data.decode()))
+    page = re.sub(r"\s+", " ", html.unescape(response.data.decode()))
+    # Amounts render twice (the figure and a £••••• mask for "hide amounts"); keep
+    # the figure so assertions read like the visible page.
+    page = re.sub(r'<span class="hidden group-\[\.amounts-hidden\]:inline"[^>]*>.*?</span>', "", page)
+    return re.sub(r'<span class="group-\[\.amounts-hidden\]:hidden">(.*?)</span>', r"\1", page)
 
 
 def _snapshot(**overrides):

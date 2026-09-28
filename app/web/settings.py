@@ -2,10 +2,12 @@ import logging
 
 from flask import Blueprint, flash, redirect, render_template, request, url_for
 
+from app import security
 from app.domain.settings import Setting
 from app.extensions import db, scheduler
 from app.models.account_repository import SqlAlchemyAccountRepository
 from app.models.setting_repository import SqlAlchemySettingRepository
+from app.models.sync_run_repository import SqlAlchemySyncRunRepository
 
 settings_bp = Blueprint("settings", __name__)
 
@@ -13,7 +15,7 @@ log = logging.getLogger("settings")
 repository = SqlAlchemySettingRepository(db)
 
 # On/off settings shown as checkboxes; an unchecked box is missing from the form.
-CHECKBOX_SETTINGS = ["enable_sync", "override_cooldown_spending"]
+CHECKBOX_SETTINGS = ["enable_sync", "override_cooldown_spending", "hide_balances", "log_history_enabled"]
 # Text settings the form may change. Anything else posted is ignored, so the form
 # can't be used to overwrite sign in, 2FA or other internal settings.
 TEXT_SETTINGS = [
@@ -35,12 +37,31 @@ def index():
     data = {key: settings.get(key) for key in TEXT_SETTINGS + CHECKBOX_SETTINGS if key not in SECRET_SETTINGS}
     secrets_saved = {key: bool(settings.get(key)) for key in SECRET_SETTINGS}
     accounts = account_repository.get_credit_accounts()  # Pass available credit accounts
-    return render_template("settings/index.html", data=data, secrets_saved=secrets_saved, accounts=accounts)
+    return render_template(
+        "settings/index.html",
+        data=data,
+        secrets_saved=secrets_saved,
+        accounts=accounts,
+        security_status=_security_status(),
+    )
+
+
+def _security_status() -> dict:
+    from app.models.passkey import PasskeyModel
+
+    return {
+        "sign_in_on": security.auth_mode() == security.AUTH_MODE_PASSWORD,
+        "paused_by_env": security.auth_mode() == security.AUTH_MODE_PASSWORD and security.auth_disabled_by_env(),
+        "totp": security.totp_enabled(),
+        "passkeys": db.session.query(PasskeyModel).count(),
+    }
 
 @settings_bp.route("/", methods=["POST"])
 def save():
     try:
         current_settings = {s.key: s.value for s in repository.get_all()}
+
+        history_was_on = security.log_history_enabled()
 
         # Checkbox: POST request omits unchecked boxes, so set value accordingly
         for key in CHECKBOX_SETTINGS:
@@ -57,6 +78,10 @@ def save():
 
                 if key == "sync_interval_seconds":
                     scheduler.modify_job(id="sync_balance", trigger="interval", seconds=int(val))
+
+        if history_was_on and not security.log_history_enabled():
+            # Turning log history off also removes what was kept, since it holds balances.
+            SqlAlchemySyncRunRepository(db).clear()
 
         flash("Settings saved")
     except Exception as e:

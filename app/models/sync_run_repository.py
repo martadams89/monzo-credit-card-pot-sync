@@ -74,6 +74,13 @@ class SqlAlchemySyncRunRepository:
             session.expunge(run)
             return run
 
+    def clear(self) -> int:
+        """Delete all stored log history; returns how many entries were removed."""
+        with self._session() as session:
+            removed = session.query(SyncRunModel).delete()
+            session.commit()
+            return removed
+
     def latest(self) -> dict | None:
         """The most recent sync run: when it last ran, its level and its first problem."""
         with self._session() as session:
