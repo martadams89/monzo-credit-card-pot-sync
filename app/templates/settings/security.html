@@ -1,0 +1,150 @@
+{% extends 'base.html' %}
+
+{% set input_class = "bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white" %}
+{% set primary_button = "w-full text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800" %}
+{% set secondary_button = "w-full text-gray-900 bg-white border border-gray-300 hover:bg-gray-100 focus:ring-4 focus:outline-none focus:ring-gray-200 font-medium rounded-lg text-sm px-5 py-2.5 text-center dark:bg-gray-800 dark:text-white dark:border-gray-600 dark:hover:bg-gray-700 dark:focus:ring-gray-700" %}
+{% set danger_button = "w-full text-white bg-red-700 hover:bg-red-800 focus:ring-4 focus:outline-none focus:ring-red-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center" %}
+{% set card = "p-4 bg-white border border-gray-200 rounded-lg shadow sm:p-6 dark:bg-gray-800 dark:border-gray-700" %}
+
+{% macro current_password() %}
+{% if password_set and not disabled_by_env %}
+<div>
+    <label class="block mb-1 text-sm font-medium text-gray-900 dark:text-white">Current password</label>
+    <input type="password" name="current_password" required autocomplete="current-password" class="{{ input_class }}" />
+</div>
+{% endif %}
+{% endmacro %}
+
+{% block content %}
+<div class="w-full max-w-xl space-y-4">
+    <div>
+        <a href="{{ url_for('settings.index') }}" class="text-sm text-gray-500 underline dark:text-gray-400">&larr; Settings</a>
+        <h1 class="mt-1 text-2xl font-semibold text-gray-900 dark:text-white">Security</h1>
+    </div>
+
+    {% if disabled_by_env %}
+    <div class="p-3 text-sm text-orange-800 border border-orange-200 rounded-lg bg-orange-50 dark:bg-gray-800 dark:text-orange-300 dark:border-orange-800" role="alert">
+        Sign in is switched off by <code>POT_SYNC_DISABLE_AUTH</code>, so these settings can be changed without your current password.
+        Remove it and restart once you're back in.
+    </div>
+    {% endif %}
+
+    <section class="{{ card }}">
+        <h2 class="mb-1 text-lg font-semibold text-gray-900 dark:text-white">Sign in</h2>
+        {% if mode == 'password' %}
+        <p class="mb-3 text-sm text-gray-500 dark:text-gray-400">
+            <span class="px-2 py-0.5 text-xs rounded bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">On</span>
+            Pot Sync asks for your password{% if totp_enabled %} and an authenticator code{% endif %}, or a passkey.
+        </p>
+        <form method="post" action="{{ url_for('security.set_mode') }}" class="space-y-3">
+            <input type="hidden" name="mode" value="none" />
+            {{ current_password() }}
+            <button type="submit" class="{{ secondary_button }}">Turn off sign in</button>
+            <p class="text-xs text-gray-500 dark:text-gray-400">Only turn this off if something in front of Pot Sync (such as your reverse proxy) already asks people to sign in.</p>
+        </form>
+        {% else %}
+        <p class="mb-3 text-sm text-gray-500 dark:text-gray-400">
+            <span class="px-2 py-0.5 text-xs rounded bg-gray-200 text-gray-800 dark:bg-gray-600 dark:text-gray-100">Off</span>
+            Anyone who can reach Pot Sync can use it. That's fine behind a reverse proxy that handles sign in; otherwise turn this on.
+        </p>
+        {% if password_set %}
+        <form method="post" action="{{ url_for('security.set_mode') }}" class="space-y-3">
+            <input type="hidden" name="mode" value="password" />
+            {{ current_password() }}
+            <button type="submit" class="{{ primary_button }}">Turn on sign in</button>
+        </form>
+        {% else %}
+        <p class="text-sm text-gray-900 dark:text-white">Set a password below to turn on sign in.</p>
+        {% endif %}
+        {% endif %}
+    </section>
+
+    <section class="{{ card }}">
+        <h2 class="mb-3 text-lg font-semibold text-gray-900 dark:text-white">{{ 'Change password' if password_set else 'Set a password' }}</h2>
+        <form method="post" action="{{ url_for('security.set_password') }}" class="space-y-3">
+            {{ current_password() }}
+            <div>
+                <label for="new_password" class="block mb-1 text-sm font-medium text-gray-900 dark:text-white">New password</label>
+                <input type="password" id="new_password" name="new_password" required minlength="{{ min_length }}" autocomplete="new-password" class="{{ input_class }}" />
+                <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">At least {{ min_length }} characters.</p>
+            </div>
+            <div>
+                <label for="confirm_password" class="block mb-1 text-sm font-medium text-gray-900 dark:text-white">Confirm new password</label>
+                <input type="password" id="confirm_password" name="confirm_password" required minlength="{{ min_length }}" autocomplete="new-password" class="{{ input_class }}" />
+            </div>
+            <button type="submit" class="{{ primary_button }}">Save password</button>
+        </form>
+    </section>
+
+    <section class="{{ card }}">
+        <h2 class="mb-1 text-lg font-semibold text-gray-900 dark:text-white">Two-factor authentication</h2>
+        {% if totp_enabled %}
+        <p class="mb-3 text-sm text-gray-500 dark:text-gray-400">
+            <span class="px-2 py-0.5 text-xs rounded bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">On</span>
+            Signing in with a password also needs a code from your authenticator app.
+        </p>
+        <form method="post" action="{{ url_for('security.totp_disable') }}" class="space-y-3">
+            {{ current_password() }}
+            <button type="submit" class="{{ danger_button }}">Turn off two-factor authentication</button>
+        </form>
+        {% else %}
+        <p class="mb-3 text-sm text-gray-500 dark:text-gray-400">Ask for a code from an authenticator app (such as 1Password, Google Authenticator or Authy) after your password.</p>
+        <a href="{{ url_for('security.totp_setup') }}" class="block {{ primary_button }}">Set up two-factor authentication</a>
+        {% endif %}
+    </section>
+
+    <section class="{{ card }}">
+        <h2 class="mb-1 text-lg font-semibold text-gray-900 dark:text-white">Passkeys</h2>
+        <p class="mb-3 text-sm text-gray-500 dark:text-gray-400">Sign in with Face ID, Touch ID, Windows Hello or a security key instead of your password. Passkeys work for <code class="break-all">{{ rp_id }}</code>, so open Pot Sync at that address over https to add or use them.</p>
+        {% if passkeys %}
+        <ul class="mb-3 divide-y divide-gray-200 border border-gray-200 rounded-lg dark:divide-gray-700 dark:border-gray-700">
+            {% for passkey in passkeys %}
+            <li class="flex items-center gap-3 p-3">
+                <div class="flex-1 min-w-0">
+                    <p class="text-sm font-medium text-gray-900 break-words dark:text-white">{{ passkey.name }}</p>
+                    <p class="text-xs text-gray-500 dark:text-gray-400">Added {{ passkey.created_at|relative_time }}{% if passkey.last_used_at %} &middot; last used {{ passkey.last_used_at|relative_time }}{% endif %}</p>
+                </div>
+                <form method="post" action="{{ url_for('security.passkey_delete', passkey_id=passkey.id) }}" onsubmit="return confirm('Remove this passkey?')">
+                    <button type="submit" class="px-3 py-1.5 text-sm font-medium text-red-700 border border-red-700 rounded-lg hover:bg-red-50 dark:text-red-400 dark:border-red-400 dark:hover:bg-gray-700">Remove</button>
+                </form>
+            </li>
+            {% endfor %}
+        </ul>
+        {% endif %}
+        <div class="flex flex-col sm:flex-row gap-2">
+            <label for="passkey-name" class="sr-only">Passkey name</label>
+            <input id="passkey-name" type="text" maxlength="100" placeholder="Name, e.g. iPhone" class="{{ input_class }} sm:flex-1" />
+            <button type="button" id="add-passkey" class="{{ primary_button }} sm:w-auto">Add a passkey</button>
+        </div>
+        <p id="passkey-error" class="hidden mt-2 text-sm text-red-700 dark:text-red-400" role="alert"></p>
+    </section>
+</div>
+
+<script src="{{ url_for('static', filename='js/passkeys.js', v=static_version) }}"></script>
+<script>
+(function () {
+    const button = document.getElementById("add-passkey");
+    const error = document.getElementById("passkey-error");
+    function show(message) { error.textContent = message; error.classList.remove("hidden"); }
+    if (!Passkeys.supported()) {
+        button.disabled = true;
+        button.classList.add("opacity-50", "cursor-not-allowed");
+        show("Passkeys need a secure (https) connection in a supported browser.");
+        return;
+    }
+    button.addEventListener("click", async function () {
+        error.classList.add("hidden");
+        try {
+            const result = await Passkeys.register(
+                "{{ url_for('security.passkey_register_options') }}",
+                "{{ url_for('security.passkey_register') }}",
+                document.getElementById("passkey-name").value
+            );
+            window.location.href = result.redirect;
+        } catch (e) {
+            show(e.name === "NotAllowedError" ? "Adding the passkey was cancelled." : e.name === "InvalidStateError" ? "This device already has a passkey for Pot Sync." : e.message);
+        }
+    });
+})();
+</script>
+{% endblock %}

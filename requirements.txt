@@ -2,9 +2,12 @@ flask
 flask-apscheduler
 flask-sqlalchemy
 gunicorn
+pyotp
 pytest
 pytest-cov
 pytest-mock
-ruff
+qrcode
 requests
 requests-mock
+ruff
+webauthn

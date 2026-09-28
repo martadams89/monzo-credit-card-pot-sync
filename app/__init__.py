@@ -36,11 +36,19 @@ def create_app(test_config=None):
 
         migrate_database(db)
 
+        from . import security
+
+        if not app.config.get("SECRET_KEY"):
+            app.config["SECRET_KEY"] = security.persistent_secret_key()
+
     from .web.accounts import accounts_bp
     from .web.auth import auth_bp
+    from .web.health import health_bp
     from .web.home import home_bp
+    from .web.login import login_bp
     from .web.logs import logs_bp
     from .web.pots import pots_bp
+    from .web.security_settings import security_bp
     from .web.settings import settings_bp
 
     # Version static assets by content so browsers and proxies fetch the new
@@ -58,6 +66,12 @@ def create_app(test_config=None):
     app.register_blueprint(auth_bp, url_prefix="/auth")
     app.register_blueprint(settings_bp, url_prefix="/settings")
     app.register_blueprint(logs_bp, url_prefix="/logs")
+    app.register_blueprint(security_bp, url_prefix="/settings/security")
+    app.register_blueprint(login_bp)
+    app.register_blueprint(health_bp)
+
+    app.before_request(security.require_login)
+    app.context_processor(security.inject_auth_context)
 
     # Skip scheduler setup when testing
     if app.config["TESTING"]:

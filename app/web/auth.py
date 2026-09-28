@@ -1,6 +1,7 @@
 from time import time
 
-from flask import Blueprint, flash, redirect, request, url_for
+from flask import Blueprint, flash, redirect, request, session, url_for
+from sqlalchemy.exc import NoResultFound
 
 from app.domain.accounts import MonzoAccount, TrueLayerAccount
 from app.domain.auth_providers import (
@@ -40,12 +41,29 @@ def truelayer_callback():
 
     code = request.args.get("code")
     tokens = provider.handle_oauth_code_callback(code)
+    token_expiry = int(time()) + tokens["expires_in"]
+
+    # Reconnecting an existing card (Accounts > Reconnect) keeps the connection,
+    # its pot and its settings, and only swaps in the new tokens.
+    reconnect_type = session.pop("reconnect_account", None)
+    if reconnect_type:
+        try:
+            existing = account_repository.get(reconnect_type)
+            if existing.provider_type == provider.name:
+                account_repository.update_tokens(
+                    existing.type, tokens["access_token"], tokens["refresh_token"], token_expiry
+                )
+                flash(f"Reconnected {existing.type}")
+                return redirect(url_for("accounts.index"))
+        except NoResultFound:
+            pass
+
     account_name = account_repository.get_next_account_name(provider.name)
     account = TrueLayerAccount(
         account_name,
         tokens["access_token"],
         tokens["refresh_token"],
-        int(time()) + tokens["expires_in"],
+        token_expiry,
         pot_id="default_pot",
         provider_type=provider.name,
     )

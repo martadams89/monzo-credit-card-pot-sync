@@ -1,7 +1,8 @@
-def test_home_get_contains_jumbotron(test_client):
+def test_home_shows_setup_steps_until_configured(test_client):
     response = test_client.get("/")
     assert response.status_code == 200
-    assert b"Simplify Your Spend" in response.data
+    assert b"Get set up" in response.data
+    assert b"Connect your Monzo account" in response.data
 
 
 def test_home_post_invalid_method(test_client):

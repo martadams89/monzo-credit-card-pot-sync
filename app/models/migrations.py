@@ -2,9 +2,19 @@ import logging
 
 from sqlalchemy import inspect, text
 
-from app.models import (
-    sync_run,  # noqa: F401 - registers the sync_run table for create_all
+from app.models import (  # noqa: F401 - registers these tables for create_all
+    passkey,
+    sync_run,
 )
+
+# Columns added to account_model after its first release, added in place on
+# existing databases. NULL keeps the previous behaviour for every one of them.
+ACCOUNT_COLUMNS = {
+    "include_pending_credits": "BOOLEAN",
+    "cooldown_hours": "INTEGER",
+    "consent_expires_at": "INTEGER",
+    "consent_reminder_sent_at": "INTEGER",
+}
 
 log = logging.getLogger("migrations")
 
@@ -31,12 +41,13 @@ def migrate_database(db) -> None:
                 text("ALTER TABLE account_model ADD COLUMN provider VARCHAR(50)")
             )
 
-    if "include_pending_credits" not in columns:
-        log.info("Adding the per-connection pending refunds and payments option")
-        with db.engine.begin() as connection:
-            connection.execute(
-                text("ALTER TABLE account_model ADD COLUMN include_pending_credits BOOLEAN")
-            )
+    for column, column_type in ACCOUNT_COLUMNS.items():
+        if column not in columns:
+            log.info(f"Adding account_model.{column}")
+            with db.engine.begin() as connection:
+                connection.execute(
+                    text(f"ALTER TABLE account_model ADD COLUMN {column} {column_type}")
+                )
 
     # Also repairs a partially-completed migration without changing any
     # connection names, tokens, pot mappings, or balance state.

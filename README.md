@@ -23,6 +23,11 @@ This project provides a robust system to keep your Monzo pot in sync with your c
   - **Override Spending:**  
     - If override spending is enabled while a cooldown is active and the card balance increases, the additional difference is deposited immediately.
     - The original shortfall remains under cooldown and will be addressed upon expiration.
+- **Dashboard:** The home page shows each card's balance, its pot, whether the pot is in sync (or short/over and by how much), any cooldown and when it ends, and when the last sync ran. Until everything is connected it shows a setup checklist instead. **Sync now** runs a sync straight away.
+- **Per-card Cooldown:** Each card can have its own cooldown on the Accounts page (for example 72 hours for a direct debit that takes a day or more to clear), falling back to **Deposit Cooldown** in Settings.
+- **Reconnect Reminders:** Open banking consent lasts at most 90 days. Pot Sync reads each card's expiry from TrueLayer, shows it on the Accounts page and dashboard, and sends a Monzo notification (at most once a day) in the week before it runs out. **Reconnect** re-authorises the existing connection, keeping its pot and settings.
+- **Optional Sign In:** Off by default for installs behind a reverse proxy that already handles sign in. Turn it on under **Settings > Security** to require a password, optionally with an authenticator app (2FA), and add passkeys (Face ID, Touch ID, Windows Hello, security keys) to sign in without a password. See [Security](#security).
+- **Health Check:** `GET /health` returns 200 while syncs are completing and 503 when none has finished recently, for Docker (the image has a `HEALTHCHECK`) or an uptime monitor.
 - **Detailed Logging:** Every step—from token refreshes to pot adjustments and cooldown checks—is logged for visibility and troubleshooting.
 - **Log History in the Web UI:** The **Logs** page shows each sync run's output with search, level filtering and a period picker. Back-to-back runs with identical output are grouped into one entry (e.g. "×720 identical runs"), lines that changed since the previous group are highlighted, and **Only what changed** turns the history into a timeline of changes. History is kept for 7 days by default (**Log History (days)** in Settings).
 
@@ -31,6 +36,21 @@ This project provides a robust system to keep your Monzo pot in sync with your c
 For American Express and Lloyds, pending transactions are taken into account to calculate the true balance: pending charges are added, and pending refunds and payments are taken off, so the pot is neither short while a charge is pending nor over-funded while a refund is pending. Each Amex or Lloyds connection has a **Count pending refunds & payments** toggle on the Accounts page (on by default): switch it off for a connection if its provider takes a payment off the balance while it is still pending, which would otherwise count it twice. Barclaycard adds pending charges to its balance quickly, so its reported balance is used as is. Halifax balances are worked out as credit limit minus available credit.
 
 A card that is in credit (overpaid, or with pending refunds larger than what is owed) counts as £0 owed, so it never reduces the amount set aside for your other cards.
+
+## Security
+
+Sign in is **off** by default. Leave it off only if something in front of Pot Sync, such as a reverse proxy with authentication, already controls who can reach it; otherwise anyone who can open the page can move money between your pots and read your settings.
+
+To turn it on, open **Settings > Security**, set a password, then press **Turn on sign in**. From there you can also:
+
+- **Two-factor authentication:** scan the QR code with an authenticator app and confirm a code. Signing in with the password then also asks for a code.
+- **Passkeys:** add one or more passkeys. A passkey signs in on its own (it already checks your face, fingerprint or device PIN). Passkeys are tied to the host in `POT_SYNC_LOCAL_URL` and need https (or `localhost`), so set that variable to the address you open Pot Sync on.
+
+Five wrong passwords or codes pause sign in from that address for 15 minutes. Changing the password or turning sign in off signs out every other session.
+
+**Locked out?** Restart Pot Sync with the environment variable `POT_SYNC_DISABLE_AUTH=true`. Sign in is skipped and **Settings > Security** lets you reset the password, 2FA and passkeys without the old password. Remove the variable and restart afterwards.
+
+Session cookies are signed with `SECRET_KEY` if you set it; otherwise a random key is generated on first start and kept in the database. Client secrets saved in Settings are never sent back to the browser: leave a secret field blank to keep the saved value.
 
 ## Upgrade Notice
 
@@ -97,7 +117,16 @@ environment:
   - POT_SYNC_LOCAL_URL=https://subdomain.fulldomain.com
 ```
 
-When setting up Monzo or TrueLayer redirect URLs, use the URL that was set in the `POT_SYNC_LOCAL_URL` variable to enable the accounts to successfully link.
+When setting up Monzo or TrueLayer redirect URLs, use the URL that was set in the `POT_SYNC_LOCAL_URL` variable to enable the accounts to successfully link. The same URL is used for passkeys, and when it starts with `https://` the session cookie is marked secure.
+
+### Environment variables
+
+| Variable | Purpose |
+| --- | --- |
+| `POT_SYNC_LOCAL_URL` | The URL you open Pot Sync on. Used for OAuth callbacks and passkeys. Default `http://localhost:1337`. |
+| `DATABASE_URI` | SQLAlchemy database URL. Defaults to a SQLite file in the app folder. |
+| `SECRET_KEY` | Signs session cookies. Optional; generated and stored if unset. |
+| `POT_SYNC_DISABLE_AUTH` | Set to `true` to skip sign in temporarily if you're locked out. |
 
 ## License
 
