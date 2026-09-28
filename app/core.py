@@ -40,6 +40,7 @@ from time import time
 
 from sqlalchemy.exc import NoResultFound, SQLAlchemyError
 
+from app import sync_status
 from app.domain.accounts import MonzoAccount, TrueLayerAccount
 from app.domain.settings import Setting
 from app.errors import AuthException
@@ -51,6 +52,74 @@ from app.utils.sync_log import record_sync_run
 log = logging.getLogger("core")
 account_repository = SqlAlchemyAccountRepository(db)
 settings_repository = SqlAlchemySettingRepository(db)
+
+# Remind the user to reconnect a card this long before its consent expires, at most
+# once a day.
+CONSENT_REMINDER_DAYS = 7
+CONSENT_REMINDER_INTERVAL = 24 * 3600
+
+
+def _check_consent_expiry(credit_account, expires_at, monzo_account) -> None:
+    """Record when a card's consent expires and remind the user to reconnect it."""
+    if expires_at is None:
+        return
+    if expires_at != credit_account.consent_expires_at:
+        account_repository.set_consent_expiry(credit_account.type, expires_at)
+        credit_account.consent_expires_at = expires_at
+    now = int(time())
+    remaining = expires_at - now
+    if remaining > CONSENT_REMINDER_DAYS * 86400 or monzo_account is None:
+        return
+    last_sent = credit_account.consent_reminder_sent_at
+    if last_sent is not None and now - last_sent < CONSENT_REMINDER_INTERVAL:
+        return
+    expiry_date = datetime.datetime.fromtimestamp(expires_at, tz=datetime.timezone.utc).strftime("%d %b")
+    if remaining > 0:
+        log.warning(f"{credit_account.type} connection expires on {expiry_date}; reminding the user to reconnect")
+        title = f"Reconnect {credit_account.type} by {expiry_date}"
+    else:
+        log.warning(f"{credit_account.type} connection expired on {expiry_date}")
+        title = f"{credit_account.type} needs reconnecting"
+    try:
+        monzo_account.send_notification(
+            title,
+            "Open Pot Sync, go to Accounts and press Reconnect to keep your pot in sync.",
+        )
+        account_repository.mark_consent_reminder_sent(credit_account.type, now)
+        credit_account.consent_reminder_sent_at = now
+    except Exception as e:  # noqa: BLE001 - a failed reminder must not stop the sync
+        log.error(f"Failed to send the reconnect reminder for {credit_account.type}: {e}")
+
+
+def _snapshot_status(monzo_account, credit_accounts) -> None:
+    """Save each card's latest figures for the home page dashboard."""
+    pots = {}
+    for selection in ("personal", "joint", "business"):
+        try:
+            for pot in monzo_account.get_pots(selection):
+                pots.setdefault(pot["id"], pot)
+        except Exception as e:  # noqa: BLE001 - not every Monzo user has joint/business accounts
+            log.debug(f"No {selection} pots for the dashboard: {e}")
+    accounts = []
+    for credit_account in credit_accounts:
+        try:
+            card_balance = credit_account.get_total_balance(force_refresh=False)
+        except Exception:  # noqa: BLE001 - keep the rest of the snapshot
+            card_balance = None
+        pot = pots.get(credit_account.pot_id) or {}
+        accounts.append({
+            "type": credit_account.type,
+            "provider": credit_account.provider_type,
+            "icon": credit_account.auth_provider.icon_name,
+            "card_balance": card_balance,
+            "pot_id": credit_account.pot_id,
+            "pot_name": pot.get("name"),
+            "pot_balance": pot.get("balance"),
+            "cooldown_until": credit_account.cooldown_until,
+            "consent_expires_at": credit_account.consent_expires_at,
+        })
+    sync_status.save(accounts, time())
+
 
 def _setting_enabled(key: str) -> bool:
     """Read an on/off setting. Values saved from the settings page are "True"/"False"
@@ -106,8 +175,9 @@ def _sync_balance():
                     credit_account.refresh_access_token()
                     account_repository.save(credit_account)
                 log.info(f"Checking health of {credit_account.type} connection")
-                credit_account.ping()
+                consent_expires_at = credit_account.ping()
                 log.info(f"{credit_account.type} connection is healthy")
+                _check_consent_expiry(credit_account, consent_expires_at, monzo_account)
             except AuthException as e:
                 details = getattr(e, 'details', {})
                 description = details.get('error_description', '')
@@ -463,10 +533,14 @@ def _sync_balance():
                             log.info("Persisted cooldown check not active; proceeding to initiate cooldown.")
 
                         log.info("Situation: Pot dropped below card balance without confirmed spending.")
-                        try:
-                            cooldown_hours = int(settings_repository.get("deposit_cooldown_hours"))
-                        except (NoResultFound, TypeError, ValueError):
-                            cooldown_hours = 3
+                        if credit_account.cooldown_hours:
+                            # This card's own cooldown, e.g. longer for a slow-clearing direct debit.
+                            cooldown_hours = credit_account.cooldown_hours
+                        else:
+                            try:
+                                cooldown_hours = int(settings_repository.get("deposit_cooldown_hours"))
+                            except (NoResultFound, TypeError, ValueError):
+                                cooldown_hours = 3
                         new_cooldown = int(time()) + cooldown_hours * 3600
                         credit_account.cooldown_until = new_cooldown
                         # Record what the card owed when the cooldown started. The cooldown
@@ -529,4 +603,5 @@ def _sync_balance():
         # --------------------------------------------------------------------
         # END OF SYNC LOOP
         # --------------------------------------------------------------------
+        _snapshot_status(monzo_account, credit_accounts)
         log.info("All credit accounts processed.")

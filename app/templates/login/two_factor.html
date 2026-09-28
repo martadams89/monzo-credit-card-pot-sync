@@ -1,0 +1,17 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="w-full max-w-sm p-4 bg-white border border-gray-200 rounded-lg shadow sm:p-6 dark:bg-gray-800 dark:border-gray-700">
+    <h1 class="mb-1 text-xl font-semibold text-gray-900 dark:text-white">Two-factor authentication</h1>
+    <p class="mb-4 text-sm text-gray-500 dark:text-gray-400">Enter the 6-digit code from your authenticator app.</p>
+    <form method="post" class="space-y-4">
+        <div>
+            <label for="code" class="sr-only">Code</label>
+            <input type="text" name="code" id="code" required autofocus inputmode="numeric" autocomplete="one-time-code" pattern="[0-9 ]{6,7}" maxlength="7"
+                   class="bg-gray-50 border border-gray-300 text-gray-900 text-lg tracking-widest text-center rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:text-white" />
+        </div>
+        <button type="submit" class="w-full text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800">Verify</button>
+    </form>
+    <a href="{{ url_for('login.login') }}" class="block mt-4 text-sm text-center text-gray-500 underline dark:text-gray-400">Start again</a>
+</div>
+{% endblock %}

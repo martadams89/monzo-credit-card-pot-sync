@@ -2,36 +2,40 @@
 
 {% block content %}
 <div class="w-full max-w-sm p-4 bg-white border border-gray-200 rounded-lg shadow sm:p-6 md:p-8 dark:bg-gray-800 dark:border-gray-700">
+    <a href="{{ url_for('security.index') }}" class="flex items-center justify-between gap-3 p-3 mb-4 text-sm font-medium text-gray-900 rounded-lg bg-gray-50 hover:bg-gray-100 dark:bg-gray-700 dark:text-white dark:hover:bg-gray-600">
+        <span>Security: sign in, 2FA &amp; passkeys</span>
+        <svg class="w-4 h-4 shrink-0" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m9 5 7 7-7 7"/></svg>
+    </a>
     <form class="space-y-3" action="" method="post">
         <div>
             <label for="monzo_client_id" class="block mb-2 text-sm font-medium">Monzo Client ID</label>
-            <input type="text" name="monzo_client_id" id="monzo_client_id" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-600 dark:border-gray-500 dark:placeholder-gray-400 dark:text-white" value="{{ data['monzo_client_id'] }}" />
+            <input type="text" name="monzo_client_id" id="monzo_client_id" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-600 dark:border-gray-500 dark:placeholder-gray-400 dark:text-white" value="{{ data['monzo_client_id'] if data['monzo_client_id'] is not none else '' }}" />
         </div>
         <div>
             <label for="monzo_client_secret" class="block mb-2 text-sm font-medium">Monzo Client Secret</label>
-            <input type="password" name="monzo_client_secret" id="monzo_client_secret" placeholder="••••••••" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-600 dark:border-gray-500 dark:placeholder-gray-400 dark:text-white" value="{{ data['monzo_client_secret'] }}" />
+            <input type="password" name="monzo_client_secret" id="monzo_client_secret" autocomplete="new-password" placeholder="{{ 'Saved (leave blank to keep)' if secrets_saved['monzo_client_secret'] else 'Not set' }}" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-600 dark:border-gray-500 dark:placeholder-gray-400 dark:text-white" />
         </div>
 
         <div>
             <label for="truelayer_client_id" class="block mb-2 text-sm font-medium">TrueLayer Client ID</label>
-            <input type="text" name="truelayer_client_id" id="truelayer_client_id" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-600 dark:border-gray-500 dark:placeholder-gray-400 dark:text-white" value="{{ data['truelayer_client_id'] }}" />
+            <input type="text" name="truelayer_client_id" id="truelayer_client_id" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-600 dark:border-gray-500 dark:placeholder-gray-400 dark:text-white" value="{{ data['truelayer_client_id'] if data['truelayer_client_id'] is not none else '' }}" />
         </div>
         <div>
             <label for="truelayer_client_secret" class="block mb-2 text-sm font-medium">TrueLayer Client Secret</label>
-            <input type="password" name="truelayer_client_secret" id="truelayer_client_secret" placeholder="••••••••" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-600 dark:border-gray-500 dark:placeholder-gray-400 dark:text-white" value="{{ data['truelayer_client_secret'] }}" />
+            <input type="password" name="truelayer_client_secret" id="truelayer_client_secret" autocomplete="new-password" placeholder="{{ 'Saved (leave blank to keep)' if secrets_saved['truelayer_client_secret'] else 'Not set' }}" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-600 dark:border-gray-500 dark:placeholder-gray-400 dark:text-white" />
         </div>
         <div>
             <label for="sync_interval_seconds" class="block mb-2 text-sm font-medium">Sync Interval (seconds)</label>
-            <input type="number" name="sync_interval_seconds" id="sync_interval_seconds" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-600 dark:border-gray-500 dark:placeholder-gray-400 dark:text-white" value="{{ data['sync_interval_seconds'] }}" />
+            <input type="number" name="sync_interval_seconds" id="sync_interval_seconds" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-600 dark:border-gray-500 dark:placeholder-gray-400 dark:text-white" value="{{ data['sync_interval_seconds'] if data['sync_interval_seconds'] is not none else '' }}" />
         </div>
         <div>
             <label for="deposit_cooldown_hours" class="block mb-2 text-sm font-medium">Deposit Cooldown (hours)</label>
-            <input type="number" name="deposit_cooldown_hours" id="deposit_cooldown_hours" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-600 dark:border-gray-500 dark:placeholder-gray-400 dark:text-white" value="{{ data['deposit_cooldown_hours'] }}" />
+            <input type="number" name="deposit_cooldown_hours" id="deposit_cooldown_hours" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-600 dark:border-gray-500 dark:placeholder-gray-400 dark:text-white" value="{{ data['deposit_cooldown_hours'] if data['deposit_cooldown_hours'] is not none else '' }}" />
         </div>
 
         <div>
             <label for="log_retention_days" class="block mb-2 text-sm font-medium">Log History (days)</label>
-            <input type="number" min="1" name="log_retention_days" id="log_retention_days" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-600 dark:border-gray-500 dark:placeholder-gray-400 dark:text-white" value="{{ data.get('log_retention_days', 7) }}" />
+            <input type="number" min="1" name="log_retention_days" id="log_retention_days" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-600 dark:border-gray-500 dark:placeholder-gray-400 dark:text-white" value="{{ data['log_retention_days'] if data['log_retention_days'] is not none else 7 }}" />
         </div>
 
         <label class="inline-flex items-center cursor-pointer">

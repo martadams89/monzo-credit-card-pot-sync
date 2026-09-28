@@ -1,14 +1,100 @@
 {% extends 'base.html' %}
 
 {% block content %}
-<section class="bg-white dark:bg-gray-900 bg-[url('https://flowbite.s3.amazonaws.com/docs/jumbotron/hero-pattern.svg')] dark:bg-[url('https://flowbite.s3.amazonaws.com/docs/jumbotron/hero-pattern-dark.svg')]">
-    <div class="py-8 px-4 mx-auto max-w-screen-xl text-center lg:py-16 z-10 relative">
-        <h1 class="mb-4 text-4xl font-extrabold tracking-tight leading-none text-gray-900 md:text-5xl lg:text-6xl dark:text-white">Simplify Your Spend</h1>
-        <p class="mb-8 text-lg font-normal text-gray-500 lg:text-xl sm:px-16 lg:px-48 dark:text-gray-200">
-            Day-to-day spend on credit cards? You're not alone!
-            <br /><br />
-            Automatically keep track, and move money to a Monzo pot of your choice. No need to open the Monzo app everytime you buy a coffee!</p>
+<div class="w-full max-w-screen-lg">
+    {% if not setup_complete %}
+    <div class="max-w-xl mx-auto">
+        <h1 class="text-2xl font-semibold text-gray-900 dark:text-white">Get set up</h1>
+        <p class="mt-1 mb-4 text-sm text-gray-500 dark:text-gray-400">
+            Pot Sync keeps a Monzo pot topped up to match what you owe on your credit cards. Finish these steps to start syncing.
+        </p>
+        <ol class="space-y-2">
+            {% for step in steps %}
+            <li>
+                <a href="{{ step.url }}" class="flex items-center gap-3 p-3 bg-white border border-gray-200 rounded-lg shadow-sm hover:bg-gray-50 dark:bg-gray-800 dark:border-gray-700 dark:hover:bg-gray-700">
+                    {% if step.done %}
+                    <svg class="shrink-0 w-6 h-6 text-green-600 dark:text-green-500" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.5 11.5 11 14l4-4m6 2a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/></svg>
+                    <span class="sr-only">Done:</span>
+                    {% else %}
+                    <span class="shrink-0 flex items-center justify-center w-6 h-6 text-xs font-semibold text-gray-500 border-2 border-gray-300 rounded-full dark:border-gray-500 dark:text-gray-400">{{ loop.index }}</span>
+                    {% endif %}
+                    <span class="flex-1 min-w-0 text-sm font-medium {% if step.done %}text-gray-500 line-through dark:text-gray-400{% else %}text-gray-900 dark:text-white{% endif %}">{{ step.label }}</span>
+                </a>
+            </li>
+            {% endfor %}
+        </ol>
     </div>
-    <div class="pointer-events-none bg-gradient-to-b from-blue-50 to-transparent dark:from-gray-800 w-full h-full absolute top-16 left-0 z-0"></div>
-</section>
+    {% else %}
+    <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+        <div class="min-w-0">
+            <h1 class="text-2xl font-semibold text-gray-900 dark:text-white">Overview</h1>
+            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                {% if latest %}
+                Last sync {{ latest.finished_at|relative_time }}
+                {% if latest.level == 'ERROR' %}
+                <span class="px-2 py-0.5 ms-1 text-xs rounded bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200">Error</span>
+                {% elif latest.level == 'WARNING' %}
+                <span class="px-2 py-0.5 ms-1 text-xs rounded bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200">Warning</span>
+                {% endif %}
+                {% else %}
+                No sync has run yet
+                {% endif %}
+                {% if not sync_enabled %}
+                <span class="px-2 py-0.5 ms-1 text-xs rounded bg-gray-200 text-gray-800 dark:bg-gray-600 dark:text-gray-100">Sync is off</span>
+                {% endif %}
+            </p>
+            {% if latest and latest.problem %}
+            <p class="mt-1 text-sm break-words {% if latest.level == 'ERROR' %}text-red-700 dark:text-red-400{% else %}text-orange-700 dark:text-orange-300{% endif %}">
+                {{ latest.problem }} &middot; <a class="underline" href="{{ url_for('logs.index') }}">View logs</a>
+            </p>
+            {% endif %}
+        </div>
+        <form action="{{ url_for('home.sync_now') }}" method="post" class="w-full sm:w-auto">
+            <button type="submit" class="w-full sm:w-auto inline-flex items-center justify-center gap-2 text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800">
+                <svg class="w-4 h-4" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.651 7.65a7.131 7.131 0 0 0-12.68 3.15M18.001 4v4h-4m-7.652 8.35a7.13 7.13 0 0 0 12.68-3.15M6 20v-4h4"/></svg>
+                Sync now
+            </button>
+        </form>
+    </div>
+
+    <section class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {% for card in cards %}
+        <div class="p-4 bg-white border border-gray-200 rounded-lg shadow-sm dark:bg-gray-800 dark:border-gray-700">
+            <h2 class="flex items-center gap-3 mb-3 font-bold text-gray-900 dark:text-white">
+                <img class="h-6 shrink-0" src="{{ url_for('static', filename='img/') }}{{ card.icon }}" alt="" />
+                <span class="flex-1 min-w-0 break-words">{{ card.type }}</span>
+            </h2>
+            <dl class="grid grid-cols-2 gap-y-1 text-sm">
+                <dt class="text-gray-500 dark:text-gray-400">Card owes</dt>
+                <dd class="text-right font-medium text-gray-900 dark:text-white">{{ card.card_balance|pounds }}</dd>
+                <dt class="text-gray-500 dark:text-gray-400 min-w-0 truncate" title="{{ card.pot_name or 'Pot' }}">{{ card.pot_name or 'Pot' }}</dt>
+                <dd class="text-right font-medium text-gray-900 dark:text-white">{{ card.pot_balance|pounds }}</dd>
+            </dl>
+            {% if card.shared_with %}
+            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Pot shared with {{ card.shared_with|join(', ') }}; compared with their combined balance.</p>
+            {% endif %}
+            <div class="flex flex-wrap gap-2 mt-3">
+                {% if card.difference is none %}
+                <span class="px-2 py-0.5 text-xs rounded bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300">Waiting for the next sync</span>
+                {% elif card.difference == 0 %}
+                <span class="px-2 py-0.5 text-xs rounded bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">In sync</span>
+                {% elif card.difference < 0 %}
+                <span class="px-2 py-0.5 text-xs rounded bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200">Pot short by {{ (-card.difference)|pounds }}</span>
+                {% else %}
+                <span class="px-2 py-0.5 text-xs rounded bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">Pot over by {{ card.difference|pounds }}</span>
+                {% endif %}
+                {% if card.cooldown_until %}
+                <span class="px-2 py-0.5 text-xs rounded bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-200">Cooldown ends {{ card.cooldown_until|relative_time }}</span>
+                {% endif %}
+                {% if card.reconnect_soon %}
+                <a href="{{ url_for('accounts.index') }}" class="px-2 py-0.5 text-xs rounded bg-red-100 text-red-800 underline dark:bg-red-900 dark:text-red-200">
+                    {% if card.consent_expires_at > now %}Reconnect {{ card.consent_expires_at|relative_time }}{% else %}Reconnect needed{% endif %}
+                </a>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </section>
+    {% endif %}
+</div>
 {% endblock %}

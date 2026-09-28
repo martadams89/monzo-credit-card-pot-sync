@@ -25,6 +25,9 @@ class SqlAlchemyAccountRepository:
             cooldown_ref_pot_balance=account.cooldown_ref_pot_balance,
             stable_pot_balance=account.stable_pot_balance,
             include_pending_credits=account.include_pending_credits,
+            cooldown_hours=account.cooldown_hours,
+            consent_expires_at=account.consent_expires_at,
+            consent_reminder_sent_at=account.consent_reminder_sent_at,
         )
 
     def _to_domain(self, model: AccountModel) -> Account:
@@ -42,6 +45,9 @@ class SqlAlchemyAccountRepository:
             cooldown_ref_pot_balance=model.cooldown_ref_pot_balance,
             stable_pot_balance=model.stable_pot_balance,
             include_pending_credits=model.include_pending_credits is not False,
+            cooldown_hours=model.cooldown_hours,
+            consent_expires_at=model.consent_expires_at,
+            consent_reminder_sent_at=model.consent_reminder_sent_at,
         )
 
     def get_all(self) -> list[Account]:
@@ -87,6 +93,9 @@ class SqlAlchemyAccountRepository:
                 cooldown_until=a.cooldown_until,
                 provider_type=a.provider_type,
                 include_pending_credits=a.include_pending_credits,
+                cooldown_hours=a.cooldown_hours,
+                consent_expires_at=a.consent_expires_at,
+                consent_reminder_sent_at=a.consent_reminder_sent_at,
             )
             for a in accounts
         ]
@@ -160,6 +169,36 @@ class SqlAlchemyAccountRepository:
         """
         record: AccountModel = self._session.query(AccountModel).filter_by(type=account_type).one()
         record.include_pending_credits = include
+        self._session.commit()
+
+    # The setters below change one field each and are deliberately not part of
+    # ``save()``, for the same reason as ``set_include_pending_credits``.
+
+    def set_cooldown_hours(self, account_type: str, hours: int | None) -> None:
+        record: AccountModel = self._session.query(AccountModel).filter_by(type=account_type).one()
+        record.cooldown_hours = hours
+        self._session.commit()
+
+    def set_consent_expiry(self, account_type: str, expires_at: int | None) -> None:
+        record: AccountModel = self._session.query(AccountModel).filter_by(type=account_type).one()
+        record.consent_expires_at = expires_at
+        self._session.commit()
+
+    def mark_consent_reminder_sent(self, account_type: str, sent_at: int) -> None:
+        record: AccountModel = self._session.query(AccountModel).filter_by(type=account_type).one()
+        record.consent_reminder_sent_at = sent_at
+        self._session.commit()
+
+    def update_tokens(self, account_type: str, access_token: str, refresh_token: str, token_expiry: int) -> None:
+        """Replace a connection's tokens after it is reconnected, keeping its pot,
+        balances, cooldown and options. The consent expiry is cleared until the next
+        sync reads the new one."""
+        record: AccountModel = self._session.query(AccountModel).filter_by(type=account_type).one()
+        record.access_token = access_token
+        record.refresh_token = refresh_token
+        record.token_expiry = token_expiry
+        record.consent_expires_at = None
+        record.consent_reminder_sent_at = None
         self._session.commit()
 
     def delete(self, type: str) -> None:

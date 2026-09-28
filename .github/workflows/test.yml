@@ -46,6 +46,9 @@ jobs:
 
       - name: Upload Coverage Report
         uses: coverallsapp/github-action@v2.3.8
+        with:
+          # A Coveralls outage must not fail the build or block the image.
+          fail-on-error: false
       
       - name: set lower case repo name
         run: |

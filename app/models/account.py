@@ -26,3 +26,9 @@ class AccountModel(db.Model):
     # Whether pending refunds and payments reduce this card's balance (Amex, Lloyds).
     # NULL means on, so connections made before the option existed keep counting them.
     include_pending_credits = Column(Boolean, nullable=True)
+    # Cooldown length for this connection in hours; NULL uses the global setting.
+    cooldown_hours = Column(Integer, nullable=True)
+    # When the provider's consent (and so this connection) expires, from TrueLayer,
+    # and when the user was last reminded to reconnect. Epoch seconds.
+    consent_expires_at = Column(Integer, nullable=True)
+    consent_reminder_sent_at = Column(Integer, nullable=True)

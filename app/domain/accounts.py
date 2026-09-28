@@ -26,6 +26,9 @@ class Account:
         stable_pot_balance=None,
         provider_type=None,
         include_pending_credits=True,
+        cooldown_hours=None,
+        consent_expires_at=None,
+        consent_reminder_sent_at=None,
     ):
         self.type = type
         self.provider_type = provider_type or type
@@ -40,6 +43,9 @@ class Account:
         self.cooldown_ref_pot_balance = cooldown_ref_pot_balance
         self.stable_pot_balance = stable_pot_balance
         self.include_pending_credits = include_pending_credits
+        self.cooldown_hours = cooldown_hours
+        self.consent_expires_at = consent_expires_at
+        self.consent_reminder_sent_at = consent_reminder_sent_at
 
 
     def is_token_within_expiry_window(self):
@@ -312,6 +318,9 @@ class TrueLayerAccount(Account):
         cooldown_until=None,
         provider_type=None,
         include_pending_credits=True,
+        cooldown_hours=None,
+        consent_expires_at=None,
+        consent_reminder_sent_at=None,
     ):
         super().__init__(
             account_type,
@@ -327,6 +336,9 @@ class TrueLayerAccount(Account):
             cooldown_ref_pot_balance=cooldown_ref_pot_balance,
             provider_type=provider_type,
             include_pending_credits=include_pending_credits,
+            cooldown_hours=cooldown_hours,
+            consent_expires_at=consent_expires_at,
+            consent_reminder_sent_at=consent_reminder_sent_at,
         )
         from app.domain.auth_providers import TrueLayerAuthProvider
 
@@ -349,8 +361,16 @@ class TrueLayerAccount(Account):
             icon_name=icon
         )
 
-    def ping(self) -> None:
-        r.get(f"{self.auth_provider.api_url}/data/v1/me", headers=self.get_auth_header())
+    def ping(self) -> int | None:
+        """Check the connection and return when its consent expires (epoch seconds),
+        if TrueLayer says. Consent lasts at most 90 days, after which the card has to
+        be reconnected."""
+        response = r.get(f"{self.auth_provider.api_url}/data/v1/me", headers=self.get_auth_header())
+        try:
+            expires = response.json()["results"][0].get("consent_expires_at")
+            return int(datetime.datetime.fromisoformat(expires.replace("Z", "+00:00")).timestamp())
+        except (ValueError, KeyError, IndexError, TypeError, AttributeError):
+            return None
 
     def get_cards(self) -> list:
         response = r.get(f"{self.auth_provider.api_url}/data/v1/cards", headers=self.get_auth_header())

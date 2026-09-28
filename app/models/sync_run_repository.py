@@ -74,6 +74,25 @@ class SqlAlchemySyncRunRepository:
             session.expunge(run)
             return run
 
+    def latest(self) -> dict | None:
+        """The most recent sync run: when it last ran, its level and its first problem."""
+        with self._session() as session:
+            row = session.query(SyncRunModel).order_by(SyncRunModel.id.desc()).first()
+            if row is None:
+                return None
+            lines = json.loads(row.lines)
+            problem = next(
+                (message for _, level, _, message in reversed(lines) if level == row.level and level != "INFO"),
+                None,
+            )
+            return {
+                "last_started_at": row.last_started_at,
+                "finished_at": row.finished_at,
+                "level": row.level,
+                "repeat_count": row.repeat_count,
+                "problem": problem.splitlines()[0] if problem else None,
+            }
+
     def list_since(self, since: float, limit: int = 500) -> list[dict]:
         """Return distinct runs newest first, each with the lines that changed since the run before it."""
         with self._session() as session:

@@ -14,13 +14,28 @@ repository = SqlAlchemySettingRepository(db)
 
 # On/off settings shown as checkboxes; an unchecked box is missing from the form.
 CHECKBOX_SETTINGS = ["enable_sync", "override_cooldown_spending"]
+# Text settings the form may change. Anything else posted is ignored, so the form
+# can't be used to overwrite sign in, 2FA or other internal settings.
+TEXT_SETTINGS = [
+    "monzo_client_id",
+    "monzo_client_secret",
+    "truelayer_client_id",
+    "truelayer_client_secret",
+    "sync_interval_seconds",
+    "deposit_cooldown_hours",
+    "log_retention_days",
+]
+# Never sent back to the browser; a blank field keeps the saved value.
+SECRET_SETTINGS = ["monzo_client_secret", "truelayer_client_secret"]
 account_repository = SqlAlchemyAccountRepository(db)
 
 @settings_bp.route("/", methods=["GET"])
 def index():
     settings = {s.key: s.value for s in repository.get_all()}
+    data = {key: settings.get(key) for key in TEXT_SETTINGS + CHECKBOX_SETTINGS if key not in SECRET_SETTINGS}
+    secrets_saved = {key: bool(settings.get(key)) for key in SECRET_SETTINGS}
     accounts = account_repository.get_credit_accounts()  # Pass available credit accounts
-    return render_template("settings/index.html", data=settings, accounts=accounts)
+    return render_template("settings/index.html", data=data, secrets_saved=secrets_saved, accounts=accounts)
 
 @settings_bp.route("/", methods=["POST"])
 def save():
@@ -32,7 +47,9 @@ def save():
             repository.save(Setting(key, "True" if request.form.get(key) is not None else "False"))
 
         for key, val in request.form.items():
-            if key in CHECKBOX_SETTINGS:
+            if key not in TEXT_SETTINGS:
+                continue
+            if key in SECRET_SETTINGS and val == "":
                 continue
 
             if current_settings.get(key) != val:

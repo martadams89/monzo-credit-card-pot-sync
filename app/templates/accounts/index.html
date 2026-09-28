@@ -22,6 +22,27 @@
             <noscript><button type="submit" class="text-xs underline">Save</button></noscript>
         </form>
         {% endif %}
+        {% if account.type in card_types %}
+        <form action="{{ url_for('accounts.set_cooldown_hours') }}" method="post" class="mb-3">
+            <input name="account_type" type="hidden" value="{{ account.type }}" />
+            <label for="cooldown_{{ loop.index }}" class="block mb-1 text-sm font-medium text-gray-900 dark:text-gray-300">Cooldown (hours)</label>
+            <div class="flex gap-2">
+                <input id="cooldown_{{ loop.index }}" type="number" name="cooldown_hours" min="1" max="720" inputmode="numeric"
+                       value="{{ account.cooldown_hours or '' }}" placeholder="Default ({{ default_cooldown_hours }})"
+                       class="flex-1 min-w-0 bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white" />
+                <button type="submit" class="shrink-0 px-4 text-sm font-medium text-white bg-blue-700 rounded-lg hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800">Save</button>
+            </div>
+            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">How long to wait for a payment from the pot to reach this card before topping the pot back up. Leave blank for the default.</p>
+        </form>
+        <div class="flex flex-wrap items-center justify-between gap-2 mb-2 text-sm">
+            <span class="{% if account.consent_expires_at and account.consent_expires_at - now < 14 * 86400 %}text-red-700 dark:text-red-400 font-medium{% else %}text-gray-500 dark:text-gray-400{% endif %}">
+                {% if account.consent_expires_at %}
+                {% if account.consent_expires_at > now %}Connection expires {{ account.consent_expires_at|relative_time }}{% else %}Connection expired{% endif %}
+                {% else %}Connection expiry not known yet{% endif %}
+            </span>
+            <a href="{{ url_for('accounts.reconnect', account_type=account.type) }}" class="px-3 py-1.5 text-sm font-medium text-blue-700 border border-blue-700 rounded-lg hover:bg-blue-50 dark:text-blue-400 dark:border-blue-400 dark:hover:bg-gray-700">Reconnect</a>
+        </div>
+        {% endif %}
         <p class="text-sm font-normal">
             <form action="" method="post">
                 <input name="account_type" id="account_type" type="text" value="{{ account.type }}" hidden />
