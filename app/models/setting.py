@@ -20,5 +20,7 @@ def after_create(tbl, conn, **kw) -> None:
             {"key": "deposit_cooldown_hours", "value": 3},
             {"key": "override_cooldown_spending", "value": True},
             {"key": "log_retention_days", "value": 7},
+            {"key": "log_history_enabled", "value": "True"},
+            {"key": "hide_balances", "value": "False"},
         ],
     )

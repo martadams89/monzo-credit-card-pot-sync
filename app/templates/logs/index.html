@@ -3,7 +3,14 @@
 {% block content %}
 <div class="w-full max-w-screen-lg">
     <div class="mb-4">
-        <h1 class="text-2xl font-semibold text-gray-900 dark:text-white">Sync Logs</h1>
+        <div class="flex flex-wrap items-center justify-between gap-2">
+            <h1 class="text-2xl font-semibold text-gray-900 dark:text-white">Sync Logs</h1>
+            {% if runs %}
+            <form method="post" action="{{ url_for('logs.clear') }}" onsubmit="return confirm('Delete all log history?')">
+                <button type="submit" class="px-3 py-1.5 text-sm font-medium text-red-700 border border-red-700 rounded-lg hover:bg-red-50 dark:text-red-400 dark:border-red-400 dark:hover:bg-gray-700">Clear history</button>
+            </form>
+            {% endif %}
+        </div>
         <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
             {{ total_runs }} sync run{{ '' if total_runs == 1 else 's' }} in {{ runs|length }} group{{ '' if runs|length == 1 else 's' }}.
             Back-to-back runs with identical output are grouped together, and

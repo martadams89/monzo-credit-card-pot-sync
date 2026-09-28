@@ -299,9 +299,9 @@ def test_nav_shows_sign_out_only_when_signed_in(client):
 
 def test_inject_auth_context(client):
     with client.application.test_request_context("/"):
-        assert security.inject_auth_context() == {"auth_enabled": False, "signed_in": False}
+        assert security.inject_auth_context() == {"auth_enabled": False, "signed_in": False, "log_history_enabled": True}
         enable_login()
-        assert security.inject_auth_context() == {"auth_enabled": True, "signed_in": False}
+        assert security.inject_auth_context() == {"auth_enabled": True, "signed_in": False, "log_history_enabled": True}
 
 
 # ---------------------------------------------------------------------------

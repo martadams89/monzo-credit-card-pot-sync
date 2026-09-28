@@ -1,7 +1,9 @@
 {% extends 'base.html' %}
 
+{% macro money(pence) %}<span class="group-[.amounts-hidden]:hidden">{{ pence|pounds }}</span><span class="hidden group-[.amounts-hidden]:inline" aria-label="Hidden">£•••••</span>{% endmacro %}
+
 {% block content %}
-<div class="w-full max-w-screen-lg">
+<div id="overview" class="group w-full max-w-screen-lg {% if hide_balances %}amounts-hidden{% endif %}">
     {% if not setup_complete %}
     <div class="max-w-xl mx-auto">
         <h1 class="text-2xl font-semibold text-gray-900 dark:text-white">Get set up</h1>
@@ -45,16 +47,24 @@
             </p>
             {% if latest and latest.problem %}
             <p class="mt-1 text-sm break-words {% if latest.level == 'ERROR' %}text-red-700 dark:text-red-400{% else %}text-orange-700 dark:text-orange-300{% endif %}">
-                {{ latest.problem }} &middot; <a class="underline" href="{{ url_for('logs.index') }}">View logs</a>
+                <span class="group-[.amounts-hidden]:hidden">{{ latest.problem }}</span><span class="hidden group-[.amounts-hidden]:inline">{{ 'An error' if latest.level == 'ERROR' else 'A warning' }} was logged (hidden)</span>{% if log_history_enabled %} &middot; <a class="underline" href="{{ url_for('logs.index') }}">View logs</a>{% endif %}
             </p>
             {% endif %}
         </div>
-        <form action="{{ url_for('home.sync_now') }}" method="post" class="w-full sm:w-auto">
+        <div class="flex w-full gap-2 sm:w-auto">
+        <button type="button" id="toggle-amounts" aria-pressed="{{ 'true' if hide_balances else 'false' }}"
+                aria-label="{{ 'Show amounts' if hide_balances else 'Hide amounts' }}" title="{{ 'Show amounts' if hide_balances else 'Hide amounts' }}"
+                class="shrink-0 inline-flex items-center justify-center w-11 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-100 focus:ring-4 focus:outline-none focus:ring-gray-200 dark:bg-gray-800 dark:text-gray-200 dark:border-gray-600 dark:hover:bg-gray-700 dark:focus:ring-gray-700">
+            <svg class="eye-open w-5 h-5 {% if not hide_balances %}hidden{% endif %}" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-width="2" d="M21 12c0 1.2-4.03 6-9 6s-9-4.8-9-6c0-1.2 4.03-6 9-6s9 4.8 9 6Z"/><path stroke="currentColor" stroke-width="2" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"/></svg>
+            <svg class="eye-closed w-5 h-5 {% if hide_balances %}hidden{% endif %}" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.933 13.909A4.357 4.357 0 0 1 3 12c0-1 4-6 9-6m7.6 3.8A5.068 5.068 0 0 1 21 12c0 1-3 6-9 6-.314 0-.62-.014-.918-.04M5 19 19 5m-4 7a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"/></svg>
+        </button>
+        <form action="{{ url_for('home.sync_now') }}" method="post" class="flex-1 sm:flex-none">
             <button type="submit" class="w-full sm:w-auto inline-flex items-center justify-center gap-2 text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800">
                 <svg class="w-4 h-4" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.651 7.65a7.131 7.131 0 0 0-12.68 3.15M18.001 4v4h-4m-7.652 8.35a7.13 7.13 0 0 0 12.68-3.15M6 20v-4h4"/></svg>
                 Sync now
             </button>
         </form>
+        </div>
     </div>
 
     <section class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -66,9 +76,9 @@
             </h2>
             <dl class="grid grid-cols-2 gap-y-1 text-sm">
                 <dt class="text-gray-500 dark:text-gray-400">Card owes</dt>
-                <dd class="text-right font-medium text-gray-900 dark:text-white">{{ card.card_balance|pounds }}</dd>
+                <dd class="text-right font-medium text-gray-900 dark:text-white">{{ money(card.card_balance) }}</dd>
                 <dt class="text-gray-500 dark:text-gray-400 min-w-0 truncate" title="{{ card.pot_name or 'Pot' }}">{{ card.pot_name or 'Pot' }}</dt>
-                <dd class="text-right font-medium text-gray-900 dark:text-white">{{ card.pot_balance|pounds }}</dd>
+                <dd class="text-right font-medium text-gray-900 dark:text-white">{{ money(card.pot_balance) }}</dd>
             </dl>
             {% if card.shared_with %}
             <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Pot shared with {{ card.shared_with|join(', ') }}; compared with their combined balance.</p>
@@ -79,9 +89,9 @@
                 {% elif card.difference == 0 %}
                 <span class="px-2 py-0.5 text-xs rounded bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">In sync</span>
                 {% elif card.difference < 0 %}
-                <span class="px-2 py-0.5 text-xs rounded bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200">Pot short by {{ (-card.difference)|pounds }}</span>
+                <span class="px-2 py-0.5 text-xs rounded bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200">Pot short by {{ money(-card.difference) }}</span>
                 {% else %}
-                <span class="px-2 py-0.5 text-xs rounded bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">Pot over by {{ card.difference|pounds }}</span>
+                <span class="px-2 py-0.5 text-xs rounded bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">Pot over by {{ money(card.difference) }}</span>
                 {% endif %}
                 {% if card.cooldown_until %}
                 <span class="px-2 py-0.5 text-xs rounded bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-200">Cooldown ends {{ card.cooldown_until|relative_time }}</span>
@@ -95,6 +105,22 @@
         </div>
         {% endfor %}
     </section>
+    <script>
+    (function () {
+        const button = document.getElementById("toggle-amounts");
+        const cards = document.getElementById("overview");
+        if (!button || !cards) return;
+        button.addEventListener("click", function () {
+            const hidden = cards.classList.toggle("amounts-hidden");
+            button.setAttribute("aria-pressed", hidden ? "true" : "false");
+            const label = hidden ? "Show amounts" : "Hide amounts";
+            button.setAttribute("aria-label", label);
+            button.title = label;
+            button.querySelector(".eye-open").classList.toggle("hidden", !hidden);
+            button.querySelector(".eye-closed").classList.toggle("hidden", hidden);
+        });
+    })();
+    </script>
     {% endif %}
 </div>
 {% endblock %}

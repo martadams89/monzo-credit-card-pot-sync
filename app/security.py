@@ -60,6 +60,24 @@ def set_setting(key: str, value) -> None:
     settings.save(Setting(key, value))
 
 
+def setting_on(key: str, default: bool) -> bool:
+    """Read an on/off setting stored as True/False, "True"/"False" or "1"/"0"."""
+    value = get_setting(key)
+    if value is None:
+        return default
+    if isinstance(value, bool):
+        return value
+    return str(value).strip().lower() in ("true", "1", "on", "yes")
+
+
+def log_history_enabled() -> bool:
+    return setting_on("log_history_enabled", True)
+
+
+def hide_balances() -> bool:
+    return setting_on("hide_balances", False)
+
+
 def auth_disabled_by_env() -> bool:
     return os.environ.get("POT_SYNC_DISABLE_AUTH", "").strip().lower() in ("1", "true", "yes", "on")
 
@@ -242,4 +260,8 @@ def require_login():
 
 
 def inject_auth_context():
-    return {"auth_enabled": auth_required(), "signed_in": auth_required() and is_signed_in()}
+    return {
+        "auth_enabled": auth_required(),
+        "signed_in": auth_required() and is_signed_in(),
+        "log_history_enabled": log_history_enabled(),
+    }

@@ -2,7 +2,7 @@ from time import time
 
 from flask import Blueprint, jsonify
 
-from app import security
+from app import security, sync_status
 from app.extensions import db
 from app.models.sync_run_repository import SqlAlchemySyncRunRepository
 
@@ -24,7 +24,7 @@ def health():
     except (TypeError, ValueError):
         interval = 120
     max_age = max(3 * interval, 300)
-    latest = repository.latest()
+    latest = sync_status.last_run() or repository.latest()
     if latest is None:
         return jsonify({"status": "starting", "detail": "No sync has run yet"}), 503
 

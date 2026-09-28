@@ -1,8 +1,9 @@
 import datetime
 from time import time
 
-from flask import Blueprint, render_template, request
+from flask import Blueprint, flash, redirect, render_template, request, url_for
 
+from app import security
 from app.extensions import db
 from app.models.sync_run_repository import SqlAlchemySyncRunRepository
 
@@ -17,6 +18,8 @@ MAX_RUNS = 500
 
 @logs_bp.route("/", methods=["GET"])
 def index():
+    if not security.log_history_enabled():
+        return render_template("logs/disabled.html")
     period = request.args.get("days", DEFAULT_PERIOD)
     if period not in PERIODS:
         period = DEFAULT_PERIOD
@@ -29,6 +32,13 @@ def index():
         period=period,
         max_runs=MAX_RUNS,
     )
+
+
+@logs_bp.route("/clear", methods=["POST"])
+def clear():
+    removed = repository.clear()
+    flash(f"Log history cleared ({removed} entr{'y' if removed == 1 else 'ies'})")
+    return redirect(url_for("logs.index"))
 
 
 @logs_bp.app_template_filter("utc_datetime")

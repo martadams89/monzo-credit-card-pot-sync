@@ -49,6 +49,20 @@
             <div class="relative w-14 h-7 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:start-[4px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
             <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">Override Cooldown Spending</span>
         </label>
+
+        <label class="inline-flex items-center cursor-pointer">
+            <input type="checkbox" name="hide_balances" class="sr-only peer" {% if data['hide_balances'] %} checked {% endif %} />
+            <div class="relative shrink-0 w-14 h-7 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:start-[4px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
+            <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">Hide Amounts on the Home Page</span>
+        </label>
+        <p class="-mt-2 text-xs text-gray-500 dark:text-gray-400">Show £••••• instead of balances; tap the eye on the home page to reveal them.</p>
+
+        <label class="inline-flex items-center cursor-pointer">
+            <input type="checkbox" name="log_history_enabled" class="sr-only peer" {% if data['log_history_enabled'] is none or data['log_history_enabled'] %} checked {% endif %} />
+            <div class="relative shrink-0 w-14 h-7 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:start-[4px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
+            <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">Keep Log History</span>
+        </label>
+        <p class="-mt-2 text-xs text-gray-500 dark:text-gray-400">Turning this off stops saving sync logs (which include balances) and deletes the history kept so far.</p>
   
         
         <button type="submit" class="w-full mt-10 text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800">Save</button>
