@@ -143,3 +143,25 @@ def test_lines_that_disappear_are_counted(repository):
     newest = repository.list_since(0)[0]
     assert newest["changed_count"] == 0
     assert newest["removed_count"] == 1
+
+
+def test_record_sync_run_caps_lines_per_run(repository, caplog, mocker):
+    caplog.set_level(logging.INFO)
+    mocker.patch("app.utils.sync_log.MAX_LINES_PER_RUN", 3)
+    with record_sync_run(repository):
+        for i in range(5):
+            logging.getLogger("core").info(f"line {i}")
+
+    lines = [ln["message"] for ln in repository.list_since(0)[0]["lines"]]
+    assert lines == ["line 0", "line 1", "line 2", "2 further log line(s) not recorded"]
+
+
+def test_record_sync_run_survives_a_malformed_log_call(repository, caplog, mocker):
+    caplog.set_level(logging.INFO)
+    mocker.patch.object(logging, "raiseExceptions", False)
+    with record_sync_run(repository):
+        logging.getLogger("core").info("%d pots", "not a number")
+        logging.getLogger("core").info("still recorded")
+
+    lines = [ln["message"] for ln in repository.list_since(0)[0]["lines"]]
+    assert lines == ["still recorded"]

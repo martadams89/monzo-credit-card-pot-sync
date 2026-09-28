@@ -41,10 +41,8 @@ def add_account():
 @accounts_bp.route("/", methods=["POST"])
 def delete_account():
     account_type = request.form["account_type"]
-    try:
-        account_repository.delete(account_type)
-        flash("Account deleted")
-    except NoResultFound:
-        pass
+    # Deleting an account that is not connected is a no-op.
+    account_repository.delete(account_type)
+    flash("Account deleted")
 
     return redirect(url_for("accounts.index"))

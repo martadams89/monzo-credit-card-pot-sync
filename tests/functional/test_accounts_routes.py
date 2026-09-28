@@ -57,3 +57,10 @@ def test_get_add_account_shows_providers(test_client):
     assert b"Halifax" in response.data
     assert b"Lloyds" in response.data
     assert b"NatWest" in response.data
+
+
+def test_post_deleting_an_unknown_account_is_ignored(test_client, seed_data):
+    response = test_client.post("/accounts/", data={"account_type": "Not Connected"})
+    assert response.status_code == 302
+    assert urlparse(response.location).path == "/accounts/"
+    assert len(SqlAlchemyAccountRepository(db).get_credit_accounts()) == 1

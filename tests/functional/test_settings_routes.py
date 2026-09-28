@@ -94,3 +94,59 @@ def test_settings_save_error(test_client, monkeypatch):
     assert response.status_code == 200
     # The flashed message should indicate an error saving settings.
     assert b"Error saving settings" in response.data
+
+def _start_cooldowns(requests_mock):
+    from time import time
+
+    from app.domain.accounts import TrueLayerAccount
+    from app.extensions import db
+    from app.models.account_repository import SqlAlchemyAccountRepository
+
+    repository = SqlAlchemyAccountRepository(db)
+    repository.save(TrueLayerAccount("Barclaycard", "access_token", "refresh_token", time() + 10000, "pot_2"))
+    for account_type, pot_id in [("American Express", "pot_id"), ("Barclaycard", "pot_2")]:
+        repository.update_credit_account_fields(account_type, pot_id, 500, int(time()) + 3600)
+    requests_mock.get(
+        "https://api.monzo.com/pots",
+        json={"pots": [
+            {"id": "pot_id", "balance": 1234, "deleted": False},
+            {"id": "pot_2", "balance": 4321, "deleted": False},
+        ]},
+    )
+    requests_mock.get(
+        "https://api.monzo.com/accounts",
+        json={"accounts": [{"id": "acc_id", "type": "uk_retail", "currency": "GBP"}]},
+    )
+    return repository
+
+
+def test_clear_cooldown_for_selected_account(test_client, seed_data, requests_mock):
+    repository = _start_cooldowns(requests_mock)
+
+    response = test_client.post("/settings/clear_cooldown", data={"account_type": "American Express"}, follow_redirects=True)
+    assert response.status_code == 200
+    assert "Cooldown cleared".encode() in response.data
+
+    amex = repository.get("American Express")
+    assert amex.cooldown_until is None
+    # The baseline is reset to the pot's current balance.
+    assert amex.prev_balance == 1234
+    assert repository.get("Barclaycard").cooldown_until is not None
+
+
+def test_clear_cooldown_for_all_accounts(test_client, seed_data, requests_mock):
+    repository = _start_cooldowns(requests_mock)
+
+    response = test_client.post("/settings/clear_cooldown", data={"account_type": ""})
+    assert response.status_code == 302
+
+    assert repository.get("American Express").cooldown_until is None
+    barclaycard = repository.get("Barclaycard")
+    assert barclaycard.cooldown_until is None
+    assert barclaycard.prev_balance == 4321
+
+
+def test_settings_shows_log_history_setting(test_client, seed_data):
+    response = test_client.get("/settings/")
+    assert b"Log History (days)" in response.data
+    assert b'name="log_retention_days"' in response.data
