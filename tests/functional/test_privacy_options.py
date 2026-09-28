@@ -138,3 +138,50 @@ def test_log_history_setting_values(test_client, stored, expected):
         SettingModel.query.filter_by(key="log_history_enabled").delete()
         db.session.commit()
     assert security.log_history_enabled() is expected
+
+
+def _security_card(client):
+    import re
+
+    page = re.sub(r"\s+", " ", client.get("/settings/").data.decode())
+    start = page.index('aria-labelledby="security-heading"')
+    return page[start:page.index("</section>", start)]
+
+
+def test_settings_leads_with_a_security_card_when_sign_in_is_off(test_client):
+    card = _security_card(test_client)
+    assert "Manage sign in, 2FA &amp; passkeys" in card
+    assert card.count(">Off</span>") == 2
+    assert "Anyone who can reach Pot Sync can use it" in card
+    assert 'href="/settings/security/"' in test_client.get("/").data.decode()  # also in the menu
+
+
+def test_security_card_reflects_sign_in_2fa_and_passkeys(test_client):
+    from app.models.passkey import PasskeyModel
+
+    security.set_password("correct horse battery")
+    security.set_setting("auth_mode", security.AUTH_MODE_PASSWORD)
+    security.set_setting("auth_totp_secret", "JBSWY3DPEHPK3PXP")
+    for n in range(2):
+        db.session.add(PasskeyModel(credential_id=f"c{n}", public_key=b"k", sign_count=0, name=f"Key {n}", created_at=1))
+    db.session.commit()
+    test_client.post("/login", data={"password": "correct horse battery"})
+    # The 2FA step would follow a password sign-in; skip it by signing the session in.
+    with test_client.session_transaction() as session:
+        session["authenticated"] = True
+        session["auth_version"] = security.session_version()
+
+    card = _security_card(test_client)
+    assert card.count(">On</span>") == 2
+    assert ">2</span>" in card
+    assert "asks for a password and code or a passkey" in card
+
+
+def test_security_card_shows_when_sign_in_is_paused_by_env(test_client, monkeypatch):
+    security.set_password("correct horse battery")
+    security.set_setting("auth_mode", security.AUTH_MODE_PASSWORD)
+    monkeypatch.setenv("POT_SYNC_DISABLE_AUTH", "true")
+
+    card = _security_card(test_client)
+    assert ">Paused</span>" in card
+    assert "POT_SYNC_DISABLE_AUTH" in card

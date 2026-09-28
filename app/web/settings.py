@@ -37,7 +37,24 @@ def index():
     data = {key: settings.get(key) for key in TEXT_SETTINGS + CHECKBOX_SETTINGS if key not in SECRET_SETTINGS}
     secrets_saved = {key: bool(settings.get(key)) for key in SECRET_SETTINGS}
     accounts = account_repository.get_credit_accounts()  # Pass available credit accounts
-    return render_template("settings/index.html", data=data, secrets_saved=secrets_saved, accounts=accounts)
+    return render_template(
+        "settings/index.html",
+        data=data,
+        secrets_saved=secrets_saved,
+        accounts=accounts,
+        security_status=_security_status(),
+    )
+
+
+def _security_status() -> dict:
+    from app.models.passkey import PasskeyModel
+
+    return {
+        "sign_in_on": security.auth_mode() == security.AUTH_MODE_PASSWORD,
+        "paused_by_env": security.auth_mode() == security.AUTH_MODE_PASSWORD and security.auth_disabled_by_env(),
+        "totp": security.totp_enabled(),
+        "passkeys": db.session.query(PasskeyModel).count(),
+    }
 
 @settings_bp.route("/", methods=["POST"])
 def save():
