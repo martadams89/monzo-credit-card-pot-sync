@@ -244,9 +244,7 @@ def test_card_provider_outage_keeps_connection_and_does_not_notify(
 
 def test_card_auth_failure_notifies_user_and_deletes_connection(mocker, test_client, requests_mock, seed_data):
     # The card's refresh token has been revoked: the user is notified through Monzo
-    # to reconnect and the dead connection is removed. Sync is disabled so the run
-    # stops before balancing (see report: the deleted account is not dropped from
-    # the in-memory list, which breaks a sync that carries on).
+    # to reconnect and the dead connection is removed.
     mocker.patch("app.core.scheduler")
     _save_setting("enable_sync", "False")
     _set_fields(AMEX, token_expiry=int(time()))
@@ -641,3 +639,145 @@ def test_database_error_verifying_cooldown_is_rolled_back_and_sync_completes(
     assert amex.cooldown_until is not None
     assert amex.cooldown_ref_card_balance == 196327
     assert pot.deposits == [] and pot.withdrawals == []
+
+
+# ---------------------------------------------------------------------------
+# Regression tests for bugs found while covering the sync loop
+# ---------------------------------------------------------------------------
+
+
+def test_revoked_card_is_dropped_from_the_run_and_other_cards_still_sync(
+    mocker, test_client, requests_mock, seed_data
+):
+    # Amex's refresh token is revoked while a second card is healthy. The Amex
+    # connection is deleted and the run carries on with the other card; it used to
+    # crash looking up the deleted connection, so no card was synced at all.
+    from app.domain.accounts import TrueLayerAccount
+    from app.models.account_repository import SqlAlchemyAccountRepository
+
+    mocker.patch("app.core.scheduler")
+    SqlAlchemyAccountRepository(db).save(
+        TrueLayerAccount("Barclaycard", "access_token", "refresh_token", time() + 10000, "pot_id")
+    )
+    _set_fields(AMEX, token_expiry=int(time()))
+    requests_mock.post(TRUELAYER_TOKEN_URL, json={"error": "invalid_grant"})
+    pot, _ = _mock_sync_endpoints(requests_mock, pot_balance=0, card_balance=500)
+
+    sync_balance()
+
+    assert _account(AMEX) is None
+    assert _notification_titles(requests_mock) == [f"{AMEX} Pot Sync Access Expired"]
+    assert pot.deposits == [50000]
+    assert _account("Barclaycard").prev_balance == 50000
+
+
+def test_unavailable_provider_is_skipped_for_the_run(mocker, test_client, requests_mock, seed_data):
+    # The provider is down: the connection is kept for the next run, and this run
+    # moves no money for it rather than failing part way through.
+    mocker.patch("app.core.scheduler")
+    _set_fields(AMEX, token_expiry=int(time()), prev_balance=0)
+    requests_mock.post(TRUELAYER_TOKEN_URL, json={"error": "provider_error"})
+    pot, _ = _mock_sync_endpoints(requests_mock, pot_balance=0, card_balance=500)
+
+    sync_balance()
+
+    assert _account(AMEX) is not None
+    assert pot.deposits == [] and pot.withdrawals == []
+
+
+def test_no_zero_deposit_when_pot_already_covers_new_spending(mocker, test_client, requests_mock, seed_data):
+    # The card went up from £0 to £10 but the pot already holds £10: only the
+    # baseline moves. A £0 deposit used to be sent to Monzo.
+    mocker.patch("app.core.scheduler")
+    _set_fields(AMEX, prev_balance=0)
+    pot, _ = _mock_sync_endpoints(requests_mock, pot_balance=1000, card_balance=10.00)
+
+    sync_balance()
+
+    assert not any(req.url.endswith("/deposit") for req in requests_mock.request_history)
+    assert pot.deposits == [] and pot.withdrawals == []
+    assert _account(AMEX).prev_balance == 1000
+
+
+def test_sync_disabled_mid_run_does_not_start_a_new_cooldown(mocker, test_client, requests_mock, seed_data):
+    # An expired cooldown can't be settled for lack of funds, which switches sync off.
+    # Later in the same run the "pot below card, no new spending" step must respect
+    # that and not open a fresh cooldown. The check compared the setting with the
+    # string "False", but it is read back as a boolean, so it never matched.
+    mocker.patch("app.core.scheduler")
+    expired = int(time()) - 60
+    _set_fields(AMEX, prev_balance=100000, cooldown_until=expired, cooldown_ref_card_balance=100000)
+    pot, _ = _mock_sync_endpoints(requests_mock, pot_balance=90000, card_balance=1000.00, monzo_balance=100)
+
+    sync_balance()
+
+    amex = _account(AMEX)
+    assert _setting("enable_sync") is False
+    assert pot.deposits == []
+    assert amex.cooldown_until == expired
+
+
+@pytest.mark.parametrize("stored", ["1", "True"])
+def test_override_setting_default_is_read_as_on(mocker, test_client, requests_mock, seed_data, stored):
+    # A fresh install stores the default as "1"; it used to be read as off, holding
+    # back new spending during a cooldown until the settings page was saved.
+    mocker.patch("app.core.scheduler")
+    _save_setting("override_cooldown_spending", stored)
+    cooldown_until = int(time()) + 3 * 3600
+    _set_fields(AMEX, prev_balance=100000, cooldown_until=cooldown_until, cooldown_ref_card_balance=100000)
+    pot, _ = _mock_sync_endpoints(requests_mock, pot_balance=90000, card_balance=1050.00)
+
+    sync_balance()
+
+    assert pot.deposits == [5000]
+
+
+def test_cooldown_cleared_during_a_run_is_not_restored(mocker, test_client, requests_mock, seed_data):
+    # The user presses "Clear Cooldown" while a sync is running (simulated on the
+    # first card balance request, before the run refreshes its account data). The
+    # clear resets the baseline to the pot, so the pot is topped up straight away.
+    # The run used to write its stale copy of the cooldown back to the database.
+    mocker.patch("app.core.scheduler")
+    _set_fields(
+        AMEX,
+        prev_balance=100000,
+        cooldown_until=int(time()) + 3 * 3600,
+        cooldown_ref_card_balance=100000,
+    )
+
+    def clear_cooldown(request_number):
+        if request_number == 1:
+            _set_fields(AMEX, cooldown_until=None, cooldown_ref_card_balance=None, prev_balance=90000)
+
+    pot, _ = _mock_sync_endpoints(
+        requests_mock, pot_balance=90000, card_balance=1000.00, on_card_request=clear_cooldown
+    )
+
+    sync_balance()
+
+    amex = _account(AMEX)
+    assert amex.cooldown_until is None
+    assert pot.deposits == [10000]
+
+
+def test_unfunded_spending_is_deposited_once_sync_is_re_enabled(mocker, test_client, requests_mock, seed_data):
+    # £100 of new spending can't be covered, so sync is switched off. The card
+    # baseline must stay where it was: once the user tops up and re-enables sync the
+    # spending is deposited straight away. It used to be absorbed into the baseline,
+    # so the next run read it as a pot drop and held it back behind a cooldown.
+    mocker.patch("app.core.scheduler")
+    _set_fields(AMEX, prev_balance=90000)
+    pot, _ = _mock_sync_endpoints(requests_mock, pot_balance=90000, card_balance=1000.00, monzo_balance=100)
+
+    sync_balance()
+
+    assert pot.deposits == []
+    assert _account(AMEX).prev_balance == 90000
+
+    requests_mock.get("https://api.monzo.com/balance?account_id=acc_id", json={"balance": 1000000})
+    _save_setting("enable_sync", "True")
+    sync_balance()
+
+    amex = _account(AMEX)
+    assert pot.deposits == [10000]
+    assert amex.cooldown_until is None

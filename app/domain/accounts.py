@@ -207,9 +207,8 @@ class MonzoAccount(Account):
             # If using the default value, fall back to the first returned pot's id.
             if pot_id == "default_pot" and pots:
                 pot_id = pots[0]["id"]
-            for pot in pots:
-                if any(p["id"] == pot_id for p in pots):
-                    return account_selection
+            if any(p["id"] == pot_id for p in pots):
+                return account_selection
         raise PotNotFoundError(f"Pot with id {pot_id} not found in personal, joint, or business pots.")
 
     def add_to_pot(self, pot_id: str, amount: int, account_selection="personal") -> None:
@@ -382,13 +381,101 @@ class TrueLayerAccount(Account):
             pence = abs(pence)
         return pence / 100
 
+    def _balance_with_pending(self, label: str, balance: float, pending_transactions: list) -> float:
+        """Add pending charges and pending credits (refunds, payments) to a card balance.
+
+        Providers such as Amex and Lloyds report pending charges and pending credits
+        as separate transactions rather than netting them off, so both are counted;
+        otherwise a pending refund leaves the pot over-funded until it posts. Works
+        in whole pence so charges and credits of either sign add up exactly.
+        """
+        balance_pence = round(balance * 100)
+        pending_pence = [round(txn * 100) for txn in pending_transactions]
+
+        # Separate charges (positive) and payments/refunds (negative)
+        pending_charges_pence = sum(p for p in pending_pence if p > 0)
+        pending_payments_pence = sum(p for p in pending_pence if p < 0)
+        pending_balance_pence = pending_charges_pence + pending_payments_pence
+        adjusted_balance_pence = balance_pence + pending_balance_pence
+
+        log.info(f"{label} - Current Balance (Excluding Pending Transactions): £{balance_pence / 100:.2f}")
+        log.info(f"{label} - Pending Charges: £{pending_charges_pence / 100:.2f}")
+        log.info(f"{label} - Pending Payments/Refunds: £{pending_payments_pence / 100:.2f}")
+        log.info(f"{label} - Pending Balance: £{pending_balance_pence / 100:.2f}")
+        log.info(f"{label} - Total Balance: £{adjusted_balance_pence / 100:.2f}")
+        return adjusted_balance_pence / 100
+
     def get_total_balance(self, force_refresh=False) -> int:
+        # If we have a cached balance and not forcing a refresh, return it without
+        # calling the API.
+        if not force_refresh and hasattr(self, "_cached_balance"):
+            return self._cached_balance
+
         total_balance = 0.0
         cards = self.get_cards()
 
-        # If we have a cached balance and not forcing a refresh, return it:
-        if not force_refresh and hasattr(self, "_cached_balance"):
-            return self._cached_balance
+        for card in cards:
+            card_id = card["account_id"]
+            provider = card.get("provider", {}).get("display_name")
+
+            # Fetch balance data once for all providers
+            balance_response = r.get(f"{self.auth_provider.api_url}/data/v1/cards/{card_id}/balance", headers=self.get_auth_header())
+            balance_response.raise_for_status()
+            balance_data = balance_response.json()["results"][0]
+            
+            # For most providers, use the 'current' field
+            balance = round(balance_data.get("current", 0) * 100) / 100
+
+            if provider in ["AMEX"]:
+                balance = self._balance_with_pending("Amex Card", balance, self.get_pending_transactions(card_id))
+
+            if provider in ["BARCLAYCARD"]:
+                pending_transactions = self.get_pending_transactions(card_id)
+
+                # Separate charges and payments/refunds
+                pending_charges = round(sum(txn for txn in pending_transactions if txn > 0) * 100) / 100
+                pending_payments = round(sum(txn for txn in pending_transactions if txn < 0) * 100) / 100
+                net_pending = round(sum(pending_transactions) * 100) / 100
+
+                log.info(f"Barclaycard Card - Current Balance: £{balance:.2f}")
+                log.info(f"Barclaycard Card - Pending Charges: £{pending_charges:.2f}")
+                log.info(f"Barclaycard Card - Pending Payments: £{pending_payments:.2f}")
+                log.info(f"Barclaycard Card - Net Pending: £{net_pending:.2f}")
+
+                # Barclaycard adds pending charges to the current balance fairly quickly,
+                # so pending transactions are logged only and the balance is used as is.
+
+            if provider in ["HALIFAX"]:
+                # Halifax doesn't provide separate pending transactions
+                # The 'available' field already accounts for pending charges
+                # Balance owed = credit_limit - available
+                credit_limit = balance_data.get("credit_limit", 0)
+                available = balance_data.get("available", 0)
+                balance_owed = credit_limit - available
+                
+                log.info(f"Halifax Card - Credit Limit: £{credit_limit:.2f}")
+                log.info(f"Halifax Card - Available Credit: £{available:.2f}")
+                log.info(f"Halifax Card - Balance Owed: £{balance_owed:.2f}")
+                
+                balance = round(balance_owed * 100) / 100
+
+            if provider in ["LLOYDS"]:
+                balance = self._balance_with_pending("Lloyds Card", balance, self.get_pending_transactions(card_id))
+
+            # A card in credit (overpaid, or pending credits exceeding what is owed)
+            # owes nothing. A negative figure would otherwise eat into the amounts owed
+            # on the other cards in this total.
+            if balance < 0:
+                log.info(f"Card is in credit (£{balance:.2f}); treating as £0.00 owed.")
+                balance = 0.0
+
+            total_balance += balance
+
+        log.info(f"Total balance calculated: £{total_balance:.2f}")
+        # round() rather than int(): int() truncates float noise such as 0.29 * 100
+        # == 28.999999999999996 down a penny.
+        self._cached_balance = round(total_balance * 100)  # Convert balance to pence
+        return self._cached_balance
 
         for card in cards:
             card_id = card["account_id"]

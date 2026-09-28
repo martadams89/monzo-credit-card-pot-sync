@@ -52,6 +52,15 @@ log = logging.getLogger("core")
 account_repository = SqlAlchemyAccountRepository(db)
 settings_repository = SqlAlchemySettingRepository(db)
 
+def _setting_enabled(key: str) -> bool:
+    """Read an on/off setting. Values saved from the settings page are "True"/"False"
+    (returned as booleans), but the defaults written on first start are stored as "1"."""
+    value = settings_repository.get(key)
+    if isinstance(value, bool):
+        return value
+    return str(value).strip().lower() in ("true", "1", "on", "yes")
+
+
 def sync_balance():
     # Record this run's log output in the sync log history shown in the web UI.
     with scheduler.app.app_context(), record_sync_run():
@@ -87,6 +96,9 @@ def _sync_balance():
         log.info("Retrieving credit card connections")
         credit_accounts: list[TrueLayerAccount] = account_repository.get_credit_accounts()
         log.info(f"Retrieved {len(credit_accounts)} credit card connection(s)")
+        # Connections that fail their health check are left out of this run: a revoked
+        # one is deleted below, and an unavailable provider is retried on the next run.
+        unhealthy_accounts = []
         for credit_account in credit_accounts:
             try:
                 log.info(f"Checking if {credit_account.type} access token needs refreshing")
@@ -99,6 +111,7 @@ def _sync_balance():
             except AuthException as e:
                 details = getattr(e, 'details', {})
                 description = details.get('error_description', '')
+                unhealthy_accounts.append(credit_account)
                 if "currently unavailable" in description or details.get('error') == 'provider_error':
                     log.info(f"Service provider for {credit_account.type} is currently unavailable, will retry later.")
                 else:
@@ -108,7 +121,8 @@ def _sync_balance():
                             "Reconnect the account(s) on your Monzo Credit Card Pot Sync portal to resume sync",
                         )
                     account_repository.delete(credit_account.type)
-               
+        credit_accounts = [account for account in credit_accounts if account not in unhealthy_accounts]
+
         if (monzo_account is None or len(credit_accounts) == 0):
             log.info("Either Monzo connection is invalid, or there are no valid credit card connections; exiting sync loop")
             return
@@ -141,7 +155,7 @@ def _sync_balance():
             log.info(f"{credit_account.type} card balance is £{credit_balance / 100:.2f}")
             pot_balance_map[credit_account.pot_id]['balance'] -= credit_balance
 
-        if (not settings_repository.get("enable_sync")):
+        if not _setting_enabled("enable_sync"):
             log.info("Balance sync is disabled; exiting sync loop")
             return
 
@@ -151,19 +165,11 @@ def _sync_balance():
         for i, credit_account in enumerate(credit_accounts):
             db.session.commit()
             db.session.expire_all()  # Clear all caches before reload.
+            # The database is the source of truth. Nothing earlier in the run changes a
+            # cooldown, so a cooldown missing from the fresh copy was cleared on purpose
+            # (e.g. "Clear Cooldown" in settings) and must not be restored from the copy
+            # loaded at the start of the run.
             refreshed = account_repository.get(credit_account.type)
-            # If our in-memory account has an active cooldown that is missing in the fresh copy,
-            # force an update to save it persistently.
-            if credit_account.cooldown_until is not None and refreshed.cooldown_until is None:
-                account_repository.update_credit_account_fields(
-                    credit_account.type,
-                    credit_account.pot_id,
-                    credit_account.prev_balance,
-                    credit_account.cooldown_until,  # explicitly set active cooldown
-                    credit_account.cooldown_ref_card_balance
-                )
-                db.session.commit()
-                refreshed = account_repository.get(credit_account.type)
             credit_accounts[i].cooldown_until = refreshed.cooldown_until
             credit_accounts[i].prev_balance = refreshed.prev_balance
             credit_accounts[i].cooldown_ref_card_balance = refreshed.cooldown_ref_card_balance
@@ -172,12 +178,14 @@ def _sync_balance():
         # --------------------------------------------------------------------
         # SECTION 5: EXPIRED COOLDOWN CHECK
         # --------------------------------------------------------------------
+        # Accounts whose deposit was skipped for lack of funds keep their card baseline,
+        # so the unfunded spending is still deposited straight away once sync is
+        # re-enabled rather than being mistaken for a pot drop and put on cooldown.
+        unfunded_accounts = set()
         now = int(time())
         for credit_account in credit_accounts:
             # Force fresh reload of this account's persisted values
             db.session.commit()
-            if hasattr(credit_account, "_sa_instance_state"):
-                db.session.expire(credit_account)
             refreshed = account_repository.get(credit_account.type)
             credit_account.cooldown_until = refreshed.cooldown_until
             credit_account.prev_balance = refreshed.prev_balance
@@ -255,6 +263,7 @@ def _sync_balance():
                             f"Sync disabled due to insufficient funds. Required deposit: £{drop/100:.2f}, available: £{available_funds/100:.2f}. Please top up at least £{insufficent_diff/100:.2f} and re-enable sync.",
                             account_selection=selection
                         )
+                        unfunded_accounts.add(credit_account.type)
                         continue
                     monzo_account.add_to_pot(credit_account.pot_id, drop, account_selection=selection)
                     new_balance = monzo_account.get_pot_balance(credit_account.pot_id)
@@ -294,17 +303,11 @@ def _sync_balance():
         # Process one account at a time with detailed logging.
         
         # Retrieve override setting once and convert to boolean.
-        override_value = settings_repository.get("override_cooldown_spending")
-        if isinstance(override_value, bool):
-            override_cooldown_spending = override_value
-        else:
-            override_cooldown_spending = override_value.lower() == "true"
-        log.info(f"override_cooldown_spending is '{override_value}' -> {override_cooldown_spending}")
+        override_cooldown_spending = _setting_enabled("override_cooldown_spending")
+        log.info(f"override_cooldown_spending is {override_cooldown_spending}")
         
         for credit_account in credit_accounts:
             db.session.commit()
-            if hasattr(credit_account, "_sa_instance_state"):
-                db.session.expire(credit_account)
             refreshed = account_repository.get(credit_account.type)
             credit_account.cooldown_until = refreshed.cooldown_until
             credit_account.prev_balance = refreshed.prev_balance
@@ -401,6 +404,19 @@ def _sync_balance():
                 elif live_card_balance > credit_account.prev_balance:
                     log.info("Step: Regular spending detected (card balance increased).")
                     diff = live_card_balance - current_pot
+                    if diff <= 0:
+                        # The pot already covers the new card balance; only the baseline moves.
+                        log.info(f"[Standard] {credit_account.type}: Pot already covers the card; no deposit needed.")
+                        credit_account.prev_balance = live_card_balance
+                        account_repository.update_credit_account_fields(
+                            credit_account.type,
+                            credit_account.pot_id,
+                            live_card_balance,
+                            credit_account.cooldown_until
+                        )
+                        db.session.commit()
+                        log.info(f"Step: Finished processing account '{credit_account.type}'.")
+                        continue
                     selection = monzo_account.get_account_type(credit_account.pot_id)
                     # NEW: Check if enough funds in Monzo account before depositing the difference
                     available_funds = monzo_account.get_balance(selection)
@@ -413,6 +429,7 @@ def _sync_balance():
                             f"Sync disabled due to insufficient funds. Required deposit: £{diff/100:.2f}, available: £{available_funds/100:.2f}. Please top up at least £{insufficent_diff/100:.2f} and re-enable sync.",
                             account_selection=selection
                         )
+                        unfunded_accounts.add(credit_account.type)
                         continue
                     monzo_account.add_to_pot(credit_account.pot_id, diff, account_selection=selection)
                     new_pot = monzo_account.get_pot_balance(credit_account.pot_id)
@@ -428,29 +445,15 @@ def _sync_balance():
                         credit_account.cooldown_until
                     )
                     db.session.commit()
-                elif live_card_balance < current_pot:
-                    log.info("Step: Withdrawal due to pot exceeding card balance.")
-                    diff = current_pot - live_card_balance
-                    selection = monzo_account.get_account_type(credit_account.pot_id)
-                    monzo_account.withdraw_from_pot(credit_account.pot_id, diff, account_selection=selection)
-                    new_pot = monzo_account.get_pot_balance(credit_account.pot_id)
-                    log.info(
-                        f"[Standard] {credit_account.type}: Withdrew £{diff / 100:.2f} as pot exceeded card. "
-                        f"Pot changed from £{current_pot / 100:.2f} to £{new_pot / 100:.2f} while card remains at £{live_card_balance / 100:.2f}."
-                    )
-                    credit_account.prev_balance = live_card_balance
-                    account_repository.save(credit_account)
                 elif live_card_balance == credit_account.prev_balance:
                     log.info("Step: No increase in card balance detected.")
                     if current_pot < live_card_balance:
-                        if settings_repository.get("enable_sync") == "False":
+                        if not _setting_enabled("enable_sync"):
                             log.info(f"[Standard] {credit_account.type}: Sync disabled; not initiating cooldown.")
                             continue
                         if credit_account.cooldown_until is not None:
                             # Double-check persistence of the cooldown value
                             db.session.commit()
-                            if hasattr(credit_account, "_sa_instance_state"):
-                                db.session.expire(credit_account)
                             refreshed = account_repository.get(credit_account.type)
                             if refreshed.cooldown_until and refreshed.cooldown_until > int(time()):
                                 log.info(f"[Standard] {credit_account.type}: Cooldown already active; no new cooldown initiated.")
@@ -503,8 +506,6 @@ def _sync_balance():
         current_time = int(time())
         for credit_account in credit_accounts:
             db.session.commit()
-            if hasattr(credit_account, "_sa_instance_state"):
-                db.session.expire(credit_account)
             refreshed = account_repository.get(credit_account.type)
             # Ensure we have the latest prev_balance.
             credit_account.prev_balance = refreshed.prev_balance
@@ -513,6 +514,9 @@ def _sync_balance():
                 prev = credit_account.get_prev_balance(credit_account.pot_id)
                 if (credit_account.cooldown_until and current_time < credit_account.cooldown_until):
                     log.info(f"[Baseline Update] {credit_account.type}: Cooldown active; baseline not updated.")
+                    continue
+                if credit_account.type in unfunded_accounts:
+                    log.info(f"[Baseline Update] {credit_account.type}: Deposit skipped for insufficient funds; baseline not updated.")
                     continue
                 if (live != prev):
                     log.info(f"[Baseline Update] {credit_account.type}: Updating baseline from £{prev / 100:.2f} to £{live / 100:.2f}.")

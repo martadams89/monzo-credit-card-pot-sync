@@ -28,7 +28,9 @@ This project provides a robust system to keep your Monzo pot in sync with your c
 
 ## Extended Logic for Credit Card Providers
 
-For cards like American Express and Barclaycard, pending transactions are now taken into account to calculate the true balance. This ensures the Monzo pot will adjust accurately to reflect your spending even when transactions are still pending.
+For American Express and Lloyds, pending transactions are taken into account to calculate the true balance: pending charges are added, and pending refunds and payments are taken off, so the pot is neither short while a charge is pending nor over-funded while a refund is pending. Barclaycard adds pending charges to its balance quickly, so its reported balance is used as is. Halifax balances are worked out as credit limit minus available credit.
+
+A card that is in credit (overpaid, or with pending refunds larger than what is owed) counts as £0 owed, so it never reduces the amount set aside for your other cards.
 
 ## Upgrade Notice
 
