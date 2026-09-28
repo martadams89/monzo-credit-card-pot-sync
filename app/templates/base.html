@@ -7,23 +7,30 @@
     <title>Monzo Credit Card Pot Sync</title>
 
     <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='img/favicon.ico') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/dist/output.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/dist/output.css', v=static_version) }}">
 </head>
 <body class="bg-white dark:bg-gray-900 dark:text-white">
     {% include 'nav.html' %}
     
-    <div id="flashes" class="flex justify-center">
-        {% with messages = get_flashed_messages() %}
-            {% if messages %}
-                <ul class=flashes>
-                {% for message in messages %}
-                    <li>{{ message }}</li>
-                {% endfor %}
-                </ul>
-            {% endif %}
-        {% endwith %}
+    {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+    <div id="flashes" class="flex flex-col items-center gap-2 px-4 pt-2">
+        {% for category, message in messages %}
+        <div role="{{ 'alert' if category == 'error' else 'status' }}"
+             class="flash flex items-start gap-3 w-full max-w-screen-md p-3 text-sm rounded-lg border {% if category == 'error' %}text-red-800 bg-red-50 border-red-200 dark:bg-gray-800 dark:text-red-400 dark:border-red-800{% else %}text-green-800 bg-green-50 border-green-200 dark:bg-gray-800 dark:text-green-400 dark:border-green-800{% endif %}">
+            <span class="flex-1 min-w-0 break-words">{{ message }}</span>
+            <button type="button" aria-label="Dismiss" onclick="this.closest('.flash').remove()"
+                    class="shrink-0 -m-1 p-1 rounded-md opacity-70 hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-current">
+                <svg class="w-4 h-4" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 14 14">
+                    <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m1 1 12 12M13 1 1 13"/>
+                </svg>
+            </button>
+        </div>
+        {% endfor %}
     </div>
-    
+    {% endif %}
+    {% endwith %}
+
     <div class="flex justify-center py-10 w-full">
         {% block content %} 
         {% endblock %}

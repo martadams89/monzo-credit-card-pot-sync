@@ -1,8 +1,18 @@
+import hashlib
 import logging
+import os
 
 from flask import Flask
 
 from app.config import Config
+
+
+def _static_version(app) -> str:
+    try:
+        with open(os.path.join(app.static_folder, "css", "dist", "output.css"), "rb") as css:
+            return hashlib.sha256(css.read()).hexdigest()[:12]
+    except OSError:
+        return "dev"
 
 
 def create_app(test_config=None):
@@ -32,6 +42,15 @@ def create_app(test_config=None):
     from .web.logs import logs_bp
     from .web.pots import pots_bp
     from .web.settings import settings_bp
+
+    # Version static assets by content so browsers and proxies fetch the new
+    # stylesheet after an upgrade instead of reusing a cached one that lacks the
+    # classes new pages use.
+    static_version = _static_version(app)
+
+    @app.context_processor
+    def inject_static_version():
+        return {"static_version": static_version}
 
     app.register_blueprint(home_bp)
     app.register_blueprint(accounts_bp, url_prefix="/accounts")
