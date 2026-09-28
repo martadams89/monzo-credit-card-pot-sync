@@ -25,6 +25,7 @@ class Account:
         cooldown_ref_pot_balance=None,
         stable_pot_balance=None,
         provider_type=None,
+        include_pending_credits=True,
     ):
         self.type = type
         self.provider_type = provider_type or type
@@ -38,6 +39,7 @@ class Account:
         self.cooldown_ref_card_balance = cooldown_ref_card_balance
         self.cooldown_ref_pot_balance = cooldown_ref_pot_balance
         self.stable_pot_balance = stable_pot_balance
+        self.include_pending_credits = include_pending_credits
 
 
     def is_token_within_expiry_window(self):
@@ -289,6 +291,12 @@ class MonzoAccount(Account):
 
 
 class TrueLayerAccount(Account):
+    # Providers whose pending refunds and payments are added to the balance; each
+    # connection can switch this off (``include_pending_credits``) if the provider
+    # turns out to take a pending payment off the current balance as well, which
+    # would count it twice.
+    PENDING_CREDIT_PROVIDERS = ("American Express", "Lloyds")
+
     def __init__(
         self,
         account_type,
@@ -303,6 +311,7 @@ class TrueLayerAccount(Account):
         cooldown_ref_pot_balance=None,
         cooldown_until=None,
         provider_type=None,
+        include_pending_credits=True,
     ):
         super().__init__(
             account_type,
@@ -317,6 +326,7 @@ class TrueLayerAccount(Account):
             cooldown_ref_card_balance=cooldown_ref_card_balance,
             cooldown_ref_pot_balance=cooldown_ref_pot_balance,
             provider_type=provider_type,
+            include_pending_credits=include_pending_credits,
         )
         from app.domain.auth_providers import TrueLayerAuthProvider
 
@@ -381,6 +391,11 @@ class TrueLayerAccount(Account):
             pence = abs(pence)
         return pence / 100
 
+    @property
+    def supports_pending_credits(self) -> bool:
+        """Whether this connection's provider adds pending refunds and payments."""
+        return self.provider_type in self.PENDING_CREDIT_PROVIDERS
+
     def _balance_with_pending(self, label: str, balance: float, pending_transactions: list) -> float:
         """Add pending charges and pending credits (refunds, payments) to a card balance.
 
@@ -395,7 +410,11 @@ class TrueLayerAccount(Account):
         # Separate charges (positive) and payments/refunds (negative)
         pending_charges_pence = sum(p for p in pending_pence if p > 0)
         pending_payments_pence = sum(p for p in pending_pence if p < 0)
-        pending_balance_pence = pending_charges_pence + pending_payments_pence
+        if self.include_pending_credits:
+            pending_balance_pence = pending_charges_pence + pending_payments_pence
+        else:
+            pending_balance_pence = pending_charges_pence
+            log.info(f"{label} - Pending payments/refunds not counted (switched off for {self.type})")
         adjusted_balance_pence = balance_pence + pending_balance_pence
 
         log.info(f"{label} - Current Balance (Excluding Pending Transactions): £{balance_pence / 100:.2f}")

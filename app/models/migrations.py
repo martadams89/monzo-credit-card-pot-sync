@@ -31,6 +31,13 @@ def migrate_database(db) -> None:
                 text("ALTER TABLE account_model ADD COLUMN provider VARCHAR(50)")
             )
 
+    if "include_pending_credits" not in columns:
+        log.info("Adding the per-connection pending refunds and payments option")
+        with db.engine.begin() as connection:
+            connection.execute(
+                text("ALTER TABLE account_model ADD COLUMN include_pending_credits BOOLEAN")
+            )
+
     # Also repairs a partially-completed migration without changing any
     # connection names, tokens, pot mappings, or balance state.
     with db.engine.begin() as connection:

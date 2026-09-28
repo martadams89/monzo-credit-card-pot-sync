@@ -474,3 +474,12 @@ def test_cached_total_balance_makes_no_api_calls(requests_mock):
 
     assert account.get_total_balance() == 1234
     assert requests_mock.call_count == calls
+
+
+@pytest.mark.parametrize("provider", ["AMEX", "LLOYDS"])
+def test_pending_credits_can_be_switched_off(requests_mock, provider):
+    # With "Count pending refunds & payments" off for the connection only pending
+    # charges are added, as before: 1675.83 + 372.95 = 2048.78 (the -490.00 is left out).
+    account = _mock_card(requests_mock, provider, {"current": 1675.83}, [372.95, -490.00])
+    account.include_pending_credits = False
+    assert account.get_total_balance() == 204878

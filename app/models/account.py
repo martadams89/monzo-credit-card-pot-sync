@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String
+from sqlalchemy import Boolean, Column, Integer, String
 
 from app.extensions import db
 
@@ -23,3 +23,6 @@ class AccountModel(db.Model):
     cooldown_ref_card_balance = Column(Integer, nullable=True)
     cooldown_ref_pot_balance = Column(Integer, default=0)
     stable_pot_balance = Column(Integer, nullable=True)
+    # Whether pending refunds and payments reduce this card's balance (Amex, Lloyds).
+    # NULL means on, so connections made before the option existed keep counting them.
+    include_pending_credits = Column(Boolean, nullable=True)

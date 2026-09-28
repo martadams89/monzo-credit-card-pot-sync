@@ -8,6 +8,20 @@
             <img class="h-6" src="{{ url_for('static', filename='img/') }}{{ account.auth_provider.icon_name }}" />
             <span class="flex-1 ms-3 whitespace-nowrap">{{ account.type }}</span>
         </h5>
+        {% if account.supports_pending_credits %}
+        <form action="{{ url_for('accounts.set_pending_credits') }}" method="post" class="mb-2">
+            <input name="account_type" type="hidden" value="{{ account.type }}" />
+            <label class="inline-flex items-center cursor-pointer">
+                <input type="checkbox" name="include_pending_credits" class="sr-only peer" onchange="this.form.submit()" {% if account.include_pending_credits %}checked{% endif %} />
+                <div class="relative shrink-0 w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
+                <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">Count pending refunds &amp; payments</span>
+            </label>
+            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                Turn off if a payment comes off the balance while it is still pending, which counts it twice and lowers the pot until it settles.
+            </p>
+            <noscript><button type="submit" class="text-xs underline">Save</button></noscript>
+        </form>
+        {% endif %}
         <p class="text-sm font-normal">
             <form action="" method="post">
                 <input name="account_type" id="account_type" type="text" value="{{ account.type }}" hidden />

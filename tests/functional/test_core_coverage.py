@@ -781,3 +781,33 @@ def test_unfunded_spending_is_deposited_once_sync_is_re_enabled(mocker, test_cli
     amex = _account(AMEX)
     assert pot.deposits == [10000]
     assert amex.cooldown_until is None
+
+
+@pytest.mark.parametrize(
+    "stored, expected_deposit",
+    [
+        (None, 5000),      # connection made before the option existed: on
+        (True, 5000),
+        (False, 10000),    # pending refund not counted for this connection
+    ],
+)
+def test_include_pending_credits_is_applied_per_connection(
+    mocker, test_client, requests_mock, seed_data, stored, expected_deposit
+):
+    # An Amex card owes £100 with a £50 pending refund. Counting the refund, £50 is
+    # set aside; with the option off for this connection, the full £100.
+    mocker.patch("app.core.scheduler")
+    _set_fields(AMEX, prev_balance=0, include_pending_credits=stored)
+    pot, _ = _mock_sync_endpoints(requests_mock, pot_balance=0, card_balance=100.00)
+    requests_mock.get(
+        "https://api.truelayer.com/data/v1/cards",
+        json={"results": [{"account_id": "card_id", "provider": {"display_name": "AMEX"}}]},
+    )
+    requests_mock.get(
+        "https://api.truelayer.com/data/v1/cards/card_id/transactions/pending",
+        json={"results": [{"amount": -50.00}]},
+    )
+
+    sync_balance()
+
+    assert pot.deposits == [expected_deposit]
