@@ -67,7 +67,7 @@ jobs:
             REPO: "${{ github.repository }}"
 
         - name: Build image and push
-          uses: docker/build-push-action@v6.19.2
+          uses: docker/build-push-action@v7.4.0
           with:
             context: .
             platforms: linux/amd64,linux/arm64
