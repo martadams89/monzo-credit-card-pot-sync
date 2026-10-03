@@ -6,7 +6,7 @@
     "build-css-live": "tailwindcss -i ./app/static/css/src/input.css -o ./app/static/css/dist/output.css --watch"
   },
   "devDependencies": {
-    "tailwindcss": "^3.4.17"
+    "tailwindcss": "^4.0.0"
   },
   "dependencies": {
     "flowbite": "^2.5.2"
