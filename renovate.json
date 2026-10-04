@@ -9,6 +9,12 @@
   "prHourlyLimit": 3,
   "packageRules": [
     {
+      "description": "Hold Tailwind CSS major bumps: v4 moved the CLI to @tailwindcss/cli, so the build-css script fails with 'tailwindcss: not found'. Remove once build-css and the Tailwind config are migrated to v4.",
+      "matchPackageNames": ["tailwindcss"],
+      "matchUpdateTypes": ["major"],
+      "enabled": false
+    },
+    {
       "description": "CI is the gate, not semver - automerge all update types once required checks pass.",
       "matchUpdateTypes": ["major", "minor", "patch", "pin", "digest"],
       "automerge": true,
