@@ -9,6 +9,6 @@
     "tailwindcss": "^3.4.17"
   },
   "dependencies": {
-    "flowbite": "^2.5.2"
+    "flowbite": "^4.0.0"
   }
 }
