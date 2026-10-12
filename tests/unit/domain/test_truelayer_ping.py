@@ -15,7 +15,7 @@ def _account():
     return TrueLayerAccount("American Express", "access_token", "refresh_token", int(time()) + 1000)
 
 
-def _epoch(*args, tz=datetime.timezone.utc):
+def _epoch(*args, tz=datetime.UTC):
     return int(datetime.datetime(*args, tzinfo=tz).timestamp())
 
 

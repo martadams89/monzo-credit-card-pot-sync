@@ -12,6 +12,6 @@ def get_cooldown_for_pot(pot_id: str, session) -> str:
     account = session.query(AccountModel).filter_by(pot_id=pot_id).first()
     if account and account.cooldown_until and account.cooldown_until > int(time.time()):
         return datetime.datetime.fromtimestamp(
-            account.cooldown_until, tz=datetime.timezone.utc
+            account.cooldown_until, tz=datetime.UTC
         ).strftime("%Y-%m-%d %H:%M:%S")
     return None

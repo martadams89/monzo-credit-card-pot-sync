@@ -335,9 +335,9 @@ def test_latest_run_warning_is_shown(test_client, configured):
 def test_sync_now_runs_the_sync_job_immediately(test_client, mocker):
     scheduler = mocker.patch("app.web.home.scheduler")
 
-    before = datetime.datetime.now(datetime.timezone.utc)
+    before = datetime.datetime.now(datetime.UTC)
     response = test_client.post("/sync-now")
-    after = datetime.datetime.now(datetime.timezone.utc)
+    after = datetime.datetime.now(datetime.UTC)
 
     assert response.status_code == 302
     assert urlparse(response.location).path == "/"

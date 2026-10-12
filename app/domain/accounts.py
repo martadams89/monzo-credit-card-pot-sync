@@ -69,7 +69,7 @@ class Account:
             self.refresh_token = tokens["refresh_token"]
             self.token_expiry = int(time()) + tokens["expires_in"]
             token_expiry_hr = datetime.datetime.fromtimestamp(
-                self.token_expiry, tz=datetime.timezone.utc
+                self.token_expiry, tz=datetime.UTC
             ).strftime("%Y-%m-%d %H:%M:%S")
             log.info(f"Successfully refreshed {self.type} access token, new expiry time is {token_expiry_hr}")
     
@@ -368,7 +368,7 @@ class TrueLayerAccount(Account):
         response = r.get(f"{self.auth_provider.api_url}/data/v1/me", headers=self.get_auth_header())
         try:
             expires = response.json()["results"][0].get("consent_expires_at")
-            return int(datetime.datetime.fromisoformat(expires.replace("Z", "+00:00")).timestamp())
+            return int(datetime.datetime.fromisoformat(expires).timestamp())
         except (ValueError, KeyError, IndexError, TypeError, AttributeError):
             return None
 

@@ -17,7 +17,7 @@ def test_active_cooldown_is_formatted_in_utc(test_client):
     cooldown_until = int(time()) + 3600
     _add("Barclaycard", "pot_1", cooldown_until)
 
-    expected = datetime.datetime.fromtimestamp(cooldown_until, tz=datetime.timezone.utc).strftime(
+    expected = datetime.datetime.fromtimestamp(cooldown_until, tz=datetime.UTC).strftime(
         "%Y-%m-%d %H:%M:%S"
     )
     assert get_cooldown_for_pot("pot_1", db.session) == expected
