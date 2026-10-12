@@ -95,7 +95,7 @@ def index():
 def sync_now():
     """Run the sync straight away instead of waiting for the next interval."""
     try:
-        scheduler.modify_job("sync_balance", next_run_time=datetime.datetime.now(datetime.timezone.utc))
+        scheduler.modify_job("sync_balance", next_run_time=datetime.datetime.now(datetime.UTC))
         flash("Sync started. Refresh in a few seconds to see the result.")
     except (JobLookupError, AttributeError, RuntimeError) as e:
         log.error(f"Could not start a sync: {e}")

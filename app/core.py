@@ -73,7 +73,7 @@ def _check_consent_expiry(credit_account, expires_at, monzo_account) -> None:
     last_sent = credit_account.consent_reminder_sent_at
     if last_sent is not None and now - last_sent < CONSENT_REMINDER_INTERVAL:
         return
-    expiry_date = datetime.datetime.fromtimestamp(expires_at, tz=datetime.timezone.utc).strftime("%d %b")
+    expiry_date = datetime.datetime.fromtimestamp(expires_at, tz=datetime.UTC).strftime("%d %b")
     if remaining > 0:
         log.warning(f"{credit_account.type} connection expires on {expiry_date}; reminding the user to reconnect")
         title = f"Reconnect {credit_account.type} by {expiry_date}"
@@ -401,7 +401,7 @@ def _sync_balance():
             )
             if credit_account.cooldown_until:
                 hr_cooldown = datetime.datetime.fromtimestamp(
-                    credit_account.cooldown_until, tz=datetime.timezone.utc
+                    credit_account.cooldown_until, tz=datetime.UTC
                 ).strftime("%Y-%m-%d %H:%M:%S")
                 if int(time()) < credit_account.cooldown_until:
                     log.info(f"Cooldown active until {hr_cooldown} (epoch: {credit_account.cooldown_until}).")
@@ -413,7 +413,7 @@ def _sync_balance():
             # Log debug information before the cooldown check
             if credit_account.cooldown_until is not None:
                 hr_cooldown = datetime.datetime.fromtimestamp(
-                    credit_account.cooldown_until, tz=datetime.timezone.utc
+                    credit_account.cooldown_until, tz=datetime.UTC
                 ).strftime("%Y-%m-%d %H:%M:%S")
                 log.debug(
                     f"Before adjustment: credit_account.prev_balance={credit_account.prev_balance}, "
@@ -548,7 +548,7 @@ def _sync_balance():
                         # to be persisted alongside the cooldown itself.
                         credit_account.cooldown_ref_card_balance = live_card_balance
                         hr_cooldown = datetime.datetime.fromtimestamp(
-                            new_cooldown, tz=datetime.timezone.utc
+                            new_cooldown, tz=datetime.UTC
                         ).strftime("%Y-%m-%d %H:%M:%S")
                         log.info(
                             f"[Standard] {credit_account.type}: Initiating cooldown because pot (£{current_pot / 100:.2f}) is less than card (£{live_card_balance / 100:.2f}). "

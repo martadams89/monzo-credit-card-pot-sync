@@ -43,9 +43,9 @@ def clear():
 
 @logs_bp.app_template_filter("utc_datetime")
 def utc_datetime(timestamp: float) -> str:
-    return datetime.datetime.fromtimestamp(timestamp, tz=datetime.timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+    return datetime.datetime.fromtimestamp(timestamp, tz=datetime.UTC).strftime("%Y-%m-%d %H:%M UTC")
 
 
 @logs_bp.app_template_filter("utc_clock")
 def utc_clock(timestamp: float) -> str:
-    return datetime.datetime.fromtimestamp(timestamp, tz=datetime.timezone.utc).strftime("%H:%M:%S")
+    return datetime.datetime.fromtimestamp(timestamp, tz=datetime.UTC).strftime("%H:%M:%S")

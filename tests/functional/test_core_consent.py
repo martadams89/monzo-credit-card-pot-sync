@@ -44,7 +44,7 @@ class _Pot:
 
 
 def _iso(epoch):
-    return datetime.datetime.fromtimestamp(epoch, tz=datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    return datetime.datetime.fromtimestamp(epoch, tz=datetime.UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 def _mock_sync_endpoints(requests_mock, *, pot_balance, card_balance, consent_expires_at=None, monzo_balance=1000000):
@@ -115,7 +115,7 @@ def _notification_titles(requests_mock):
 
 
 def _date(epoch):
-    return datetime.datetime.fromtimestamp(epoch, tz=datetime.timezone.utc).strftime("%d %b")
+    return datetime.datetime.fromtimestamp(epoch, tz=datetime.UTC).strftime("%d %b")
 
 
 @pytest.fixture
