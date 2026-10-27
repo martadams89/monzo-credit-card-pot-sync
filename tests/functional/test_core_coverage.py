@@ -685,6 +685,55 @@ def test_unavailable_provider_is_skipped_for_the_run(mocker, test_client, reques
     assert pot.deposits == [] and pot.withdrawals == []
 
 
+def test_card_balance_server_error_skips_the_card_for_the_run(mocker, test_client, requests_mock, seed_data, caplog):
+    # TrueLayer returns a 500 for the Amex balance. The run completes, the connection
+    # is kept for the next run and no money moves; it used to raise out of the run.
+    caplog.set_level(logging.INFO)
+    mocker.patch("app.core.scheduler")
+    _set_fields(AMEX, prev_balance=0)
+    pot, _ = _mock_sync_endpoints(requests_mock, pot_balance=0, card_balance=500)
+    requests_mock.get(
+        "https://api.truelayer.com/data/v1/cards/card_id/balance",
+        status_code=500,
+        json={"error": "internal_server_error", "error_description": "Internal server error"},
+    )
+
+    sync_balance()
+
+    assert _account(AMEX) is not None
+    assert _account(AMEX).prev_balance == 0
+    assert pot.deposits == [] and pot.withdrawals == []
+    assert f"Could not retrieve the {AMEX} card balance; skipping {AMEX} this run" in caplog.text
+    assert "All credit accounts processed." in caplog.text
+
+
+def test_card_balance_server_error_does_not_stop_other_cards_syncing(mocker, test_client, requests_mock, seed_data):
+    # The Amex balance call fails while a second card is healthy: the other card is
+    # still synced in the same run.
+    from app.domain.accounts import TrueLayerAccount
+    from app.models.account_repository import SqlAlchemyAccountRepository
+
+    mocker.patch("app.core.scheduler")
+    SqlAlchemyAccountRepository(db).save(
+        TrueLayerAccount("Barclaycard", "barclaycard_token", "refresh_token", time() + 10000, "pot_id")
+    )
+    pot, _ = _mock_sync_endpoints(requests_mock, pot_balance=0, card_balance=500)
+    # Only the Amex connection (seeded with "access_token") gets the error.
+    requests_mock.get(
+        "https://api.truelayer.com/data/v1/cards/card_id/balance",
+        request_headers={"Authorization": "Bearer access_token"},
+        status_code=500,
+        json={"error": "internal_server_error"},
+    )
+
+    sync_balance()
+
+    assert pot.deposits == [50000]
+    assert _account("Barclaycard").prev_balance == 50000
+    assert _account(AMEX) is not None
+    assert _account(AMEX).prev_balance == 0
+
+
 def test_no_zero_deposit_when_pot_already_covers_new_spending(mocker, test_client, requests_mock, seed_data):
     # The card went up from £0 to £10 but the pot already holds £10: only the
     # baseline moves. A £0 deposit used to be sent to Monzo.

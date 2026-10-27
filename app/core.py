@@ -38,6 +38,7 @@ import datetime  # Needed for human-readable time conversions
 import logging
 from time import time
 
+from requests import RequestException
 from sqlalchemy.exc import NoResultFound, SQLAlchemyError
 
 from app import sync_status
@@ -201,6 +202,7 @@ def _sync_balance():
         # SECTION 3: CALCULATE BALANCE DIFFERENTIALS PER POT
         # --------------------------------------------------------------------
         pot_balance_map = {}
+        unavailable_accounts = []
         for credit_account in credit_accounts:
             try:
                 pot_id = credit_account.pot_id
@@ -221,9 +223,21 @@ def _sync_balance():
                 return
 
             log.info(f"Retrieving balance for {credit_account.type} credit card")
-            credit_balance = credit_account.get_total_balance(force_refresh=True)
+            try:
+                credit_balance = credit_account.get_total_balance(force_refresh=True)
+            except RequestException as e:
+                # TrueLayer or the card provider failed (e.g. a 500 from TrueLayer). Without
+                # the card balance its pot can't be reconciled, so the card sits this run
+                # out rather than failing the run for every card.
+                log.error(
+                    f"Could not retrieve the {credit_account.type} card balance; skipping "
+                    f"{credit_account.type} this run and retrying on the next sync ({e})"
+                )
+                unavailable_accounts.append(credit_account)
+                continue
             log.info(f"{credit_account.type} card balance is £{credit_balance / 100:.2f}")
             pot_balance_map[credit_account.pot_id]['balance'] -= credit_balance
+        credit_accounts = [account for account in credit_accounts if account not in unavailable_accounts]
 
         if not _setting_enabled("enable_sync"):
             log.info("Balance sync is disabled; exiting sync loop")
