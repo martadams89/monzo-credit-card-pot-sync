@@ -502,3 +502,191 @@ def test_snapshot_with_no_pots_anywhere(test_client, mocker):
     (entry,) = sync_status.load()["accounts"]
     assert entry["pot_name"] is None and entry["pot_balance"] is None
     assert entry["card_balance"] == 150
+
+
+# ---------------------------------------------------------------------------
+# Tap-to-reconnect links and Monzo's 90-day approval
+# ---------------------------------------------------------------------------
+
+
+def _feed_bodies(requests_mock):
+    return [
+        parse_qs(req.text)
+        for req in requests_mock.request_history
+        if req.method == "POST" and req.url == "https://api.monzo.com/feed"
+    ]
+
+
+def test_reminder_links_to_reconnect_when_the_app_has_a_public_address(steady, requests_mock, monkeypatch):
+    # Tapping the reminder in the Monzo app opens the card's Reconnect, which goes
+    # straight to the bank's approval page.
+    monkeypatch.setattr(core.Config, "LOCAL_URL", "https://pots.example.com/")
+    expires = int(time()) + 3 * DAY
+    _mock_sync_endpoints(requests_mock, pot_balance=1000, card_balance=10, consent_expires_at=expires)
+
+    sync_balance()
+
+    [body] = _feed_bodies(requests_mock)
+    assert body["url"] == ["https://pots.example.com/accounts/reconnect/American%20Express"]
+    assert body["params[body]"] == ["Tap to reconnect and keep your pot in sync."]
+
+
+@pytest.mark.parametrize("local_url", ["http://localhost:1337", "http://127.0.0.1:1337"])
+def test_reminder_has_no_link_when_the_app_is_only_on_localhost(steady, requests_mock, monkeypatch, local_url):
+    # A localhost link can't be opened from the Monzo app on a phone, so the reminder
+    # says where to go instead.
+    monkeypatch.setattr(core.Config, "LOCAL_URL", local_url)
+    expires = int(time()) + 3 * DAY
+    _mock_sync_endpoints(requests_mock, pot_balance=1000, card_balance=10, consent_expires_at=expires)
+
+    sync_balance()
+
+    [body] = _feed_bodies(requests_mock)
+    assert "url" not in body
+    assert "press Reconnect" in body["params[body]"][0]
+
+
+def test_monzo_reminder_sent_when_its_approval_is_due_within_a_week(steady, requests_mock, monkeypatch):
+    monkeypatch.setattr(core.Config, "LOCAL_URL", "https://pots.example.com")
+    expires = int(time()) + 5 * DAY
+    _set_fields("Monzo", consent_expires_at=expires)
+    _mock_sync_endpoints(requests_mock, pot_balance=1000, card_balance=10)
+
+    before = int(time())
+    sync_balance()
+
+    assert _notification_titles(requests_mock) == [f"Reconnect Monzo by {_date(expires)}"]
+    [body] = _feed_bodies(requests_mock)
+    assert body["url"] == ["https://pots.example.com/accounts/reconnect/Monzo"]
+    assert _account("Monzo").consent_reminder_sent_at >= before
+
+
+def test_no_monzo_reminder_while_its_approval_is_far_off_or_unknown(steady, requests_mock):
+    _mock_sync_endpoints(requests_mock, pot_balance=1000, card_balance=10)
+
+    sync_balance()  # expiry not known (connected before it was recorded)
+    _set_fields("Monzo", consent_expires_at=int(time()) + 60 * DAY)
+    sync_balance()
+
+    assert _notification_titles(requests_mock) == []
+    assert _account("Monzo").consent_reminder_sent_at is None
+
+
+# ---------------------------------------------------------------------------
+# A card whose balance stays unavailable
+# ---------------------------------------------------------------------------
+
+
+def _fail_card_balance(requests_mock):
+    requests_mock.get(
+        "https://api.truelayer.com/data/v1/cards/card_id/balance",
+        status_code=500,
+        json={"error": "internal_server_error"},
+    )
+
+
+def test_first_unavailable_balance_is_recorded_without_a_notification(steady, requests_mock):
+    _mock_sync_endpoints(requests_mock, pot_balance=1000, card_balance=10)
+    _fail_card_balance(requests_mock)
+
+    before = int(time())
+    sync_balance()
+    after = int(time())
+
+    amex = _account(AMEX)
+    assert before <= amex.balance_unavailable_since <= after
+    assert amex.balance_unavailable_notified_at is None
+    assert _notification_titles(requests_mock) == []
+
+
+def test_user_told_once_a_balance_has_been_unavailable_for_a_day(steady, requests_mock, monkeypatch):
+    monkeypatch.setattr(core.Config, "LOCAL_URL", "https://pots.example.com")
+    since = int(time()) - 25 * 3600
+    _set_fields(AMEX, balance_unavailable_since=since)
+    _mock_sync_endpoints(requests_mock, pot_balance=1000, card_balance=10)
+    _fail_card_balance(requests_mock)
+
+    sync_balance()
+    sync_balance()  # still failing: no second notification
+
+    assert _notification_titles(requests_mock) == [f"{AMEX} isn't syncing"]
+    [body] = _feed_bodies(requests_mock)
+    assert "25 hours" in body["params[body]"][0]
+    assert body["url"] == ["https://pots.example.com/logs/"]
+    amex = _account(AMEX)
+    assert amex.balance_unavailable_since == since
+    assert amex.balance_unavailable_notified_at is not None
+
+
+def test_no_notification_before_a_day_has_passed(steady, requests_mock):
+    _set_fields(AMEX, balance_unavailable_since=int(time()) - 23 * 3600)
+    _mock_sync_endpoints(requests_mock, pot_balance=1000, card_balance=10)
+    _fail_card_balance(requests_mock)
+
+    sync_balance()
+
+    assert _notification_titles(requests_mock) == []
+    assert _account(AMEX).balance_unavailable_notified_at is None
+
+
+def test_user_told_when_a_card_they_were_warned_about_syncs_again(steady, requests_mock):
+    _set_fields(AMEX, balance_unavailable_since=int(time()) - 3 * DAY, balance_unavailable_notified_at=int(time()) - DAY)
+    _mock_sync_endpoints(requests_mock, pot_balance=1000, card_balance=10)
+
+    sync_balance()
+
+    assert _notification_titles(requests_mock) == [f"{AMEX} is syncing again"]
+    amex = _account(AMEX)
+    assert amex.balance_unavailable_since is None
+    assert amex.balance_unavailable_notified_at is None
+
+
+def test_short_outage_clears_without_a_notification(steady, requests_mock):
+    _set_fields(AMEX, balance_unavailable_since=int(time()) - 3600)
+    _mock_sync_endpoints(requests_mock, pot_balance=1000, card_balance=10)
+
+    sync_balance()
+
+    assert _notification_titles(requests_mock) == []
+    assert _account(AMEX).balance_unavailable_since is None
+
+
+def test_provider_outage_counts_as_an_unavailable_balance(steady, requests_mock):
+    # The card's provider is down when its token is refreshed, so the card is skipped
+    # before its balance is read; that counts towards the day too.
+    since = int(time()) - 25 * 3600
+    _set_fields(AMEX, token_expiry=int(time()), balance_unavailable_since=since)
+    requests_mock.post("https://auth.truelayer.com/connect/token", json={"error": "provider_error"})
+    _mock_sync_endpoints(requests_mock, pot_balance=1000, card_balance=10)
+
+    sync_balance()
+
+    assert _notification_titles(requests_mock) == [f"{AMEX} isn't syncing"]
+    assert _account(AMEX).balance_unavailable_notified_at is not None
+
+
+def test_failed_balance_notification_does_not_stop_the_sync(steady, requests_mock, mocker, caplog):
+    # The notification fails to send: the run still completes, and the user is told
+    # on a later run rather than the attempt being recorded as sent.
+    caplog.set_level(logging.INFO)
+    _set_fields(AMEX, balance_unavailable_since=int(time()) - 25 * 3600)
+    _mock_sync_endpoints(requests_mock, pot_balance=1000, card_balance=10)
+    _fail_card_balance(requests_mock)
+    mocker.patch("app.domain.accounts.MonzoAccount.send_notification", side_effect=requests.ConnectionError("down"))
+
+    sync_balance()
+
+    assert f"Failed to send the balance notification for {AMEX}: down" in caplog.text
+    assert "All credit accounts processed." in caplog.text
+    assert _account(AMEX).balance_unavailable_notified_at is None
+
+
+def test_failed_syncing_again_notification_does_not_stop_the_sync(steady, requests_mock, mocker, caplog):
+    _set_fields(AMEX, balance_unavailable_since=int(time()) - 3 * DAY, balance_unavailable_notified_at=int(time()) - DAY)
+    _mock_sync_endpoints(requests_mock, pot_balance=1000, card_balance=10)
+    mocker.patch("app.domain.accounts.MonzoAccount.send_notification", side_effect=requests.ConnectionError("down"))
+
+    sync_balance()
+
+    assert f"Failed to send the balance notification for {AMEX}: down" in caplog.text
+    assert _account(AMEX).balance_unavailable_since is None

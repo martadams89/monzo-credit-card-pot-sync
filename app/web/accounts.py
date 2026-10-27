@@ -98,11 +98,12 @@ def set_cooldown_hours():
 
 @accounts_bp.route("/reconnect/<path:account_type>", methods=["GET"])
 def reconnect(account_type):
-    """Re-authorise an existing card connection, keeping its pot and settings."""
+    """Re-authorise an existing connection, keeping its pot and settings."""
     try:
         account = account_repository.get(account_type)
         if account.type == "Monzo":
-            raise KeyError(account.type)
+            # There is only one Monzo connection, so its callback always updates it.
+            return redirect(provider_mapping[AuthProviderType.MONZO].create_oauth_request_url())
         provider = provider_mapping[AuthProviderType(account.provider_type)]
     except (NoResultFound, ValueError, KeyError):
         flash("Account not found", "error")

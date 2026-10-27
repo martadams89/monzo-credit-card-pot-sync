@@ -26,6 +26,9 @@ This project provides a robust system to keep your Monzo pot in sync with your c
 - **Dashboard:** The home page shows each card's balance, its pot, whether the pot is in sync (or short/over and by how much), any cooldown and when it ends, and when the last sync ran. Until everything is connected it shows a setup checklist instead. **Sync now** runs a sync straight away.
 - **Per-card Cooldown:** Each card can have its own cooldown on the Accounts page (for example 72 hours for a direct debit that takes a day or more to clear), falling back to **Deposit Cooldown** in Settings.
 - **Reconnect Reminders:** Open banking consent lasts at most 90 days. Pot Sync reads each card's expiry from TrueLayer, shows it on the Accounts page and dashboard, and sends a Monzo notification (at most once a day) in the week before it runs out. **Reconnect** re-authorises the existing connection, keeping its pot and settings.
+    - Monzo also asks you to approve Pot Sync again every 90 days, but doesn't say when, so the 90 days are counted from when you last connected Monzo. Monzo gets the same reminder and a **Reconnect** button.
+    - When `POT_SYNC_LOCAL_URL` is an address your phone can open (not `localhost`), tapping a reminder in the Monzo app opens that connection's Reconnect, which goes straight to the bank's approval page.
+- **Skipped Card Alerts:** If a card's balance can't be read (for example TrueLayer returns an error), the card is skipped and retried on every sync while the others keep syncing. After 24 hours of this you get one Monzo notification, and another when it syncs again.
 - **Optional Sign In:** Off by default for installs behind a reverse proxy that already handles sign in. Turn it on under **Settings > Security** to require a password, optionally with an authenticator app (2FA), and add passkeys (Face ID, Touch ID, Windows Hello, security keys) to sign in without a password. See [Security](#security).
 - **Privacy Options:** In Settings, **Hide Amounts on the Home Page** shows £••••• instead of balances (tap the eye button to reveal them), and **Keep Log History** can be switched off to stop saving sync logs, which include balances. Turning it off deletes the history kept so far; the Logs page also has a **Clear history** button. The dashboard and `/health` keep working either way.
 - **Health Check:** `GET /health` returns 200 while syncs are completing and 503 when none has finished recently, for Docker (the image has a `HEALTHCHECK`) or an uptime monitor.
@@ -124,7 +127,7 @@ When setting up Monzo or TrueLayer redirect URLs, use the URL that was set in th
 
 | Variable | Purpose |
 | --- | --- |
-| `POT_SYNC_LOCAL_URL` | The URL you open Pot Sync on. Used for OAuth callbacks and passkeys. Default `http://localhost:1337`. |
+| `POT_SYNC_LOCAL_URL` | The URL you open Pot Sync on. Used for OAuth callbacks, passkeys and the links in Monzo notifications. Default `http://localhost:1337`. |
 | `DATABASE_URI` | SQLAlchemy database URL. Defaults to a SQLite file in the app folder. |
 | `SECRET_KEY` | Signs session cookies. Optional; generated and stored if unset. |
 | `POT_SYNC_DISABLE_AUTH` | Set to `true` to skip sign in temporarily if you're locked out. |

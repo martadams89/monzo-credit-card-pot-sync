@@ -12,7 +12,14 @@ from app.models.account import AccountModel
 from app.models.account_repository import SqlAlchemyAccountRepository
 from app.models.migrations import ACCOUNT_COLUMNS, migrate_database
 
-NEW_COLUMNS = {"cooldown_hours", "consent_expires_at", "consent_reminder_sent_at", "include_pending_credits"}
+NEW_COLUMNS = {
+    "cooldown_hours",
+    "consent_expires_at",
+    "consent_reminder_sent_at",
+    "include_pending_credits",
+    "balance_unavailable_since",
+    "balance_unavailable_notified_at",
+}
 
 BASE_COLUMNS = """
     id INTEGER NOT NULL,
