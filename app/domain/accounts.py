@@ -384,9 +384,29 @@ class TrueLayerAccount(Account):
         # Round to whole pence; ceil() would turn float noise (2.2 * 100 == 220.00000000000003) into an extra penny
         return round(data["current"] * 100) / 100
 
+    def _raise_for_status(self, response, what: str) -> None:
+        """raise_for_status(), logging TrueLayer's own explanation of a failure first."""
+        try:
+            response.raise_for_status()
+        except r.HTTPError:
+            try:
+                body = response.json()
+                reason = " - ".join(str(body[key]) for key in ("error", "error_description") if body.get(key))
+            except (ValueError, AttributeError):
+                reason = response.text[:200]
+            log.error(f"TrueLayer could not return {what} for {self.type}: HTTP {response.status_code} {reason}".rstrip())
+            raise
+
+    @staticmethod
+    def _describe_card(card: dict) -> str:
+        """Name a card the way the user will recognise it in the log."""
+        name = card.get("display_name") or card.get("account_id")
+        last_digits = card.get("partial_card_number")
+        return f"card '{name}' ending {last_digits}" if last_digits else f"card '{name}'"
+
     def get_pending_transactions(self, card_id: str) -> list:
         response = r.get(f"{self.auth_provider.api_url}/data/v1/cards/{card_id}/transactions/pending", headers=self.get_auth_header())
-        response.raise_for_status()
+        self._raise_for_status(response, f"pending transactions of card {card_id}")
         transactions = response.json()["results"]
         return [self._signed_pending_amount(txn) for txn in transactions] if transactions else []
 
@@ -459,7 +479,7 @@ class TrueLayerAccount(Account):
 
             # Fetch balance data once for all providers
             balance_response = r.get(f"{self.auth_provider.api_url}/data/v1/cards/{card_id}/balance", headers=self.get_auth_header())
-            balance_response.raise_for_status()
+            self._raise_for_status(balance_response, f"the balance of {self._describe_card(card)}")
             balance_data = balance_response.json()["results"][0]
             
             # For most providers, use the 'current' field

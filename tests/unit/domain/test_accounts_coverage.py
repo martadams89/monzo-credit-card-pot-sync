@@ -2,6 +2,7 @@ from time import time
 from urllib import parse
 
 import pytest
+import requests
 
 from app.domain.accounts import Account, MonzoAccount, TrueLayerAccount
 from app.errors import AuthException, PotNotFoundError, PotTransferError
@@ -500,3 +501,40 @@ def test_total_balance_is_cached_until_forced(requests_mock):
     assert account.get_total_balance() == 1000
     assert account.get_total_balance() == 1000
     assert account.get_total_balance(force_refresh=True) == 2000
+
+
+def test_total_balance_failure_logs_truelayer_error_and_card(requests_mock, caplog):
+    # TrueLayer returns a 500 for the card's balance. The HTTP error is still raised
+    # for the sync to handle, but TrueLayer's own explanation and the card it failed
+    # on are logged first so the user can tell which card is affected and why.
+    requests_mock.get(
+        f"{TRUELAYER}/cards",
+        json={"results": [{
+            "account_id": "1",
+            "display_name": "British Airways American Express Credit Card",
+            "partial_card_number": "1005",
+            "provider": {"display_name": "AMEX"},
+        }]},
+    )
+    requests_mock.get(
+        f"{TRUELAYER}/cards/1/balance",
+        status_code=500,
+        json={"error": "internal_server_error", "error_description": "Internal server error"},
+    )
+
+    with pytest.raises(requests.HTTPError):
+        _truelayer("American Express").get_total_balance(force_refresh=True)
+
+    assert (
+        "TrueLayer could not return the balance of card 'British Airways American Express Credit Card' "
+        "ending 1005 for American Express: HTTP 500 internal_server_error - Internal server error"
+    ) in caplog.text
+
+
+def test_pending_transactions_failure_logs_non_json_error(requests_mock, caplog):
+    requests_mock.get(f"{TRUELAYER}/cards/1/transactions/pending", status_code=502, text="Bad Gateway")
+
+    with pytest.raises(requests.HTTPError):
+        _truelayer("American Express").get_pending_transactions("1")
+
+    assert "TrueLayer could not return pending transactions of card 1 for American Express: HTTP 502 Bad Gateway" in caplog.text
