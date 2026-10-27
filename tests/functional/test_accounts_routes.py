@@ -106,3 +106,23 @@ def test_sync_save_does_not_undo_pending_credits_toggle(test_client, seed_data):
 
     repository.save(stale)
     assert repository.get(stale.type).include_pending_credits is False
+
+
+def test_monzo_shows_reconnect_and_when_its_approval_expires(test_client, seed_data):
+    # Monzo has to be approved again every 90 days, so it gets a Reconnect button and
+    # its expiry, like the cards.
+    from time import time
+
+    from app.models.account import AccountModel
+
+    data = test_client.get("/accounts/").data
+    assert b'href="/accounts/reconnect/Monzo"' in data
+    assert b"Expiry known once Monzo is next reconnected" in data
+
+    record = AccountModel.query.filter_by(type="Monzo").one()
+    record.consent_expires_at = int(time()) + 30 * 86400
+    db.session.commit()
+
+    data = test_client.get("/accounts/").data
+    assert b"Expiry known once Monzo is next reconnected" not in data
+    assert data.count(b"Connection expires") == 1  # Monzo; the seeded card's expiry isn't known yet

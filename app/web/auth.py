@@ -29,6 +29,10 @@ def monzo_callback():
         pot_id="default_pot"  # Provide a default pot ID
     )
     account_repository.save(account)
+    # Connecting (or reconnecting) Monzo approves the app afresh, so the 90 days
+    # until Monzo asks for approval again start now.
+    account_repository.set_consent_expiry(account.type, int(time()) + MonzoAccount.CONSENT_DAYS * 86400)
+    account_repository.mark_consent_reminder_sent(account.type, None)
 
     flash(f"Successfully linked {account.type}")
     return redirect(url_for("accounts.index"))

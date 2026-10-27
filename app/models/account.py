@@ -28,7 +28,13 @@ class AccountModel(db.Model):
     include_pending_credits = Column(Boolean, nullable=True)
     # Cooldown length for this connection in hours; NULL uses the global setting.
     cooldown_hours = Column(Integer, nullable=True)
-    # When the provider's consent (and so this connection) expires, from TrueLayer,
-    # and when the user was last reminded to reconnect. Epoch seconds.
+    # When the provider's consent (and so this connection) expires, from TrueLayer
+    # for cards and counted from the last approval for Monzo, and when the user was
+    # last reminded to reconnect. Epoch seconds.
     consent_expires_at = Column(Integer, nullable=True)
     consent_reminder_sent_at = Column(Integer, nullable=True)
+    # When the sync first failed to read this card's balance in the current run of
+    # failures, and when the user was told about it. NULL while the balance is
+    # available. Epoch seconds.
+    balance_unavailable_since = Column(Integer, nullable=True)
+    balance_unavailable_notified_at = Column(Integer, nullable=True)

@@ -14,6 +14,8 @@ ACCOUNT_COLUMNS = {
     "cooldown_hours": "INTEGER",
     "consent_expires_at": "INTEGER",
     "consent_reminder_sent_at": "INTEGER",
+    "balance_unavailable_since": "INTEGER",
+    "balance_unavailable_notified_at": "INTEGER",
 }
 
 log = logging.getLogger("migrations")

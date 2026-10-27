@@ -37,11 +37,13 @@ SECTION 7: UPDATE BASELINE PERSISTENCE
 import datetime  # Needed for human-readable time conversions
 import logging
 from time import time
+from urllib.parse import quote, urlparse
 
 from requests import RequestException
 from sqlalchemy.exc import NoResultFound, SQLAlchemyError
 
 from app import sync_status
+from app.config import Config
 from app.domain.accounts import MonzoAccount, TrueLayerAccount
 from app.domain.settings import Setting
 from app.errors import AuthException
@@ -54,42 +56,108 @@ log = logging.getLogger("core")
 account_repository = SqlAlchemyAccountRepository(db)
 settings_repository = SqlAlchemySettingRepository(db)
 
-# Remind the user to reconnect a card this long before its consent expires, at most
-# once a day.
+# Remind the user to reconnect a card (or Monzo) this long before its consent
+# expires, at most once a day.
 CONSENT_REMINDER_DAYS = 7
 CONSENT_REMINDER_INTERVAL = 24 * 3600
 
+# Tell the user once a card has been skipped this long because its balance can't be
+# read, so a card the sync keeps skipping doesn't go unnoticed.
+BALANCE_UNAVAILABLE_NOTIFY_AFTER = 24 * 3600
 
-def _check_consent_expiry(credit_account, expires_at, monzo_account) -> None:
-    """Record when a card's consent expires and remind the user to reconnect it."""
+
+def _app_link(path: str) -> str | None:
+    """A link into Pot Sync for a notification to open when tapped, or None when the
+    app's address (POT_SYNC_LOCAL_URL) is localhost and so can't be opened on a phone."""
+    base = Config.LOCAL_URL.rstrip("/")
+    if (urlparse(base).hostname or "localhost") in ("localhost", "127.0.0.1", "::1"):
+        return None
+    return base + path
+
+
+def _check_consent_expiry(account, expires_at, monzo_account) -> None:
+    """Record when a connection's consent expires and remind the user to reconnect it."""
     if expires_at is None:
         return
-    if expires_at != credit_account.consent_expires_at:
-        account_repository.set_consent_expiry(credit_account.type, expires_at)
-        credit_account.consent_expires_at = expires_at
+    if expires_at != account.consent_expires_at:
+        account_repository.set_consent_expiry(account.type, expires_at)
+        account.consent_expires_at = expires_at
     now = int(time())
     remaining = expires_at - now
     if remaining > CONSENT_REMINDER_DAYS * 86400 or monzo_account is None:
         return
-    last_sent = credit_account.consent_reminder_sent_at
+    last_sent = account.consent_reminder_sent_at
     if last_sent is not None and now - last_sent < CONSENT_REMINDER_INTERVAL:
         return
     expiry_date = datetime.datetime.fromtimestamp(expires_at, tz=datetime.UTC).strftime("%d %b")
     if remaining > 0:
-        log.warning(f"{credit_account.type} connection expires on {expiry_date}; reminding the user to reconnect")
-        title = f"Reconnect {credit_account.type} by {expiry_date}"
+        log.warning(f"{account.type} connection expires on {expiry_date}; reminding the user to reconnect")
+        title = f"Reconnect {account.type} by {expiry_date}"
     else:
-        log.warning(f"{credit_account.type} connection expired on {expiry_date}")
-        title = f"{credit_account.type} needs reconnecting"
+        log.warning(f"{account.type} connection expired on {expiry_date}")
+        title = f"{account.type} needs reconnecting"
+    link = _app_link(f"/accounts/reconnect/{quote(account.type)}")
     try:
         monzo_account.send_notification(
             title,
-            "Open Pot Sync, go to Accounts and press Reconnect to keep your pot in sync.",
+            "Tap to reconnect and keep your pot in sync." if link
+            else "Open Pot Sync, go to Accounts and press Reconnect to keep your pot in sync.",
+            url=link,
         )
-        account_repository.mark_consent_reminder_sent(credit_account.type, now)
-        credit_account.consent_reminder_sent_at = now
+        account_repository.mark_consent_reminder_sent(account.type, now)
+        account.consent_reminder_sent_at = now
     except Exception as e:  # noqa: BLE001 - a failed reminder must not stop the sync
-        log.error(f"Failed to send the reconnect reminder for {credit_account.type}: {e}")
+        log.error(f"Failed to send the reconnect reminder for {account.type}: {e}")
+
+
+def _record_balance_unavailable(credit_account, monzo_account) -> None:
+    """Note that a card is being skipped because its balance can't be read, and tell
+    the user once it has been skipped for BALANCE_UNAVAILABLE_NOTIFY_AFTER."""
+    now = int(time())
+    if credit_account.balance_unavailable_since is None:
+        credit_account.balance_unavailable_since = now
+        account_repository.set_balance_unavailable(credit_account.type, now, None)
+    unavailable_for = now - credit_account.balance_unavailable_since
+    if (
+        monzo_account is None
+        or credit_account.balance_unavailable_notified_at is not None
+        or unavailable_for < BALANCE_UNAVAILABLE_NOTIFY_AFTER
+    ):
+        return
+    hours = unavailable_for // 3600
+    log.warning(f"{credit_account.type} balance has been unavailable for {hours} hours; telling the user")
+    try:
+        monzo_account.send_notification(
+            f"{credit_account.type} isn't syncing",
+            f"Its balance hasn't been available for {hours} hours, so its pot isn't being kept "
+            "in sync. Pot Sync keeps retrying; the Logs page shows the error.",
+            url=_app_link("/logs/"),
+        )
+        account_repository.set_balance_unavailable(credit_account.type, credit_account.balance_unavailable_since, now)
+        credit_account.balance_unavailable_notified_at = now
+    except Exception as e:  # noqa: BLE001 - a failed notification must not stop the sync
+        log.error(f"Failed to send the balance notification for {credit_account.type}: {e}")
+
+
+def _record_balance_available(credit_account, monzo_account) -> None:
+    """Clear a card's unavailable balance once it can be read again, and tell the user
+    it is syncing again if they were told it had stopped."""
+    if credit_account.balance_unavailable_since is None:
+        return
+    log.info(f"{credit_account.type} card balance is available again")
+    notified = credit_account.balance_unavailable_notified_at is not None
+    account_repository.set_balance_unavailable(credit_account.type, None, None)
+    credit_account.balance_unavailable_since = None
+    credit_account.balance_unavailable_notified_at = None
+    if not notified:
+        return
+    try:
+        monzo_account.send_notification(
+            f"{credit_account.type} is syncing again",
+            "Its balance is available again, so its pot will be brought back in sync.",
+        )
+    except Exception as e:  # noqa: BLE001 - a failed notification must not stop the sync
+        log.error(f"Failed to send the balance notification for {credit_account.type}: {e}")
 
 
 def _snapshot_status(monzo_account, credit_accounts) -> None:
@@ -152,6 +220,7 @@ def _sync_balance():
             log.info("Pinging Monzo connection to verify health")
             monzo_account.ping()
             log.info("Monzo connection is healthy")
+            _check_consent_expiry(monzo_account, monzo_account.consent_expires_at, monzo_account)
         except NoResultFound:
             log.error("No Monzo connection configured; sync will not run")
             monzo_account = None
@@ -185,6 +254,7 @@ def _sync_balance():
                 unhealthy_accounts.append(credit_account)
                 if "currently unavailable" in description or details.get('error') == 'provider_error':
                     log.info(f"Service provider for {credit_account.type} is currently unavailable, will retry later.")
+                    _record_balance_unavailable(credit_account, monzo_account)
                 else:
                     if monzo_account is not None:
                         monzo_account.send_notification(
@@ -234,7 +304,9 @@ def _sync_balance():
                     f"{credit_account.type} this run and retrying on the next sync ({e})"
                 )
                 unavailable_accounts.append(credit_account)
+                _record_balance_unavailable(credit_account, monzo_account)
                 continue
+            _record_balance_available(credit_account, monzo_account)
             log.info(f"{credit_account.type} card balance is £{credit_balance / 100:.2f}")
             pot_balance_map[credit_account.pot_id]['balance'] -= credit_balance
         credit_accounts = [account for account in credit_accounts if account not in unavailable_accounts]

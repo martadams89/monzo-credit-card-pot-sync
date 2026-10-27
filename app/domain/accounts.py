@@ -29,6 +29,8 @@ class Account:
         cooldown_hours=None,
         consent_expires_at=None,
         consent_reminder_sent_at=None,
+        balance_unavailable_since=None,
+        balance_unavailable_notified_at=None,
     ):
         self.type = type
         self.provider_type = provider_type or type
@@ -46,7 +48,8 @@ class Account:
         self.cooldown_hours = cooldown_hours
         self.consent_expires_at = consent_expires_at
         self.consent_reminder_sent_at = consent_reminder_sent_at
-
+        self.balance_unavailable_since = balance_unavailable_since
+        self.balance_unavailable_notified_at = balance_unavailable_notified_at
 
     def is_token_within_expiry_window(self):
         # Returns True if the token expires in the next two minutes or has already expired.
@@ -107,7 +110,22 @@ class Account:
             return 0
 
 class MonzoAccount(Account):
-    def __init__(self, access_token, refresh_token, token_expiry, pot_id="default_pot", account_id=None, prev_balance=0):
+    # Monzo asks the user to approve a developer app again every 90 days. The API
+    # doesn't say when that is due (token refresh reportedly keeps working while
+    # moving money fails), so the expiry is counted from when Monzo was last connected.
+    CONSENT_DAYS = 90
+
+    def __init__(
+        self,
+        access_token,
+        refresh_token,
+        token_expiry,
+        pot_id="default_pot",
+        account_id=None,
+        prev_balance=0,
+        consent_expires_at=None,
+        consent_reminder_sent_at=None,
+    ):
         super().__init__(
             type="Monzo",
             access_token=access_token,
@@ -115,7 +133,9 @@ class MonzoAccount(Account):
             token_expiry=token_expiry,
             pot_id=pot_id,
             account_id=account_id,
-            prev_balance=prev_balance
+            prev_balance=prev_balance,
+            consent_expires_at=consent_expires_at,
+            consent_reminder_sent_at=consent_reminder_sent_at,
         )
         # Initialize the auth provider for Monzo
         from app.domain.auth_providers import MonzoAuthProvider
@@ -281,7 +301,7 @@ class MonzoAccount(Account):
             log.error(f"Failed to withdraw from pot: {response.json()}")
             raise PotTransferError(f"Withdrawal failed: {response.json()}")
 
-    def send_notification(self, title: str, message: str, account_selection="personal") -> None:
+    def send_notification(self, title: str, message: str, account_selection="personal", url=None) -> None:
         body = {
             "account_id": self.get_account_id(account_selection=account_selection),
             "type": "basic",
@@ -289,6 +309,9 @@ class MonzoAccount(Account):
             "params[title]": title,
             "params[body]": message,
         }
+        if url:
+            # Opened when the notification is tapped in the Monzo app.
+            body["url"] = url
         r.post(
             f"{self.auth_provider.api_url}/feed",
             data=body,
@@ -321,6 +344,8 @@ class TrueLayerAccount(Account):
         cooldown_hours=None,
         consent_expires_at=None,
         consent_reminder_sent_at=None,
+        balance_unavailable_since=None,
+        balance_unavailable_notified_at=None,
     ):
         super().__init__(
             account_type,
@@ -339,6 +364,8 @@ class TrueLayerAccount(Account):
             cooldown_hours=cooldown_hours,
             consent_expires_at=consent_expires_at,
             consent_reminder_sent_at=consent_reminder_sent_at,
+            balance_unavailable_since=balance_unavailable_since,
+            balance_unavailable_notified_at=balance_unavailable_notified_at,
         )
         from app.domain.auth_providers import TrueLayerAuthProvider
 

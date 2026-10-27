@@ -34,10 +34,13 @@
             </div>
             <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">How long to wait for a payment from the pot to reach this card before topping the pot back up. Leave blank for the default.</p>
         </form>
+        {% endif %}
+        {% if account.type in card_types or account.type == "Monzo" %}
         <div class="flex flex-wrap items-center justify-between gap-2 mb-2 text-sm">
             <span class="{% if account.consent_expires_at and account.consent_expires_at - now < 14 * 86400 %}text-red-700 dark:text-red-400 font-medium{% else %}text-gray-500 dark:text-gray-400{% endif %}">
                 {% if account.consent_expires_at %}
                 {% if account.consent_expires_at > now %}Connection expires {{ account.consent_expires_at|relative_time }}{% else %}Connection expired{% endif %}
+                {% elif account.type == "Monzo" %}Expiry known once Monzo is next reconnected
                 {% else %}Connection expiry not known yet{% endif %}
             </span>
             <a href="{{ url_for('accounts.reconnect', account_type=account.type) }}" class="px-3 py-1.5 text-sm font-medium text-blue-700 border border-blue-700 rounded-lg hover:bg-blue-50 dark:text-blue-400 dark:border-blue-400 dark:hover:bg-gray-700">Reconnect</a>

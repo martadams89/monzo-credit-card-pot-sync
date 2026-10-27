@@ -28,6 +28,8 @@ class SqlAlchemyAccountRepository:
             cooldown_hours=account.cooldown_hours,
             consent_expires_at=account.consent_expires_at,
             consent_reminder_sent_at=account.consent_reminder_sent_at,
+            balance_unavailable_since=account.balance_unavailable_since,
+            balance_unavailable_notified_at=account.balance_unavailable_notified_at,
         )
 
     def _to_domain(self, model: AccountModel) -> Account:
@@ -48,6 +50,8 @@ class SqlAlchemyAccountRepository:
             cooldown_hours=model.cooldown_hours,
             consent_expires_at=model.consent_expires_at,
             consent_reminder_sent_at=model.consent_reminder_sent_at,
+            balance_unavailable_since=model.balance_unavailable_since,
+            balance_unavailable_notified_at=model.balance_unavailable_notified_at,
         )
 
     def get_all(self) -> list[Account]:
@@ -67,7 +71,9 @@ class SqlAlchemyAccountRepository:
             account.token_expiry,
             account.pot_id,
             account_id=account.account_id,
-            prev_balance=account.prev_balance
+            prev_balance=account.prev_balance,
+            consent_expires_at=account.consent_expires_at,
+            consent_reminder_sent_at=account.consent_reminder_sent_at,
         )
 
     def get_credit_accounts(self) -> list[TrueLayerAccount]:
@@ -96,6 +102,8 @@ class SqlAlchemyAccountRepository:
                 cooldown_hours=a.cooldown_hours,
                 consent_expires_at=a.consent_expires_at,
                 consent_reminder_sent_at=a.consent_reminder_sent_at,
+                balance_unavailable_since=a.balance_unavailable_since,
+                balance_unavailable_notified_at=a.balance_unavailable_notified_at,
             )
             for a in accounts
         ]
@@ -184,9 +192,17 @@ class SqlAlchemyAccountRepository:
         record.consent_expires_at = expires_at
         self._session.commit()
 
-    def mark_consent_reminder_sent(self, account_type: str, sent_at: int) -> None:
+    def mark_consent_reminder_sent(self, account_type: str, sent_at: int | None) -> None:
         record: AccountModel = self._session.query(AccountModel).filter_by(type=account_type).one()
         record.consent_reminder_sent_at = sent_at
+        self._session.commit()
+
+    def set_balance_unavailable(self, account_type: str, since: int | None, notified_at: int | None) -> None:
+        """Record since when a card's balance has been unavailable and when the user
+        was told; ``None`` for both once the balance can be read again."""
+        record: AccountModel = self._session.query(AccountModel).filter_by(type=account_type).one()
+        record.balance_unavailable_since = since
+        record.balance_unavailable_notified_at = notified_at
         self._session.commit()
 
     def update_tokens(self, account_type: str, access_token: str, refresh_token: str, token_expiry: int) -> None:

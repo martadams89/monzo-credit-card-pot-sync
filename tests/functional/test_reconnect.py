@@ -317,10 +317,35 @@ def test_abandoned_reconnect_does_not_hijack_a_later_add(test_client, seed_data,
         assert "reconnect" not in session
 
 
-def test_reconnect_is_not_offered_for_monzo(test_client, seed_data):
+def test_reconnect_monzo_starts_the_monzo_sign_in(test_client, seed_data, client_ids):
+    # Monzo has to be approved again every 90 days; its reconnect link goes straight
+    # to Monzo's sign-in. There is only one Monzo connection, so no card reconnect
+    # is recorded for the callback.
     response = test_client.get("/accounts/reconnect/Monzo")
 
-    _redirects_to_accounts(response)
-    assert _flashes(test_client) == [("error", "Account not found")]
+    assert response.status_code == 302
+    location = urlparse(response.location)
+    assert location.netloc == "auth.monzo.com"
+    assert parse_qs(location.query)["client_id"] == ["monzo_client"]
     with test_client.session_transaction() as session:
         assert "reconnect" not in session
+
+
+def test_connecting_monzo_starts_its_90_day_countdown(test_client, seed_data, client_ids, requests_mock):
+    # Connecting Monzo approves the app afresh: its expiry is counted 90 days from
+    # now and any reminder sent for the previous approval is cleared.
+    _set_fields("Monzo", consent_expires_at=int(time()) + 3600, consent_reminder_sent_at=int(time()) - 60)
+    requests_mock.post(
+        "https://api.monzo.com/oauth2/token",
+        json={"access_token": "new_monzo", "refresh_token": "new_refresh", "expires_in": 3600},
+    )
+
+    before = int(time())
+    response = test_client.get("/auth/callback/monzo?code=abc")
+    after = int(time())
+
+    _redirects_to_accounts(response)
+    monzo = _account("Monzo")
+    assert monzo.access_token == "new_monzo"
+    assert before + 90 * 86400 <= monzo.consent_expires_at <= after + 90 * 86400
+    assert monzo.consent_reminder_sent_at is None
