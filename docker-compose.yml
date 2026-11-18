@@ -7,6 +7,8 @@ services:
   monzo-credit-card-pot-sync:
     build: .
     image: monzo-credit-card-pot-sync:local
+    # Always build locally; there is no registry image with this name to pull.
+    pull_policy: build
     container_name: monzo-credit-card-pot-sync
     restart: unless-stopped
     environment:
