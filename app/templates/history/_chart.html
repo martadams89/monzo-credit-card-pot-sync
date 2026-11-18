@@ -1,0 +1,60 @@
+{# Pot balance chart. Usage: {% include 'history/_chart.html' %} with `chart` (see
+   app.web.history.chart_data) and `chart_id` set. Drawn by static/js/pot_chart.js. #}
+<style>
+    .pot-chart {
+        --pc-surface: #ffffff;
+        --pc-text: #111827;
+        --pc-muted: #6b7280;
+        --pc-grid: #e5e7eb;
+        --pc-baseline: #9ca3af;
+        --pc-pot: #2a78d6;
+        --pc-card: #eb6834;
+    }
+    @media (prefers-color-scheme: dark) {
+        .pot-chart {
+            --pc-surface: #1f2937;
+            --pc-text: #f9fafb;
+            --pc-muted: #9ca3af;
+            --pc-grid: #374151;
+            --pc-baseline: #6b7280;
+            --pc-pot: #3987e5;
+            --pc-card: #d95926;
+        }
+    }
+    .pot-chart { display: grid; gap: 1rem; }
+    .pot-chart .pc-figure { margin: 0; min-width: 0; }
+    .pot-chart .pc-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: .25rem 1rem; margin-bottom: .25rem; }
+    .pot-chart .pc-title { font-weight: 600; font-size: .875rem; color: var(--pc-text); }
+    .pot-chart .pc-legend { display: flex; flex-wrap: wrap; gap: .75rem; font-size: .75rem; color: var(--pc-muted); }
+    .pot-chart .pc-legend-item { display: inline-flex; align-items: center; gap: .375rem; }
+    .pot-chart .pc-key { display: inline-block; width: 14px; height: 0; border-top: 2px solid; }
+    .pot-chart .pc-key-pot { border-color: var(--pc-pot); }
+    .pot-chart .pc-key-card { border-color: var(--pc-card); border-top-style: dashed; }
+    .pot-chart .pc-key-move { width: 8px; height: 8px; border: 2px solid var(--pc-pot); border-radius: 50%; background: var(--pc-pot); }
+    .pot-chart .pc-plot { position: relative; touch-action: pan-y; }
+    .pot-chart svg { display: block; width: 100%; height: auto; overflow: visible; }
+    .pot-chart .pc-axis { font-size: 11px; fill: var(--pc-muted); font-variant-numeric: tabular-nums; }
+    .pot-chart .pc-grid { stroke: var(--pc-grid); stroke-width: 1; }
+    .pot-chart .pc-baseline { stroke: var(--pc-baseline); stroke-width: 1; }
+    .pot-chart .pc-pot, .pot-chart .pc-card { fill: none; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+    .pot-chart .pc-pot { stroke: var(--pc-pot); }
+    .pot-chart .pc-card { stroke: var(--pc-card); stroke-dasharray: 5 4; }
+    .pot-chart .pc-move { stroke: var(--pc-surface); stroke-width: 2; }
+    .pot-chart .pc-deposit { fill: var(--pc-pot); }
+    .pot-chart .pc-withdraw { fill: var(--pc-surface); stroke: var(--pc-pot); }
+    .pot-chart .pc-crosshair { stroke: var(--pc-muted); stroke-width: 1; }
+    .pot-chart .pc-focus { stroke: var(--pc-surface); stroke-width: 2; pointer-events: none; }
+    .pot-chart .pc-focus-pot { fill: var(--pc-pot); }
+    .pot-chart .pc-focus-card { fill: var(--pc-card); }
+    .pot-chart .pc-tooltip { position: absolute; top: 0; z-index: 2; pointer-events: none; min-width: 11rem; padding: .5rem .625rem; font-size: .75rem; line-height: 1.4; color: var(--pc-text); background: var(--pc-surface); border: 1px solid var(--pc-grid); border-radius: .5rem; box-shadow: 0 4px 12px rgb(0 0 0 / .12); }
+    .pot-chart .pc-tooltip[hidden] { display: none; }
+    .pot-chart .pc-tip-time { color: var(--pc-muted); margin-bottom: .125rem; }
+    .pot-chart .pc-tip-row { display: flex; align-items: center; gap: .375rem; font-variant-numeric: tabular-nums; }
+    .pot-chart .pc-tip-label, .pot-chart .pc-tip-note { color: var(--pc-muted); }
+    .pot-chart .pc-tip-move { margin-top: .25rem; padding-top: .25rem; border-top: 1px solid var(--pc-grid); }
+    .pot-chart .pc-empty { font-size: .875rem; color: var(--pc-muted); }
+</style>
+<div class="pot-chart" data-pot-chart="{{ chart_id }}">
+    <p class="pc-empty">Loading chart…</p>
+</div>
+<script type="application/json" id="{{ chart_id }}">{{ chart|tojson }}</script>

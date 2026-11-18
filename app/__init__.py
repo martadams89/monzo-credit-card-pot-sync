@@ -60,6 +60,7 @@ def create_app(test_config=None):
     from .web.accounts import accounts_bp
     from .web.auth import auth_bp
     from .web.health import health_bp
+    from .web.history import history_bp
     from .web.home import home_bp
     from .web.login import login_bp
     from .web.logs import logs_bp
@@ -82,6 +83,7 @@ def create_app(test_config=None):
     app.register_blueprint(auth_bp, url_prefix="/auth")
     app.register_blueprint(settings_bp, url_prefix="/settings")
     app.register_blueprint(logs_bp, url_prefix="/logs")
+    app.register_blueprint(history_bp, url_prefix="/history")
     app.register_blueprint(security_bp, url_prefix="/settings/security")
     app.register_blueprint(login_bp)
     app.register_blueprint(health_bp)

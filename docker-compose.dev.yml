@@ -6,7 +6,7 @@ services:
     restart: always
     environment:
       - DATABASE_URI=sqlite:////monzo-credit-card-pot-sync/data/app.db
-      - LOCAL_URL=http://localhost:1337
+      - POT_SYNC_LOCAL_URL=http://localhost:1337
     ports:
       - 1337:1337
     volumes:

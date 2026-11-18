@@ -1,0 +1,35 @@
+{# List of pot moves. Expects `moves` (from SqlAlchemyPotHistoryRepository.moves with
+   pot_name added). #}
+{% from 'history/_macros.html' import money %}
+<ul class="divide-y divide-gray-200 dark:divide-gray-700">
+    {% for move in moves %}
+    <li class="flex items-start gap-3 py-2.5">
+        {% if move.direction == 'deposit' %}
+        <span class="shrink-0 flex items-center justify-center w-8 h-8 rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200" title="Deposit">
+            <svg class="w-4 h-4" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v14m-7-7h14"/></svg>
+            <span class="sr-only">Deposit</span>
+        </span>
+        {% else %}
+        <span class="shrink-0 flex items-center justify-center w-8 h-8 rounded-full bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-200" title="Withdrawal">
+            <svg class="w-4 h-4" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14"/></svg>
+            <span class="sr-only">Withdrawal</span>
+        </span>
+        {% endif %}
+        <div class="flex-1 min-w-0">
+            <p class="text-sm font-medium text-gray-900 dark:text-white break-words">
+                {{ 'Deposited into' if move.direction == 'deposit' else 'Withdrew from' }} {{ move.pot_name }}
+            </p>
+            <p class="text-xs text-gray-500 dark:text-gray-400 break-words">
+                {{ move.reason_label }} &middot; {{ move.card }} &middot;
+                <time data-ts="{{ move.created_at }}">{{ move.created_at|utc_datetime }}</time>
+            </p>
+            {% if move.pot_before is not none and move.pot_after is not none %}
+            <p class="text-xs text-gray-500 dark:text-gray-400">Pot {{ money(move.pot_before) }} &rarr; {{ money(move.pot_after) }}{% if move.card_balance is not none %}; card owed {{ money(move.card_balance) }}{% endif %}</p>
+            {% endif %}
+        </div>
+        <span class="shrink-0 text-sm font-semibold tabular-nums {% if move.direction == 'deposit' %}text-gray-900 dark:text-white{% else %}text-gray-600 dark:text-gray-300{% endif %}">
+            {{ '+' if move.direction == 'deposit' else '−' }}{{ money(move.amount) }}
+        </span>
+    </li>
+    {% endfor %}
+</ul>
