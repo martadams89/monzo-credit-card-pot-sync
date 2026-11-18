@@ -447,3 +447,84 @@ def test_new_cooldown_records_the_card_balance_it_was_opened_against(
     assert account.prev_balance == 196327
     assert pot.deposits == []
     assert pot.withdrawals == []
+
+
+def _mock_sync_calls(requests_mock, pot_balance, card_balance):
+    requests_mock.get("https://api.monzo.com/ping/whoami")
+    requests_mock.get("https://api.truelayer.com/data/v1/me")
+    requests_mock.get(
+        "https://api.monzo.com/pots",
+        json={"pots": [{"id": "pot_id", "name": "Credit cards", "balance": pot_balance, "deleted": False}]},
+    )
+    requests_mock.get("https://api.truelayer.com/data/v1/cards", json={"results": [{"account_id": "card_id"}]})
+    requests_mock.get(
+        "https://api.truelayer.com/data/v1/cards/card_id/balance", json={"results": [{"current": card_balance}]}
+    )
+    requests_mock.get(
+        "https://api.monzo.com/accounts",
+        json={"accounts": [{"id": "acc_id", "type": "uk_retail", "currency": "GBP"}]},
+    )
+    requests_mock.get("https://api.monzo.com/balance?account_id=acc_id", json={"balance": 100000})
+    requests_mock.post("https://api.monzo.com/feed", json={}, status_code=200)
+    requests_mock.put("https://api.monzo.com/pots/pot_id/deposit", json={"status": "ok"}, status_code=200)
+    requests_mock.put("https://api.monzo.com/pots/pot_id/withdraw", json={"status": "ok"}, status_code=200)
+
+
+def test_deposit_is_saved_to_pot_history(mocker, test_client, requests_mock, seed_data):
+    from app.models.pot_history_repository import SqlAlchemyPotHistoryRepository
+
+    mocker.patch("app.core.scheduler")
+    _mock_sync_calls(requests_mock, pot_balance=1000, card_balance=1000)
+
+    sync_balance()
+
+    moves = SqlAlchemyPotHistoryRepository(db).moves()
+    assert len(moves) == 1
+    move = moves[0]
+    assert move["direction"] == "deposit"
+    assert move["reason"] == "spending"
+    assert move["card"] == AuthProviderType.AMEX.value
+    assert move["pot_id"] == "pot_id"
+    assert move["amount"] == 100000 - 1000
+    assert move["pot_before"] == 1000
+    assert move["card_balance"] == 100000
+
+
+def test_withdrawal_is_saved_to_pot_history(mocker, test_client, requests_mock, seed_data):
+    from app.models.pot_history_repository import SqlAlchemyPotHistoryRepository
+
+    mocker.patch("app.core.scheduler")
+    _mock_sync_calls(requests_mock, pot_balance=1000, card_balance=9)
+
+    sync_balance()
+
+    moves = SqlAlchemyPotHistoryRepository(db).moves()
+    assert [(m["direction"], m["amount"], m["reason"]) for m in moves] == [("withdrawal", 100, "over_funded")]
+
+
+def test_sync_records_the_pot_balance_for_the_chart(mocker, test_client, requests_mock, seed_data):
+    from app.models.pot_history_repository import SqlAlchemyPotHistoryRepository
+
+    mocker.patch("app.core.scheduler")
+    _mock_sync_calls(requests_mock, pot_balance=1000, card_balance=10)
+
+    sync_balance()
+    sync_balance()
+
+    series = SqlAlchemyPotHistoryRepository(db).balance_series(0)
+    assert len(series) == 1
+    assert series[0]["pot_name"] == "Credit cards"
+    # Nothing changed between the two runs, so one point is stored.
+    assert [(p["pot"], p["card"]) for p in series[0]["points"]] == [(1000, 1000)]
+    assert SqlAlchemyPotHistoryRepository(db).moves() == []
+
+
+def test_a_history_failure_does_not_stop_the_sync(mocker, test_client, requests_mock, seed_data):
+    mocker.patch("app.core.scheduler")
+    mocker.patch("app.core.pot_history._session", side_effect=RuntimeError("disk full"))
+    _mock_sync_calls(requests_mock, pot_balance=1000, card_balance=1000)
+
+    sync_balance()
+
+    deposits = [r for r in requests_mock.request_history if r.method == "PUT" and r.url.endswith("/deposit")]
+    assert len(deposits) == 1

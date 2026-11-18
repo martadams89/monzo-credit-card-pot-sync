@@ -9,13 +9,19 @@ from sqlalchemy.exc import NoResultFound
 from app import security, sync_status
 from app.extensions import db, scheduler
 from app.models.account_repository import SqlAlchemyAccountRepository
+from app.models.pot_history_repository import SqlAlchemyPotHistoryRepository
 from app.models.sync_run_repository import SqlAlchemySyncRunRepository
+from app.web import history
 
 home_bp = Blueprint("home", __name__)
 
 log = logging.getLogger("home")
 account_repository = SqlAlchemyAccountRepository(db)
 sync_runs = SqlAlchemySyncRunRepository(db)
+pot_history = SqlAlchemyPotHistoryRepository(db)
+
+RECENT_MOVES = 5
+CHART_DAYS = 30
 
 # Warn about a connection this long before its consent expires.
 RECONNECT_WARNING_DAYS = 14
@@ -78,8 +84,15 @@ def index():
             "reconnect_soon": expires is not None and expires - now < RECONNECT_WARNING_DAYS * 86400,
         })
 
+    names = history.pot_names()
+    recent_moves = pot_history.moves(limit=RECENT_MOVES)
+    for move in recent_moves:
+        move["pot_name"] = names.get(move["pot_id"], "Pot")
+
     return render_template(
         "index.html",
+        recent_moves=recent_moves,
+        chart=history.chart_data(now - CHART_DAYS * 86400, now, names),
         setup_complete=all(step["done"] for step in steps),
         steps=steps,
         cards=cards,

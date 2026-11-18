@@ -1,0 +1,77 @@
+{% extends 'base.html' %}
+
+{% from 'history/_macros.html' import money %}
+
+{% block content %}
+<div id="history" class="group w-full max-w-screen-lg {% if hide_balances %}amounts-hidden{% endif %}">
+    <div class="flex flex-wrap items-center justify-between gap-2 mb-1">
+        <h1 class="text-2xl font-semibold text-gray-900 dark:text-white">History</h1>
+        <div class="flex items-center gap-2">
+            <form method="get">
+                <select name="days" aria-label="Period" onchange="this.form.submit()"
+                        class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+                    {% for value, label in periods.items() %}
+                    <option value="{{ value }}" {% if value == period %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+                <noscript><button type="submit" class="text-sm underline">Apply</button></noscript>
+            </form>
+            {% if moves or chart.pots %}
+            <form method="post" action="{{ url_for('history.clear') }}" onsubmit="return confirm('Delete all pot history, including the balance chart?')">
+                <button type="submit" class="px-3 py-1.5 text-sm font-medium text-red-700 border border-red-700 rounded-lg hover:bg-red-50 dark:text-red-400 dark:border-red-400 dark:hover:bg-gray-700">Clear history</button>
+            </form>
+            {% endif %}
+        </div>
+    </div>
+    <p class="mb-4 text-sm text-gray-500 dark:text-gray-400">
+        Every deposit and withdrawal Pot Sync has made, and how each pot's balance has tracked what its cards owe.
+    </p>
+
+    <section class="grid grid-cols-3 gap-3 mb-4" aria-label="Totals">
+        <div class="p-3 bg-white border border-gray-200 rounded-lg dark:bg-gray-800 dark:border-gray-700">
+            <p class="text-xs text-gray-500 dark:text-gray-400">Moves</p>
+            <p class="text-lg font-semibold text-gray-900 dark:text-white tabular-nums">{{ totals.count }}</p>
+        </div>
+        <div class="p-3 bg-white border border-gray-200 rounded-lg dark:bg-gray-800 dark:border-gray-700">
+            <p class="text-xs text-gray-500 dark:text-gray-400">Deposited</p>
+            <p class="text-lg font-semibold text-gray-900 dark:text-white tabular-nums">{{ money(totals.deposited) }}</p>
+        </div>
+        <div class="p-3 bg-white border border-gray-200 rounded-lg dark:bg-gray-800 dark:border-gray-700">
+            <p class="text-xs text-gray-500 dark:text-gray-400">Withdrawn</p>
+            <p class="text-lg font-semibold text-gray-900 dark:text-white tabular-nums">{{ money(totals.withdrawn) }}</p>
+        </div>
+    </section>
+
+    <section class="p-4 mb-4 bg-white border border-gray-200 rounded-lg shadow-sm dark:bg-gray-800 dark:border-gray-700">
+        <h2 class="mb-3 font-semibold text-gray-900 dark:text-white">Pot balance over time</h2>
+        <div class="group-[.amounts-hidden]:hidden">
+            {% set chart_id = 'history-chart-data' %}
+            {% include 'history/_chart.html' %}
+        </div>
+        <p class="hidden group-[.amounts-hidden]:block text-sm text-gray-500 dark:text-gray-400">Hidden while amounts are hidden.</p>
+    </section>
+
+    <section class="p-4 bg-white border border-gray-200 rounded-lg shadow-sm dark:bg-gray-800 dark:border-gray-700">
+        <h2 class="font-semibold text-gray-900 dark:text-white">Moves</h2>
+        {% if moves %}
+        {% include 'history/_moves.html' %}
+        {% if moves|length >= max_moves %}
+        <p class="mt-2 text-xs text-gray-500 dark:text-gray-400">Showing the latest {{ max_moves }} moves.</p>
+        {% endif %}
+        {% else %}
+        <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">No moves in this period. Pot Sync records a move each time it deposits into or withdraws from a pot.</p>
+        {% endif %}
+    </section>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/pot_chart.js', v=static_version) }}"></script>
+<script>
+document.querySelectorAll("time[data-ts]").forEach(function (el) {
+    var d = new Date(parseFloat(el.dataset.ts) * 1000);
+    el.textContent = d.toLocaleString([], { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+    el.title = d.toString();
+});
+</script>
+{% endblock %}

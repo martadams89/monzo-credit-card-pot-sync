@@ -4,6 +4,7 @@ from sqlalchemy import inspect, text
 
 from app.models import (  # noqa: F401 - registers these tables for create_all
     passkey,
+    pot_history,
     sync_run,
 )
 

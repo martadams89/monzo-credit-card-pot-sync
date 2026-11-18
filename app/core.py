@@ -49,12 +49,14 @@ from app.domain.settings import Setting
 from app.errors import AuthException
 from app.extensions import db, scheduler
 from app.models.account_repository import SqlAlchemyAccountRepository
+from app.models.pot_history_repository import SqlAlchemyPotHistoryRepository
 from app.models.setting_repository import SqlAlchemySettingRepository
 from app.utils.sync_log import record_sync_run
 
 log = logging.getLogger("core")
 account_repository = SqlAlchemyAccountRepository(db)
 settings_repository = SqlAlchemySettingRepository(db)
+pot_history = SqlAlchemyPotHistoryRepository(db)
 
 # Remind the user to reconnect a card (or Monzo) this long before its consent
 # expires, at most once a day.
@@ -160,6 +162,38 @@ def _record_balance_available(credit_account, monzo_account) -> None:
         log.error(f"Failed to send the balance notification for {credit_account.type}: {e}")
 
 
+def _record_move(credit_account, direction, amount, reason, pot_before=None, pot_after=None, card_balance=None) -> None:
+    """Save a deposit or withdrawal to the pot history shown on the History page."""
+    if pot_after is None and pot_before is not None:
+        pot_after = pot_before + amount if direction == "deposit" else pot_before - amount
+    pot_history.record_move(
+        card=credit_account.type,
+        pot_id=credit_account.pot_id,
+        direction=direction,
+        amount=amount,
+        reason=reason,
+        pot_before=pot_before,
+        pot_after=pot_after,
+        card_balance=card_balance,
+    )
+
+
+def _record_pot_balances(accounts: list[dict], recorded_at: float) -> None:
+    """Save each synced pot's balance against what its cards owe, for the balance chart."""
+    pots: dict[str, dict] = {}
+    for account in accounts:
+        pot_id = account.get("pot_id")
+        if not pot_id or account.get("pot_balance") is None:
+            continue
+        pot = pots.setdefault(pot_id, {"name": account.get("pot_name"), "balance": account["pot_balance"], "owed": 0})
+        if pot["owed"] is None or account.get("card_balance") is None:
+            pot["owed"] = None
+        else:
+            pot["owed"] += account["card_balance"]
+    for pot_id, pot in pots.items():
+        pot_history.record_snapshot(pot_id, pot["name"], pot["balance"], pot["owed"], recorded_at)
+
+
 def _snapshot_status(monzo_account, credit_accounts) -> None:
     """Save each card's latest figures for the home page dashboard."""
     pots = {}
@@ -187,7 +221,9 @@ def _snapshot_status(monzo_account, credit_accounts) -> None:
             "cooldown_until": credit_account.cooldown_until,
             "consent_expires_at": credit_account.consent_expires_at,
         })
-    sync_status.save(accounts, time())
+    now = time()
+    sync_status.save(accounts, now)
+    _record_pot_balances(accounts, now)
 
 
 def _setting_enabled(key: str) -> bool:
@@ -423,6 +459,8 @@ def _sync_balance():
                         continue
                     monzo_account.add_to_pot(credit_account.pot_id, drop, account_selection=selection)
                     new_balance = monzo_account.get_pot_balance(credit_account.pot_id)
+                    _record_move(credit_account, "deposit", drop, "cooldown_expired",
+                                 current_pot, new_balance, live_card_balance)
                     credit_account.stable_pot_balance = new_balance
                     # The pot has been brought back up to the card, so the card balance is
                     # the baseline that has now been accounted for.
@@ -521,6 +559,8 @@ def _sync_balance():
                 diff = live_card_balance - credit_account.prev_balance
                 if diff > 0:
                     monzo_account.add_to_pot(credit_account.pot_id, diff, account_selection=selection)
+                    _record_move(credit_account, "deposit", diff, "override_spending",
+                                 current_pot, None, live_card_balance)
                     log.info(
                         f"[Override] {credit_account.type}: Override deposit of £{diff/100:.2f} executed "
                         f"as card increased from £{credit_account.prev_balance/100:.2f} to £{live_card_balance/100:.2f}."
@@ -535,6 +575,8 @@ def _sync_balance():
                     selection = monzo_account.get_account_type(credit_account.pot_id)
                     monzo_account.withdraw_from_pot(credit_account.pot_id, diff, account_selection=selection)
                     new_pot = monzo_account.get_pot_balance(credit_account.pot_id)
+                    _record_move(credit_account, "withdrawal", diff, "over_funded",
+                                 current_pot, new_pot, live_card_balance)
                     log.info(
                         f"[Override] {credit_account.type}: Withdrew £{diff / 100:.2f} as pot exceeded card. "
                         f"Pot changed from £{current_pot / 100:.2f} to £{new_pot / 100:.2f} while card remains at £{live_card_balance / 100:.2f}."
@@ -551,6 +593,8 @@ def _sync_balance():
                     selection = monzo_account.get_account_type(credit_account.pot_id)
                     monzo_account.withdraw_from_pot(credit_account.pot_id, diff, account_selection=selection)
                     new_pot = monzo_account.get_pot_balance(credit_account.pot_id)
+                    _record_move(credit_account, "withdrawal", diff, "over_funded",
+                                 current_pot, new_pot, live_card_balance)
                     log.info(
                         f"[Standard] {credit_account.type}: Withdrew £{diff / 100:.2f} as pot exceeded card. "
                         f"Pot changed from £{current_pot / 100:.2f} to £{new_pot / 100:.2f} while card remains at £{live_card_balance / 100:.2f}."
@@ -589,6 +633,8 @@ def _sync_balance():
                         continue
                     monzo_account.add_to_pot(credit_account.pot_id, diff, account_selection=selection)
                     new_pot = monzo_account.get_pot_balance(credit_account.pot_id)
+                    _record_move(credit_account, "deposit", diff, "spending",
+                                 current_pot, new_pot, live_card_balance)
                     log.info(
                         f"[Standard] {credit_account.type}: Deposited £{diff / 100:.2f}."
                         f"Pot updated from £{current_pot / 100:.2f} to £{new_pot / 100:.2f}; card increased from £{credit_account.prev_balance / 100:.2f} to £{live_card_balance / 100:.2f}."

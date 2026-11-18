@@ -1,12 +1,20 @@
+# Build and run Pot Sync in the background:
+#   docker compose up -d --build
+# It restarts on its own after a crash or a reboot, and keeps its data in the
+# "data" volume. To use the published image instead of building, swap `build: .`
+# for `image: ghcr.io/<owner>/monzo-credit-card-pot-sync:latest`.
 services:
   monzo-credit-card-pot-sync:
-    image: ghcr.io/martadams89/monzo-credit-card-pot-sync:latest
+    build: .
+    image: monzo-credit-card-pot-sync:local
     container_name: monzo-credit-card-pot-sync
-    restart: always
+    restart: unless-stopped
     environment:
       - DATABASE_URI=sqlite:////monzo-credit-card-pot-sync/data/app.db
+      - POT_SYNC_LOCAL_URL=${POT_SYNC_LOCAL_URL:-http://localhost:1337}
+      - TZ=${TZ:-Europe/London}
     ports:
-      - 1337:1337
+      - "1337:1337"
     volumes:
       - data:/monzo-credit-card-pot-sync/data:rw
 

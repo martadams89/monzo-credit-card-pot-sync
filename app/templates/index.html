@@ -105,6 +105,32 @@
         </div>
         {% endfor %}
     </section>
+
+    <section class="grid gap-3 mt-3 lg:grid-cols-3">
+        <div class="p-4 bg-white border border-gray-200 rounded-lg shadow-sm lg:col-span-2 lg:self-start min-w-0 dark:bg-gray-800 dark:border-gray-700">
+            <div class="flex items-baseline justify-between gap-2 mb-3">
+                <h2 class="font-bold text-gray-900 dark:text-white">Pot balance, last 30 days</h2>
+                <a href="{{ url_for('history.index') }}" class="text-sm text-blue-700 underline dark:text-blue-400">History</a>
+            </div>
+            <div class="group-[.amounts-hidden]:hidden">
+                {% set chart_id = 'home-chart-data' %}
+                {% include 'history/_chart.html' %}
+            </div>
+            <p class="hidden group-[.amounts-hidden]:block text-sm text-gray-500 dark:text-gray-400">Hidden while amounts are hidden.</p>
+        </div>
+        <div class="p-4 bg-white border border-gray-200 rounded-lg shadow-sm min-w-0 dark:bg-gray-800 dark:border-gray-700">
+            <div class="flex items-baseline justify-between gap-2">
+                <h2 class="font-bold text-gray-900 dark:text-white">Recent moves</h2>
+                <a href="{{ url_for('history.index') }}" class="text-sm text-blue-700 underline dark:text-blue-400">View all</a>
+            </div>
+            {% if recent_moves %}
+            {% set moves = recent_moves %}
+            {% include 'history/_moves.html' %}
+            {% else %}
+            <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">No moves yet. Each deposit and withdrawal Pot Sync makes will show up here.</p>
+            {% endif %}
+        </div>
+    </section>
     <script>
     (function () {
         const button = document.getElementById("toggle-amounts");
@@ -120,7 +146,16 @@
             button.querySelector(".eye-closed").classList.toggle("hidden", hidden);
         });
     })();
+    document.querySelectorAll("#overview time[data-ts]").forEach(function (el) {
+        var d = new Date(parseFloat(el.dataset.ts) * 1000);
+        el.textContent = d.toLocaleString([], { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+        el.title = d.toString();
+    });
     </script>
     {% endif %}
 </div>
+{% endblock %}
+
+{% block scripts %}
+{% if setup_complete %}<script src="{{ url_for('static', filename='js/pot_chart.js', v=static_version) }}"></script>{% endif %}
 {% endblock %}

@@ -31,6 +31,8 @@ This project provides a robust system to keep your Monzo pot in sync with your c
 - **Skipped Card Alerts:** If a card's balance can't be read (for example TrueLayer returns an error), the card is skipped and retried on every sync while the others keep syncing. After 24 hours of this you get one Monzo notification, and another when it syncs again.
 - **Optional Sign In:** Off by default for installs behind a reverse proxy that already handles sign in. Turn it on under **Settings > Security** to require a password, optionally with an authenticator app (2FA), and add passkeys (Face ID, Touch ID, Windows Hello, security keys) to sign in without a password. See [Security](#security).
 - **Privacy Options:** In Settings, **Hide Amounts on the Home Page** shows £••••• instead of balances (tap the eye button to reveal them), and **Keep Log History** can be switched off to stop saving sync logs, which include balances. Turning it off deletes the history kept so far; the Logs page also has a **Clear history** button. The dashboard and `/health` keep working either way.
+- **Move History:** Every deposit and withdrawal the sync makes is saved: when, which card and pot, how much, why (card spending, pot over the card balance, cooldown ended, spending during cooldown) and the pot balance before and after. The latest moves are on the home page, and the **History** page lists them all with totals for the period and a **Clear history** button.
+- **Pot Balance Chart:** After each sync the pot balance and what its cards owe are saved (only when they change, plus a check-in every 6 hours), and the home page and **History** page chart them over time, with a marker for each move. Hover or tap the chart to see the figures at any point. Balance history is kept for 400 days; moves are kept until you clear them. The chart is hidden when **Hide Amounts on the Home Page** is on.
 - **Health Check:** `GET /health` returns 200 while syncs are completing and 503 when none has finished recently, for Docker (the image has a `HEALTHCHECK`) or an uptime monitor.
 - **Detailed Logging:** Every step—from token refreshes to pot adjustments and cooldown checks—is logged for visibility and troubleshooting.
 - **Log History in the Web UI:** The **Logs** page shows each sync run's output with search, level filtering and a period picker. Back-to-back runs with identical output are grouped into one entry (e.g. "×720 identical runs"), lines that changed since the previous group are highlighted, and **Only what changed** turns the history into a timeline of changes. History is kept for 7 days by default (**Log History (days)** in Settings).
@@ -105,12 +107,34 @@ Existing databases are upgraded automatically. Connected accounts, tokens, pot m
 
 ## Docker
 
-Releases are also published as container images on GitHub Container Registry.
+Running Pot Sync in Docker means you don't need Python or Node installed, and you don't need to leave `npm start` running in a terminal: the container runs in the background, restarts itself after a crash or reboot, and keeps its database in a Docker volume.
 
-1. Start the container:
+### Build and run from this repository
+
+1. Install [Docker](https://docs.docker.com/get-docker/) (Docker Desktop on macOS/Windows).
+2. From the project directory, build the image and start it in the background:
    ```bash
-   docker compose up -d
+   docker compose up -d --build
    ```
+   The image builds the stylesheet itself, so there's no need to run `npm install` or `npm run build-css` first.
+3. Open `http://localhost:1337` and follow [Configuration](#configuration).
+
+Useful commands:
+
+| Command | What it does |
+| --- | --- |
+| `docker compose logs -f` | Follow the app's output |
+| `docker compose ps` | Show whether it's running and healthy |
+| `docker compose down` | Stop it (your data stays in the `data` volume) |
+| `git pull && docker compose up -d --build` | Update to the latest code |
+
+`restart: unless-stopped` brings the container back after a reboot as long as Docker itself starts on boot (it does by default with Docker Desktop and on most Linux installs).
+
+To open Pot Sync from another device, set `POT_SYNC_LOCAL_URL` before starting, e.g. `POT_SYNC_LOCAL_URL=http://192.168.1.20:1337 docker compose up -d --build`, or put it in a `.env` file next to `docker-compose.yml`. Use the same URL for the Monzo and TrueLayer redirect URLs.
+
+### Using the published image
+
+Releases are also published as container images on GitHub Container Registry. To use one instead of building, replace `build: .` in `docker-compose.yml` with `image: ghcr.io/<owner>/monzo-credit-card-pot-sync:latest` and run `docker compose up -d`.
 
 ### Using a Reverse Proxy
 
