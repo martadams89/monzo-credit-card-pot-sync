@@ -14,3 +14,4 @@ node_modules/
 *.db
 instance/
 .env
+.env.*
